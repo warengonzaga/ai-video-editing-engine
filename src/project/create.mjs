@@ -1,0 +1,80 @@
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+
+export function createVideoProject(root, slug, options = {}) {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    throw new TypeError('Use a lowercase kebab-case slug, not a path.');
+  }
+  const { width = 1920, height = 1080, fps = 30, durationSeconds = 10 } = options;
+  if (![width, height, fps].every((value) => Number.isSafeInteger(value) && value > 0)) {
+    throw new TypeError('Width, height, and fps must be positive integers.');
+  }
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    throw new TypeError('durationSeconds must be a positive number.');
+  }
+  const projectPath = resolve(root, 'video-projects', slug);
+  if (existsSync(projectPath)) throw new Error(`Project already exists: ${slug}`);
+  const projectsPath = join(root, 'video-projects');
+
+  const project = {
+    schemaVersion: 1,
+    id: slug,
+    name: slug,
+    width,
+    height,
+    fps,
+    durationSeconds,
+  };
+  const directories = ['assets', 'transcripts', 'edits', 'compositions', 'renders'];
+  mkdirSync(projectsPath, { recursive: true });
+  mkdirSync(projectPath);
+  try {
+    for (const directory of directories) mkdirSync(join(projectPath, directory));
+    const gsapPath = join(dirname(require.resolve('gsap')), 'gsap.min.js');
+    copyFileSync(gsapPath, join(projectPath, 'assets', 'gsap.min.js'));
+    writeFileSync(join(projectPath, 'meta.json'), `${JSON.stringify(project, null, 2)}\n`, { flag: 'wx' });
+    writeFileSync(join(projectPath, 'hyperframes.json'), `${JSON.stringify({
+      '$schema': 'https://hyperframes.heygen.com/schema/hyperframes.json',
+      paths: { blocks: 'compositions', components: 'compositions/components', assets: 'assets' },
+    }, null, 2)}\n`, { flag: 'wx' });
+    writeFileSync(join(projectPath, 'index.html'), starterHtml(project), { flag: 'wx' });
+  } catch (error) {
+    rmSync(projectPath, { recursive: true, force: true });
+    throw error;
+  }
+  return projectPath;
+}
+
+function starterHtml({ name, width, height, durationSeconds }) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=${width}, initial-scale=1">
+  <title>${escapeHtml(name)}</title>
+  <style>html,body,#root{box-sizing:border-box;margin:0;width:${width}px;height:${height}px}body{background:#10141c;color:#f5f5f5;font:48px system-ui,sans-serif}#root{display:grid;place-items:center}</style>
+  <script src="assets/gsap.min.js"></script>
+</head>
+<body>
+  <div id="root" data-composition-id="root" data-start="0" data-duration="${durationSeconds}" data-width="${width}" data-height="${height}">
+    <div id="title" class="clip" data-start="0" data-duration="${durationSeconds}" data-track-index="0">${escapeHtml(name)}</div>
+  </div>
+  <script>
+    const timeline = gsap.timeline({ paused: true });
+    timeline.from('#title', { opacity: 0, y: 24, duration: 0.8, ease: 'power2.out' });
+    window.__timelines = window.__timelines || {};
+    window.__timelines.root = timeline;
+  </script>
+</body>
+</html>
+`;
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]);
+}

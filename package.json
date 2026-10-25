@@ -1,0 +1,23 @@
+{
+  "name": "ai-video-editing-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "description": "A local-first engine for transcript-driven AI video editing.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "gsap": "3.14.2",
+    "hyperframes": "0.7.109"
+  },
+  "scripts": {
+    "test": "node --test",
+    "doctor": "node src/doctor.mjs",
+    "new-video": "node src/cli.mjs project create",
+    "retime": "node src/cli.mjs retime"
+  }
+}
