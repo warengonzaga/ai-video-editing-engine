@@ -463,7 +463,7 @@ try {
   const renderedVoiceAmplitude = measureToneAmplitude(mixedOutputSamples, 1000, 0.55, 0.65);
   console.log(JSON.stringify({
     audioOnlyRecoveryDiagnostics: {
-      audioDurationSeconds: audioOnlyMedia.audioDurationSeconds,
+      audioDurationSeconds: audioOnlyMedia.streamTiming.audioDurationSeconds,
       musicBeforeVoiceAmplitude,
       musicDuringVoiceAmplitude,
       musicRecoveryAmplitudes,
