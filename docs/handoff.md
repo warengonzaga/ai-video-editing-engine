@@ -77,6 +77,11 @@ Last updated: 2026-11-06
   CLI accepts a trusted, user-supplied provider module and writes normalized
   time-coded suggestions to a new output file. `analyzeMediaWithProvider`
   returns findings without applying edits or storing provider credentials.
+- Providers may attach bounded `remove-range` edit proposals to analysis
+  findings. `mediaAnalysisToEdl` converts and confidence-filters them into a
+  review-required EDL; `approve-edl` writes a distinct approved copy. Render,
+  timeline construction, and transcript-retiming paths reject EDLs marked
+  `needs-review`.
 - Timeline operations can add/remove tracks and clips alongside move, trim, slip,
   split, crossfade, transitions, gap insertion, and ripple deletion. Slip edits
   shift a media clip's source range while preserving its timeline position and
@@ -711,8 +716,8 @@ smoke render alone.
   placement. API coverage checks immutable source preservation, metadata, kind
   mismatch, and missing clip/track errors; CLI coverage exercises the operation.
   `npm test`: 121 passed, 2 optional OTIO skips, 0 failures; offline production
-  dependency audit: 0 vulnerabilities. These changes are committed locally but
-  are not pushed because GitHub was unreachable from the environment.
+  dependency audit: 0 vulnerabilities. These changes are in commit `8f7ebc8`
+  on the feature branch for PR #1 to `dev`.
 - Fresh Windows `npm run test:render-smoke` completed successfully. It covered
   timeline gaps and track-state filtering, social-pop caption wrapping, SDR
   color output, video-only and audio-only behavior, MP4/WebM/MOV/GIF/PNG
@@ -721,3 +726,12 @@ smoke render alone.
   zero drift. This is synthetic render evidence; real-footage and human review
   remain open. The first sandboxed attempt was denied a temporary-file rename;
   the same smoke passed with normal local render permissions.
+- Analysis providers can now attach validated `remove-range` suggestions.
+  `analysis-to-edl` converts suggestions to a confidence-filterable draft and
+  merges only overlapping proposed spans; `approve-edl` writes a separate copy.
+  Retiming, timeline construction, and direct FFmpeg cut rendering reject EDLs
+  marked `needs-review`. The injected CLI provider test exercises analyze →
+  candidate EDL → approved EDL; output remains separate at each step. `npm test`:
+  123 passed, 2 optional OTIO skips, 0 failures; offline production dependency
+  audit: 0 vulnerabilities. This makes AI proposals executable only after an
+  explicit approval step; it does not evaluate proposal quality.

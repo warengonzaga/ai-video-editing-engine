@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createFilterGraph, getKeepRanges, renderCuts } from '../src/media/render-cuts.mjs';
@@ -142,6 +142,13 @@ test('renders a real cut video and preserves its audio stream', (t) => {
     if (generated.error?.code === 'ENOENT') return t.skip('FFmpeg is not installed.');
     assert.equal(generated.status, 0, generated.stderr);
     const durationSeconds = probeMedia(source).durationSeconds;
+    assert.throws(() => renderCuts(source, {
+      schemaVersion: 1,
+      sourceDurationSeconds: durationSeconds,
+      reviewStatus: 'needs-review',
+      cuts: [{ sourceStart: 1, sourceEnd: 2, reason: 'unreviewed provider cut' }],
+    }, output), /unapproved edit suggestions/);
+    assert.equal(existsSync(output), false);
     const result = renderCuts(source, {
       schemaVersion: 1,
       sourceDurationSeconds: durationSeconds,

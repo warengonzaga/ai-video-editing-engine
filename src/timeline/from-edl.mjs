@@ -1,8 +1,9 @@
-import { validateEdl } from '../edits/retime-transcript.mjs';
+import { assertEdlApproved, validateEdl } from '../edits/retime-transcript.mjs';
 import { validateTimeline } from './validate.mjs';
 
 export function timelineFromEdl(edl, assetId, project = {}) {
   validateEdl(edl, edl?.sourceDurationSeconds);
+  assertEdlApproved(edl);
   if (!/^[a-z][a-z0-9-]*$/.test(assetId ?? '')) throw new TypeError('assetId must be a kebab-case id.');
   const cuts = edl.cuts;
   const clips = [];

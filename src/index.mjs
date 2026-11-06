@@ -19,7 +19,8 @@ export { assembleEditedTimeline, renderEditedProject, renderEditedProjectAsync }
 export { normalizeTranscript } from './transcript/normalize.mjs';
 export { formatSubtitleText, parseSubtitleText } from './transcript/subtitles.mjs';
 export { transcribeWithProvider } from './transcript/provider.mjs';
-export { retimeTranscript, validateEdl } from './edits/retime-transcript.mjs';
+export { approveEdl, assertEdlApproved, retimeTranscript, validateEdl } from './edits/retime-transcript.mjs';
+export { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
 export { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 export { detectAcousticSilence, parseSilenceIntervals } from './edits/detect-silence.mjs';
 export { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';

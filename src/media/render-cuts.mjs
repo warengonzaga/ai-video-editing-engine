@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { validateEdl } from '../edits/retime-transcript.mjs';
+import { assertEdlApproved, validateEdl } from '../edits/retime-transcript.mjs';
 import { probeMedia } from './probe.mjs';
 
 export function renderCuts(inputPath, edl, outputPath) {
@@ -14,6 +14,7 @@ export function renderCuts(inputPath, edl, outputPath) {
 
   const media = probeMedia(input);
   validateEdl(edl, media.durationSeconds);
+  assertEdlApproved(edl);
   const keepRanges = getKeepRanges(media.durationSeconds, edl.cuts);
   if (!keepRanges.length) throw new Error('EDL removes the entire source video.');
 

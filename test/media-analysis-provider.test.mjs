@@ -65,7 +65,7 @@ test('runs an injected analysis provider from the CLI and preserves reviewable o
     const providerPath = join(root, 'provider.mjs');
     const optionsPath = join(root, 'options.json');
     const outputPath = join(root, 'analysis.json');
-    writeFileSync(providerPath, `export default { id: 'cli-detector', async analyze({ durationSeconds, options }) { return { findings: [{ type: 'scene-change', startSeconds: Math.min(options.startSeconds ?? 0.25, durationSeconds - 0.01), confidence: 0.9 }] }; } };\n`);
+    writeFileSync(providerPath, `export default { id: 'cli-detector', async analyze({ durationSeconds, options }) { const startSeconds = Math.min(options.startSeconds ?? 0.25, durationSeconds - 0.2); return { findings: [{ type: 'dead-air', startSeconds, confidence: 0.9, suggestion: { type: 'remove-range', sourceStart: startSeconds, sourceEnd: startSeconds + 0.1, reason: 'remove reviewed silence' } }] }; } };\n`);
     writeFileSync(optionsPath, JSON.stringify({ startSeconds: 0.25 }));
 
     const result = execFileSync(process.execPath, [cliPath, 'analyze', mediaPath, providerPath, outputPath, optionsPath], { encoding: 'utf8' });
@@ -73,6 +73,14 @@ test('runs an injected analysis provider from the CLI and preserves reviewable o
     assert.match(result, /Wrote .*analysis\.json/);
     assert.equal(analysis.providerId, 'cli-detector');
     assert.equal(analysis.analysis.findings[0].startSeconds, 0.25);
+    const candidatePath = join(root, 'candidate-edl.json');
+    execFileSync(process.execPath, [cliPath, 'analysis-to-edl', outputPath, candidatePath], { encoding: 'utf8' });
+    const candidate = JSON.parse(readFileSync(candidatePath, 'utf8'));
+    assert.equal(candidate.reviewStatus, 'needs-review');
+    assert.equal(candidate.cuts[0].reason, 'finding-001: remove reviewed silence');
+    const approvedPath = join(root, 'approved-edl.json');
+    execFileSync(process.execPath, [cliPath, 'approve-edl', candidatePath, approvedPath], { encoding: 'utf8' });
+    assert.equal(JSON.parse(readFileSync(approvedPath, 'utf8')).reviewStatus, 'approved');
     assert.throws(() => execFileSync(process.execPath, [cliPath, 'analyze', mediaPath, providerPath, outputPath], { encoding: 'utf8' }), /Output already exists/);
     assert.equal(JSON.parse(readFileSync(outputPath, 'utf8')).providerId, 'cli-detector');
   } finally {

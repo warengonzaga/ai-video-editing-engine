@@ -2,7 +2,8 @@
 import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { retimeTranscript } from './edits/retime-transcript.mjs';
+import { approveEdl, retimeTranscript } from './edits/retime-transcript.mjs';
+import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
 import { detectAcousticSilence } from './edits/detect-silence.mjs';
 import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
@@ -301,6 +302,19 @@ async function main(args) {
     console.log(`Wrote ${resolve(outputPath)}`);
     return;
   }
+  if (command === 'analysis-to-edl' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [analysisPath, outputPath, optionsPath] = commandArgs;
+    const result = readJson(resolve(analysisPath));
+    writeNewFile(resolve(outputPath), mediaAnalysisToEdl(result.analysis ?? result, optionsPath ? readJson(resolve(optionsPath)) : {}));
+    console.log(`Wrote ${resolve(outputPath)} (review required)`);
+    return;
+  }
+  if (command === 'approve-edl' && commandArgs.length === 2) {
+    const [candidatePath, outputPath] = commandArgs;
+    writeNewFile(resolve(outputPath), approveEdl(readJson(resolve(candidatePath))));
+    console.log(`Wrote ${resolve(outputPath)} (approved)`);
+    return;
+  }
   if (command === 'transcript' && commandArgs[0] === 'correct' && commandArgs.length === 4) {
     const [, transcriptPath, correctionsPath, outputPath] = commandArgs;
     writeNewFile(resolve(outputPath), applyTranscriptCorrections(readJson(resolve(transcriptPath)), readJson(resolve(correctionsPath))));
@@ -359,6 +373,8 @@ async function main(args) {
   transcribe <project> <media> [model] [language] | import-transcript <project> <media> <transcript>
   plan-silence <transcript.json> <new-edl.json> | detect-silence <media> <new-edl.json> [options.json]
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
+  analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
+  approve-edl <reviewed-edl.json> <new-approved-edl.json>
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>
   transcript export <transcript.json> <srt|vtt> <new-subtitles-file>
   apply-edl <media> <approved-edl.json> <output.mp4> | retime <transcript.json> <approved-edl.json> <new-output.json>

@@ -55,8 +55,21 @@ export function normalizeMediaFindings(input, durationSeconds) {
       ...(endSeconds !== undefined ? { endSeconds } : {}),
       ...(confidence !== undefined ? { confidence } : {}),
       ...(description !== undefined ? { description } : {}),
+      ...(finding.suggestion !== undefined ? { suggestion: normalizeSuggestedEdit(finding.suggestion, label, durationSeconds) } : {}),
     };
   }).sort((left, right) => left.startSeconds - right.startSeconds || left.id.localeCompare(right.id));
 
   return { schemaVersion: 1, durationSeconds, findings };
+}
+
+function normalizeSuggestedEdit(suggestion, label, durationSeconds) {
+  if (!suggestion || typeof suggestion !== 'object' || Array.isArray(suggestion)
+      || Object.keys(suggestion).some((field) => !['type', 'sourceStart', 'sourceEnd', 'reason'].includes(field))
+      || suggestion.type !== 'remove-range'
+      || !Number.isFinite(suggestion.sourceStart) || suggestion.sourceStart < 0 || suggestion.sourceStart >= durationSeconds
+      || !Number.isFinite(suggestion.sourceEnd) || suggestion.sourceEnd <= suggestion.sourceStart || suggestion.sourceEnd > durationSeconds
+      || typeof suggestion.reason !== 'string' || !suggestion.reason.trim() || suggestion.reason.length > 500) {
+    throw new TypeError(`${label} suggestion must define a valid remove-range with source bounds and a reason.`);
+  }
+  return structuredClone(suggestion);
 }

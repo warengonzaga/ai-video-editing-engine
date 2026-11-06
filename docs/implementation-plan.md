@@ -120,6 +120,9 @@ codec coverage still need user-media and cross-platform validation.
 - [x] Verify a 30/15 fps VFR source renders correctly to a 30 fps output with
   the expected duration, frame count, and source content at sampled times.
 - [x] Define and test behavior for overlapping words and partial-word cuts.
+- [x] Convert explicit provider removal suggestions into confidence-filtered,
+  review-required EDL drafts; require a separate approved file before applying
+  suggestions through transcript retiming, timeline creation, or FFmpeg cuts.
 
 **Status:** synthetic audio silence detection and transcript correction tests
 pass. User-recorded footage through provider transcription and final caption
@@ -333,7 +336,9 @@ The JavaScript API also accepts injected transcription adapters, validates and
 normalizes their output against probed source duration, and stores normalized
 transcripts without writing provider credentials. Media-analysis adapters and
 CLI-loaded provider modules return normalized time-coded findings with
-source-bound validation and do not apply edit decisions automatically.
+source-bound validation. Explicit provider cut suggestions convert to
+review-required EDL drafts; render and retime paths reject drafts until a
+separate approved file is written. Providers never apply edits automatically.
 Timeline editing supports adding and removing validated tracks and clips; a
 new clip extends project duration while removals preserve the existing duration.
 Timeline edit plans can now be previewed through the API or CLI before writing:
@@ -341,6 +346,9 @@ the dry run reports exact track and clip changes plus before/after project
 duration, and leaves the source timeline untouched.
 Clips can also move between compatible same-kind tracks without losing their
 source range, keyframes, effects, transitions, or other clip metadata.
+Injected media-analysis findings can propose explicit source-range removals;
+the Engine emits a confidence-filtered review-required EDL, and render and
+retime paths require an explicitly approved EDL before applying those cuts.
 
 ## Current starting point
 

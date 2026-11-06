@@ -331,6 +331,19 @@ const { analysis } = await analyzeMediaWithProvider(mediaPath, {
 
 Each normalized finding has a stable result-local ID, kebab-case type, start
 time, optional end time, optional confidence, and optional description.
+Providers may attach a validated `remove-range` suggestion with source bounds
+and a reason. Convert explicit suggestions into a review-required EDL draft,
+then approve it only after review:
+
+```sh
+node src/cli.mjs analysis-to-edl edits/analysis.json edits/candidate-edl.json
+node src/cli.mjs approve-edl edits/candidate-edl.json edits/approved-edl.json
+```
+
+Candidate EDLs carry `reviewStatus: "needs-review"`; rendering, timeline
+construction, and transcript retiming reject them until the explicit approval
+command writes a separate approved file. Confidence filtering is optional via
+an options JSON file containing `minConfidence` from 0 to 1.
 
 For CLI workflows, pass a trusted JavaScript module that exports a provider as
 its default export (or as `mediaAnalysisProvider` / `provider`). The module
