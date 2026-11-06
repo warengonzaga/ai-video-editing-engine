@@ -112,6 +112,15 @@ export function parseProbeOutput(output, path = '', { requireVideo = true } = {}
   };
 }
 
+/** Normalize stored video metadata to ordinal indexes plus FFmpeg-global indexes. */
+export function normalizeVideoStreamMetadata(streams) {
+  if (!Array.isArray(streams)) return streams;
+  return streams.map((stream, index) => {
+    if (!stream || typeof stream !== 'object' || Array.isArray(stream)) return stream;
+    return { ...stream, index, streamIndex: stream.streamIndex ?? stream.index ?? index };
+  });
+}
+
 function parseOptionalNumber(value) {
   if (value === undefined || value === null || value === 'N/A') return null;
   const parsed = Number(value);

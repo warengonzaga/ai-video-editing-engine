@@ -6,7 +6,7 @@ import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
+import { normalizeVideoStreamMetadata, probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { normalizeFrameRate } from '../media/frame-rate.mjs';
 import { validateTimeline } from '../timeline/validate.mjs';
 import { resetTimelineFileHistory } from '../timeline/history-store.mjs';
@@ -159,7 +159,14 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
 /** Read the registered project media catalog without touching its files. */
 export function listProjectAssets(projectPath) {
   const root = resolve(projectPath);
-  return structuredClone(readAssetManifest(root));
+  const manifest = structuredClone(readAssetManifest(root));
+  return {
+    ...manifest,
+    assets: manifest.assets.map((asset) => ({
+      ...asset,
+      ...(asset.videoStreams === undefined ? {} : { videoStreams: normalizeVideoStreamMetadata(asset.videoStreams) }),
+    })),
+  };
 }
 
 /** Remove an unused asset from project catalogs without deleting its media files. */

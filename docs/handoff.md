@@ -1307,6 +1307,9 @@ smoke render alone.
 - Ran `node src/cli.mjs media support "C:/Users/Waren/Downloads/Voice 015.mp3"`.
   It reports the MP3 container and decoder as available, audio ordinal 0 and
   FFmpeg stream index 0, and `compatible: true`; this is metadata preflight only.
+- Unified video-stream metadata normalization for timeline creation and the
+  read-only asset catalog. Legacy manifests with only FFmpeg-global indexes now
+  expose both the selectable video ordinal and global index without a write.
 - Attempted the required Snyk Code source scan for the avatar changes. The
   installed CLI could not read its local configuration lock and reported
   authentication failure before the scan started; no local alternative

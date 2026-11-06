@@ -58,7 +58,9 @@ it, run `node src/cli.mjs media support <media>` or call
 checks the container and every detected audio/video stream, but does not decode
 the full file. Each stream entry includes `index` (the zero-based ordinal used
 by timeline selection) and `streamIndex` (the FFmpeg-global stream index). Still
-images use the image asset-ingest path.
+images use the image asset-ingest path. The read-only `media list` API and CLI
+normalize older registered metadata to the same ordinal/global index shape
+without rewriting project manifests.
 Consumers can read the required A-H mouth shapes, X
 rest shape, shared-canvas and distinct-image requirements, the default GHX
 extended-shape setting, and whether the Rhubarb adapter is installed instead
