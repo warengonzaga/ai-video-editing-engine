@@ -114,7 +114,7 @@ export function createAvatarComposition(projectPath, specification) {
       } else {
         spriteCopies.push({ source: stateSource, target });
       }
-      states[state] = `assets/avatar/${basename(target)}`;
+      states[state] = `assets/avatar/${encodeURIComponent(basename(target))}`;
     }
     const layout = layouts.get(layer.name);
     return { name: layer.name, role: layer.role, image: states.default, states, ...layout, cues };
@@ -149,7 +149,7 @@ export function createAvatarComposition(projectPath, specification) {
       copyFileSync(audio, stagedNarration);
     }
     const finalIndex = narrationName
-      ? updated.replace('</body>', `<audio id="narration" src="assets/${narrationName}" data-start="0" data-duration="${durationSeconds}" data-volume="1" hidden></audio></body>`)
+      ? updated.replace('</body>', `<audio id="narration" src="assets/${encodeURIComponent(narrationName)}" data-start="0" data-duration="${durationSeconds}" data-volume="1" hidden></audio></body>`)
       : updated;
     temporaryIndex = join(project, `.index.html.${randomUUID()}.tmp`);
     writeFileSync(temporaryIndex, finalIndex, { flag: 'wx' });

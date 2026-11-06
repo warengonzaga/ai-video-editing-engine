@@ -1229,3 +1229,7 @@ smoke render alone.
   newly published outputs are rolled back if an earlier step fails. Syntax and
   whitespace checks passed; no test suite, media render, or audiovisual review
   was run.
+- Generated avatar sprite and narration URLs now percent-encode copied asset
+  filenames before embedding them in HTML. This prevents URL-reserved filename
+  characters from changing the generated element attributes. Syntax and
+  whitespace checks only; no test suite or render was run.
