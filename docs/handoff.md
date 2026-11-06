@@ -1304,3 +1304,7 @@ smoke render alone.
 - Extended media compatibility entries with both zero-based stream ordinals
   and FFmpeg-global indexes, so AI consumers can use the reported ordinal
   directly in timeline stream selection. No media probe or tests were run.
+- Attempted the required Snyk Code source scan for the avatar changes. The
+  installed CLI could not read its local configuration lock and reported
+  authentication failure before the scan started; no local alternative
+  scanner is installed. No source scan result is available.
