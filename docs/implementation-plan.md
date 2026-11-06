@@ -308,8 +308,12 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
 - [ ] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows
   synthetic-suite baseline and three settings profiles on an 11-second
-  1080p/30 fps avatar project are recorded there. Representative real footage,
-  isolated render estimates, and cross-platform measurements remain open.
+  1080p/30 fps avatar project are recorded there. Two fresh 11-second draft
+  profiles now cover avatar composition and the generic video+audio timeline
+  path at 22.40 and 21.56 seconds, with 4,257.1 and 6,240.7 MiB sampled
+  process-tree working sets respectively.
+  The source remains avatar footage, so varied camera footage, isolated render
+  estimates, and cross-platform measurements remain open.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;

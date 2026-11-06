@@ -422,6 +422,23 @@ Last updated: 2026-11-07
   rendering on user-supplied media, not talking-animation quality. Audio was
   not auditioned. The original comparison demo remains intact; the default
   output is `video-projects/voice-015-engine-validation/renders/engine-avatar-profile-20261106.mp4`.
+- On 2026-11-07, profiled two fresh 1920×1080/30 fps draft renders with a
+  250 ms process-tree sampling interval on the same Windows host. The first is
+  the full-body avatar composition plus Voice 015; the second runs the generic
+  multi-track timeline renderer on the existing avatar video clip and separate
+  narration track:
+
+  | Workflow | Wall time | Peak process-tree working set | Peak processes | Output |
+  | --- | ---: | ---: | ---: | --- |
+  | Avatar composition + narration | 22.40 s | 4,257.1 MiB | 52 | H.264/AAC MP4 |
+  | Generic video + narration timeline | 21.56 s | 6,240.7 MiB | 51 | H.264/AAC MP4 |
+
+  `ffprobe` confirms both outputs are 11.133333 seconds, 1920×1080 at 30 fps,
+  with stereo 48 kHz AAC. The sampled video is an existing avatar clip, not
+  varied camera footage; it demonstrates the separate timeline render path but
+  is insufficient to characterize general-footage performance. Working-set
+  sampling may miss peaks shorter than the interval. Audio and image quality
+  still need human review.
 - HyperFrames synthetic render review on Windows verified MP4, WebM, MOV, and
   GIF exports at 320×180, 25 fps, and 2 seconds. ffprobe confirmed each output's
   dimensions, duration, frame rate, and absent audio stream.
