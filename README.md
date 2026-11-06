@@ -44,7 +44,7 @@ node src/cli.mjs capabilities
 ```
 
 The report includes required tool availability, output formats with detected
-codec and color-profile support, named canvas presets, optional filters used by
+codec and per-format color-profile support, named canvas presets, optional filters used by
 specific render features, and the generic phonetic avatar sprite contract.
 Browser runtime availability is intentionally reported as unchecked; run
 `npm run doctor` to let HyperFrames inspect the local render environment.

@@ -49,6 +49,19 @@ export function getEngineCapabilities(options = {}) {
     'rec2020-sdr': { available: supportsFilter('colorspace'), formats: ['mp4', 'mov', 'webm'] },
     hdr10: { available: supportsFilter('zscale') && supportsEncoder('libx265'), formats: ['mp4', 'mov'] },
   };
+  const codecsByFormat = {
+    mp4: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265') },
+    mov: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265'), prores: supportsEncoder('prores_ks') },
+    webm: { vp9: supportsEncoder('libvpx-vp9') },
+  };
+  const outputColorProfiles = (format) => Object.fromEntries(Object.entries(colorProfiles)
+    .filter(([, profile]) => profile.formats.includes(format))
+    .map(([id, profile]) => {
+      const compatibleEncoderAvailable = id === 'hdr10'
+        ? codecsByFormat[format]?.h265 === true
+        : Object.values(codecsByFormat[format] ?? {}).some(Boolean);
+      return [id, profile.available && compatibleEncoderAvailable];
+    }));
   return {
     schemaVersion: 1,
     node: { version: nodeVersion, supported: nodeMajor >= 22 },
@@ -80,22 +93,25 @@ export function getEngineCapabilities(options = {}) {
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
       outputs: {
         mp4: {
-          available: renderRuntimeAvailable && supportsEncoder('libx264'),
-          codecs: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265') },
+          available: renderRuntimeAvailable && Object.values(codecsByFormat.mp4).some(Boolean),
+          codecs: codecsByFormat.mp4,
           defaultCodec: 'h264',
-          colorProfiles: { rec709: colorProfiles.rec709.available, 'rec2020-sdr': colorProfiles['rec2020-sdr'].available, hdr10: colorProfiles.hdr10.available },
+          defaultCodecAvailable: codecsByFormat.mp4.h264,
+          colorProfiles: outputColorProfiles('mp4'),
         },
         mov: {
-          available: renderRuntimeAvailable && supportsEncoder('libx264'),
-          codecs: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265'), prores: supportsEncoder('prores_ks') },
+          available: renderRuntimeAvailable && Object.values(codecsByFormat.mov).some(Boolean),
+          codecs: codecsByFormat.mov,
           defaultCodec: 'h264',
-          colorProfiles: { rec709: colorProfiles.rec709.available, 'rec2020-sdr': colorProfiles['rec2020-sdr'].available, hdr10: colorProfiles.hdr10.available },
+          defaultCodecAvailable: codecsByFormat.mov.h264,
+          colorProfiles: outputColorProfiles('mov'),
         },
         webm: {
-          available: renderRuntimeAvailable && supportsEncoder('libvpx-vp9'),
-          codecs: { vp9: supportsEncoder('libvpx-vp9') },
+          available: renderRuntimeAvailable && Object.values(codecsByFormat.webm).some(Boolean),
+          codecs: codecsByFormat.webm,
           defaultCodec: 'vp9',
-          colorProfiles: { rec709: colorProfiles.rec709.available, 'rec2020-sdr': colorProfiles['rec2020-sdr'].available },
+          defaultCodecAvailable: codecsByFormat.webm.vp9,
+          colorProfiles: outputColorProfiles('webm'),
         },
         gif: { available: renderRuntimeAvailable && supportsEncoder('gif') },
         'png-sequence': { available: hyperframes },
