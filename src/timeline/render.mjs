@@ -90,10 +90,12 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
         const backgroundColor = escapeAttr(clip.backgroundColor ?? 'transparent');
         const textAlign = clip.textAlign ?? 'center';
         const verticalAlign = clip.verticalAlign ?? 'center';
-        const alignItems = verticalAlign === 'top' ? 'flex-start' : verticalAlign === 'bottom' ? 'flex-end' : 'center';
+        const alignContent = verticalAlign === 'top' ? 'flex-start' : verticalAlign === 'bottom' ? 'flex-end' : 'center';
+        const alignItems = clip.wordWrap ? 'center' : alignContent;
         const fontFamily = escapeAttr(clip.fontFamily ?? 'system-ui, sans-serif');
         const fontWeight = clip.fontWeight ?? 400;
         const lineHeight = clip.lineHeight ?? 1.15;
+        const whiteSpace = clip.wordWrap === false ? 'pre' : 'pre-wrap';
         const paddingPixels = clip.paddingPixels ?? 0;
         const outline = clip.textOutline ? `-webkit-text-stroke:${clip.textOutline.widthPixels}px ${escapeAttr(clip.textOutline.color)};` : '';
         const shadow = clip.textShadow ? `text-shadow:${clip.textShadow.offsetXPixels}px ${clip.textShadow.offsetYPixels}px ${clip.textShadow.blurPixels}px ${escapeAttr(clip.textShadow.color)};` : '';
@@ -103,7 +105,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
         const highlightAttributes = clip.wordTimings
           ? ` data-word-base-color="${color}" data-word-highlight-color="${escapeAttr(clip.wordHighlightColor)}" data-word-highlight-animation="${escapeAttr(clip.wordHighlightAnimation ?? 'scale')}"`
           : '';
-        return `<div ${common}${fadeAttributes(clip)}${highlightAttributes} role="text" aria-label="${escapeAttr(clip.text)}" style="position:absolute;display:flex;align-items:${alignItems};justify-content:${textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center'};left:${x}%;top:${y}%;width:${width}%;height:${height}%;padding:${paddingPixels}px;font-family:${fontFamily};font-size:${fontSize}px;font-weight:${fontWeight};line-height:${lineHeight};color:${color};background:${backgroundColor};text-align:${textAlign};white-space:pre-wrap;${outline}${shadow}${maskStyle}${transitionStyle}${blendStyle}">${textMarkup}</div>`;
+        return `<div ${common}${fadeAttributes(clip)}${highlightAttributes} role="text" aria-label="${escapeAttr(clip.text)}" style="position:absolute;display:flex;flex-wrap:${clip.wordWrap ? 'wrap' : 'nowrap'};align-items:${alignItems};align-content:${alignContent};column-gap:${clip.wordWrap ? '0.25em' : '0'};justify-content:${textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center'};left:${x}%;top:${y}%;width:${width}%;height:${height}%;padding:${paddingPixels}px;font-family:${fontFamily};font-size:${fontSize}px;font-weight:${fontWeight};line-height:${lineHeight};color:${color};background:${backgroundColor};text-align:${textAlign};white-space:${whiteSpace};${outline}${shadow}${maskStyle}${transitionStyle}${blendStyle}">${textMarkup}</div>`;
       }
       const comp = assetPath(clip.composition);
       return `<div ${common}${fadeAttributes(clip)} data-composition-id="${escapeAttr(clip.id)}" data-composition-src="${escapeAttr(comp)}" style="position:absolute;left:0;top:0;width:100%;height:100%;${maskStyle}${transitionStyle}${blendStyle}"></div>`;

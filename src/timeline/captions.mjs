@@ -17,6 +17,8 @@ export function createCaptionTrack(transcript, options = {}) {
   if (!wordHighlight && options.wordHighlightAnimation !== undefined) throw new TypeError('wordHighlightAnimation requires wordHighlight: true.');
   const wordsPerCaption = options.wordsPerCaption ?? 6;
   if (!Number.isSafeInteger(wordsPerCaption) || wordsPerCaption < 1 || wordsPerCaption > 20) throw new TypeError('wordsPerCaption must be an integer from 1 to 20.');
+  const wordWrap = options.wordWrap ?? layout.wordWrap ?? false;
+  if (typeof wordWrap !== 'boolean') throw new TypeError('wordWrap must be a boolean.');
   const maxGapSeconds = options.maxGapSeconds ?? 0.8;
   if (!Number.isFinite(maxGapSeconds) || maxGapSeconds < 0) throw new TypeError('maxGapSeconds must be a non-negative number.');
 
@@ -54,6 +56,7 @@ export function createCaptionTrack(transcript, options = {}) {
     fontWeight: options.fontWeight ?? layout.fontWeight,
     ...(options.lineHeight !== undefined || layout.lineHeight !== undefined ? { lineHeight: options.lineHeight ?? layout.lineHeight } : {}),
     verticalAlign: options.verticalAlign ?? layout.verticalAlign,
+    wordWrap,
     paddingPixels: options.paddingPixels ?? layout.paddingPixels,
     textOutline: options.textOutline ?? layout.textOutline,
     textShadow: options.textShadow ?? layout.textShadow,

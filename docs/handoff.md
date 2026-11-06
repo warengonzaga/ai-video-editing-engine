@@ -66,7 +66,8 @@ Last updated: 2026-11-06
   `lowerThird` layout presets with explicit style overrides. The `socialPop`
   preset enables word-timed highlighting with a brief GSAP pop on the active
   word; other layouts can select `scale` or `pop`. A pixel-sampled render smoke
-  verifies the timed highlight. Complex multi-line templates remain open.
+  verifies the timed highlight. Preset captions wrap at word boundaries;
+  richer branded multi-line templates remain open.
 - `transcribeWithProvider` accepts an injected JavaScript provider, supplies
   probed media duration, validates and normalizes returned word/cue timing, and
   writes the result without persisting provider credentials. Media-analysis
@@ -686,3 +687,8 @@ smoke render alone.
   seconds also measured about 0.1766. The first Linux-only failure at this
   assertion did not reproduce on the following two full matrix runs. This is
   synthetic audio evidence; real narration/music review remains open.
+- Caption layout presets now enable optional word-boundary wrapping, including
+  simultaneous word highlighting across wrapped lines. `wordWrap` is validated
+  at the timeline boundary and can be disabled per caption. The render smoke
+  uses a narrow social-pop caption and samples the active word on separate
+  output rows to verify wrapping and highlight timing together.

@@ -190,9 +190,11 @@ selected preset.
 each word becomes active. For other layouts, word-timed transcripts can set
 `wordHighlight: true` and choose `wordHighlightAnimation: 'scale' | 'pop'`;
 `wordHighlightColor` customizes the highlight. Explicit options override preset
-defaults. Use `listCaptionLayoutPresets()` or `resolveCaptionLayoutPreset(name)`
-to inspect available layouts. Cue-level transcripts do not contain enough
-timing detail for word animations.
+defaults. Caption presets wrap long text at word boundaries by default; set
+`wordWrap: false` to keep a single line. Wrapped words preserve the layout's
+horizontal alignment and vertical placement. Use `listCaptionLayoutPresets()`
+or `resolveCaptionLayoutPreset(name)` to inspect available layouts. Cue-level
+transcripts do not contain enough timing detail for word animations.
 
 GIF cannot carry audio, so timeline rendering rejects GIF requests when audio
 clips are present. PNG image sequences export full-resolution RGBA frames to a

@@ -751,6 +751,9 @@ test('creates validated timed captions from word or cue transcripts', () => {
     invalidTimeline.tracks.push({ ...highlighted, order: 3, clips: [invalidHighlight] });
     assert.throws(() => validateTimeline(invalidTimeline), /wordTimings|wordHighlightColor|wordHighlightAnimation/);
   }
+  const invalidWrapTimeline = structuredClone(valid);
+  invalidWrapTimeline.tracks.push({ ...highlighted, order: 3, clips: [{ ...highlighted.clips[0], wordWrap: 'yes' }] });
+  assert.throws(() => validateTimeline(invalidWrapTimeline), /wordWrap must be a boolean/);
   const styled = createCaptionTrack(transcript, {
     fontFamily: 'Arial, sans-serif', fontWeight: 700, lineHeight: 1.2,
     verticalAlign: 'bottom', paddingPixels: 12,
@@ -763,6 +766,7 @@ test('creates validated timed captions from word or cue transcripts', () => {
   for (const [layoutPreset, expectedAlign] of [['subtitle', 'center'], ['social', 'center'], ['socialPop', 'center'], ['lowerThird', 'left']]) {
     const presetTrack = createCaptionTrack(transcript, { layoutPreset });
     assert.equal(presetTrack.clips[0].textAlign, expectedAlign);
+    assert.equal(presetTrack.clips[0].wordWrap, true);
     const presetTimeline = structuredClone(valid);
     presetTimeline.tracks.push({ ...presetTrack, order: 3 });
     assert.equal(validateTimeline(presetTimeline), presetTimeline);
@@ -773,6 +777,8 @@ test('creates validated timed captions from word or cue transcripts', () => {
   const overridden = createCaptionTrack(transcript, { layoutPreset: 'social', fontSize: 42, textAlign: 'left' });
   assert.equal(overridden.clips[0].fontSize, 42);
   assert.equal(overridden.clips[0].textAlign, 'left');
+  assert.equal(createCaptionTrack(transcript, { layoutPreset: 'socialPop', wordWrap: false }).clips[0].wordWrap, false);
+  assert.throws(() => createCaptionTrack(transcript, { wordWrap: 'yes' }), /wordWrap must be a boolean/);
   assert.throws(() => createCaptionTrack(transcript, { layoutPreset: 'unknown' }), /Unknown caption layout preset/);
   for (const style of [
     { fontFamily: 'Arial; color:red' },

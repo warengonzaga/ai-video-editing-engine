@@ -281,14 +281,20 @@ try {
   const captionTrack = createCaptionTrack({
     schemaVersion: 1,
     durationSeconds: 2,
-    words: [{ text: 'ONE', start: 0.2, end: 0.8 }, { text: 'TWO', start: 1.2, end: 1.8 }],
+    words: [
+      { text: 'ONE', start: 0.2, end: 0.5 }, { text: 'TWO', start: 0.5, end: 0.8 },
+      { text: 'THREE', start: 1.2, end: 1.5 }, { text: 'FOUR', start: 1.5, end: 1.8 },
+    ],
   }, {
+    wordsPerCaption: 2,
     wordHighlightColor: '#ff0000',
     color: '#ffffff',
     backgroundColor: 'transparent',
     fontSize: 44,
-    y: 0.52,
-    height: 0.4,
+    x: 0.3,
+    y: 0.3,
+    width: 0.4,
+    height: 0.6,
     paddingPixels: 0,
     layoutPreset: 'socialPop',
   });
@@ -304,10 +310,16 @@ try {
   const captionRender = await renderTimelineAsync(captionProjectPath, captionTimeline, captionOutputPath, 'draft', { timeoutSeconds: 180 });
   const captionMedia = probeMedia(captionRender.output);
   assert.equal(captionMedia.hasAudio, false);
+  assert.equal(captionTrack.clips[0].wordWrap, true);
   const firstHighlightPixels = maxRedPixelsInRange(captionRender.output, Math.round(0.3 * 24), Math.round(0.7 * 24));
   const secondHighlightPixels = maxRedPixelsInRange(captionRender.output, Math.round(1.3 * 24), Math.round(1.7 * 24));
   assert.ok(firstHighlightPixels > 20, `The first word highlight was not visible during its timed interval (${firstHighlightPixels} red pixels).`);
   assert.ok(secondHighlightPixels > 20, `The second word highlight was not visible during its timed interval (${secondHighlightPixels} red pixels).`);
+  const firstLineHighlight = redPixelBounds(captionRender.output, Math.round(0.3 * 24));
+  const secondLineHighlight = redPixelBounds(captionRender.output, Math.round(0.6 * 24));
+  assert.ok(firstLineHighlight.count > 20 && secondLineHighlight.count > 20, 'Both wrapped caption words should render their active highlight.');
+  assert.ok(Math.abs(firstLineHighlight.top - secondLineHighlight.top) > 20,
+    `Word-timed caption text did not wrap onto separate lines: first=${firstLineHighlight.top}, second=${secondLineHighlight.top}`);
   assert.equal(countRedPixels(captionRender.output, Math.round(0.1 * 24)), 0, 'Word highlight appeared before its timed interval.');
   assert.equal(countRedPixels(captionRender.output, Math.round(1.9 * 24)), 0, 'Word highlight remained after its timed interval.');
 
@@ -648,6 +660,10 @@ function readPixelAt(path, frameNumber, x, y) {
 }
 
 function countRedPixels(path, frameNumber) {
+  return redPixelBounds(path, frameNumber).count;
+}
+
+function redPixelBounds(path, frameNumber) {
   const result = spawnSync('ffmpeg', [
     '-nostdin', '-hide_banner', '-v', 'error', '-i', path,
     '-vf', `select=eq(n\\,${frameNumber}),format=rgb24`, '-fps_mode', 'passthrough',
@@ -657,10 +673,19 @@ function countRedPixels(path, frameNumber) {
     throw new Error(`Could not sample caption frame ${frameNumber}: ${result.error?.message ?? result.stderr?.toString().trim()}`);
   }
   let count = 0;
-  for (let offset = 0; offset < result.stdout.length; offset += 3) {
-    if (result.stdout[offset] > 160 && result.stdout[offset + 1] < 120 && result.stdout[offset + 2] < 120) count++;
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (let y = 0; y < 180; y++) {
+    for (let x = 0; x < 320; x++) {
+      const offset = (y * 320 + x) * 3;
+      if (result.stdout[offset] > 160 && result.stdout[offset + 1] < 120 && result.stdout[offset + 2] < 120) {
+        count++;
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
+      }
+    }
   }
-  return count;
+  return { count, top, bottom };
 }
 
 function maxRedPixelsInRange(path, firstFrame, lastFrame) {
