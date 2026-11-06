@@ -83,8 +83,17 @@ def export_timeline(request):
             raise ValueError(f"Track {source_track['id']} uses volume automation, which is not supported by the OTIO interchange profile.")
         kind = otio.schema.TrackKind.Video if source_track["kind"] == "video" else otio.schema.TrackKind.Audio
         track = otio.schema.Track(name=source_track["id"], kind=kind)
+        soloed_audio = any(
+            candidate["kind"] == "audio" and candidate.get("solo") is True
+            for candidate in engine_timeline["tracks"]
+        )
         track.enabled = not (source_track.get("muted", False) if source_track["kind"] == "audio" else not source_track.get("visible", True))
-        track.metadata[ENGINE_KEY] = {"trackId": source_track["id"]}
+        if source_track["kind"] == "audio" and soloed_audio:
+            track.enabled = track.enabled and source_track.get("solo") is True
+        track.metadata[ENGINE_KEY] = {
+            "trackId": source_track["id"],
+            **({"solo": source_track.get("solo", False), "muted": source_track.get("muted", False)} if source_track["kind"] == "audio" else {}),
+        }
         cursor = 0.0
         clips = sorted(source_track["clips"], key=lambda item: item["timelineStart"])
         index = 0
@@ -289,6 +298,8 @@ def import_timeline(request):
             "order": len(payload["tracks"]),
             "enabled": bool(track.enabled and parent_enabled),
             "engineTrackId": track.metadata.get(ENGINE_KEY, {}).get("trackId"),
+            **({"solo": track.metadata[ENGINE_KEY]["solo"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("solo"), bool) else {}),
+            **({"muted": track.metadata[ENGINE_KEY]["muted"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("muted"), bool) else {}),
             "clips": [],
         }
         cursor = 0.0

@@ -648,8 +648,8 @@ different video layer, use `move-track` in an operation file:
 }
 ```
 
-Use `set-track-state` to show or hide video/overlay tracks, mute audio tracks,
-or adjust audio-track volume through the same reviewable operation workflow.
+Use `set-track-state` to show or hide video/overlay tracks, mute or solo audio
+tracks, or adjust audio-track volume through the same reviewable operation workflow.
 Partial state updates preserve other settings, and `null` clears an override:
 
 ```json
@@ -706,7 +706,7 @@ track level:
 }
 ```
 
-Visual tracks accept `visible`; audio tracks accept `muted`, `volume`, and
+Visual tracks accept `visible`; audio tracks accept `muted`, `solo`, `volume`, and
 project-time `volumeKeyframes` through `set-track-state`. Use the dedicated
 `set-track-audio-effects` operation to replace or clear a track effect chain.
 Its JavaScript API is
@@ -714,6 +714,11 @@ Its JavaScript API is
 empty array to clear it. Clip effects run first; then a track with effects is
 mixed to one temporary stem and its chain runs across that full timeline.
 Clip/track gain, fades, and timing ducking are preserved.
+
+When one or more audio tracks have `solo: true`, draft and final timeline renders
+include only unmuted solo tracks. Clear the solo override with `null` to return
+to the full mix. Solo state is carried in Engine metadata during OpenTimelineIO
+round trips.
 
 Use `set-overlay` to reviewably change caption text, word timings, layout,
 styling, or composition reference after adding the overlay clip. The operation

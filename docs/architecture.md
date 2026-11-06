@@ -125,7 +125,8 @@ will be checked into docs only after the validator and CLI/API land.
   select those variants; audio and default final renders continue using source
   assets.
 - `tracks`: ordered tracks with stable ids and kinds (`video`, `audio`,
-  `overlay`), plus explicit z-order and optional mute/visibility settings.
+  `overlay`), plus explicit z-order, optional video/overlay visibility, and
+  audio mute/solo state.
 - `clips`: stable id, asset reference, source in/out, timeline start, and
   optional placement/fit, constant `playbackRate`, source-relative `speedRamp`,
   or reverse playback on video and audio clips,

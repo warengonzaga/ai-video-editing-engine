@@ -1202,6 +1202,10 @@ smoke render alone.
   with synchronized gap insertion/ripple deletion. They stay out of rendered
   video; OpenTimelineIO uses native root-stack markers. Syntax and whitespace
   checks are the only validation; no tests, renders, or OTIO operations were run.
+- Added audio-track solo state to the reviewable track edit operation. Render
+  timelines retain only unmuted solo tracks and remove sidechain/ducking rules
+  whose tracks are excluded. OTIO stores solo/mute state in Engine metadata;
+  syntax checks only, with no tests or renders run.
 - Ran the read-only `doctor` and capabilities commands on Windows with Node.js
   22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, the cached Chrome
   Headless Shell, and required Engine filters/encoders available. Rhubarb,

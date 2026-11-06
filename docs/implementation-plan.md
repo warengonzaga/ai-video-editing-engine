@@ -104,11 +104,12 @@ audio policy, cross-platform and broader format coverage remain open.
   point while preserving source ranges, keyframes, speed ramps, and captions.
 - [x] Apply ordered AI edit plans atomically through the JavaScript API and CLI;
   represent a successful batch as one undo/redo history action.
-- [x] Support explicit track visibility for video/overlay layers and mute for
-  audio tracks; remove their excluded ducking/sidechain rules from render state.
-  Expose validated visible/muted/volume changes through `set-track-state` for
-  batch and dry-run AI edits. An encoded smoke verifies hidden layers render
+- [x] Support explicit track visibility for video/overlay layers and mute/solo
+  for audio tracks; remove excluded ducking/sidechain rules from render state.
+  Expose validated visible/muted/solo/volume changes through `set-track-state`
+  for batch and dry-run AI edits. An encoded smoke verifies hidden layers render
   black and muted tracks emit no audio stream without mutating the saved edit.
+  Solo render state retains only selected unmuted audio tracks.
 - [x] Validate timelines and edit decisions before rendering; preserve source
   media and refuse to overwrite existing render or edit artifacts.
 - [x] Provide a deterministic, read-only timeline overview through the API and

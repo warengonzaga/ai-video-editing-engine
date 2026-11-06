@@ -61,7 +61,12 @@ export function importTimelineFromOtio(projectPath, otioPath) {
     const clips = [];
     const hasCrossfades = sourceTrack.clips.some((clip) => clip.crossfade);
     const trackState = sourceTrack.kind === 'audio'
-      ? (sourceTrack.enabled === false ? { muted: true } : engineTrack?.muted === true ? { muted: false } : {})
+      ? {
+        ...(sourceTrack.muted !== undefined
+          ? { muted: sourceTrack.muted }
+          : sourceTrack.enabled === false && sourceTrack.solo !== true ? { muted: true } : engineTrack?.muted === true ? { muted: false } : {}),
+        ...(sourceTrack.solo === undefined ? {} : { solo: sourceTrack.solo }),
+      }
       : (sourceTrack.enabled === false ? { visible: false } : engineTrack?.visible === false ? { visible: true } : {});
     for (const sourceClip of sourceTrack.clips) {
       if (!existsSync(sourceClip.path)) throw new Error(`OTIO clip media is missing: ${sourceClip.path}`);

@@ -597,7 +597,7 @@ export function setTimelineTrackState(timeline, trackId, state) {
   validateTimeline(next);
   const track = next.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
-  const allowed = track.kind === 'audio' ? ['muted', 'volume', 'volumeKeyframes', 'audioEffects'] : ['visible'];
+  const allowed = track.kind === 'audio' ? ['muted', 'solo', 'volume', 'volumeKeyframes', 'audioEffects'] : ['visible'];
   const fields = Object.keys(state);
   if (fields.length === 0 || fields.some((field) => !allowed.includes(field))) {
     throw new TypeError(`Track ${trackId} state must set one or more of: ${allowed.join(', ')}.`);
