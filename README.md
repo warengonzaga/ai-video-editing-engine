@@ -114,6 +114,26 @@ The JavaScript API exports `rhubarbLipSyncCues(audioPath, options)`. This
 produces timing and mouth labels; it does not generate avatar art or guarantee
 viseme recognition accuracy.
 
+Avatar-generation workflows can call `validateRhubarbSpriteStates(states,
+options)` before saving or using a mouth pack. It throws when any required shape
+is missing or mapped to the same state as another shape. This is a structural
+check only: it cannot judge whether the artwork looks distinct, stays aligned,
+or matches the intended phoneme visually.
+
+```js
+import { validateRhubarbSpriteStates } from 'ai-video-editing-engine';
+
+validateRhubarbSpriteStates({
+  a: 'mouth-a.png',
+  b: 'mouth-b.png',
+  c: 'mouth-c.png',
+  d: 'mouth-d.png',
+  e: 'mouth-e.png',
+  f: 'mouth-f.png',
+  default: 'mouth-rest.png',
+});
+```
+
 Use `mapRhubarbCuesToSpriteStates(track, mapping)` to adapt Rhubarb labels to a
 sprite pack's available states. The default mapping preserves A-F as distinct
 lowercase states and maps X to `default`; consumers can provide their own

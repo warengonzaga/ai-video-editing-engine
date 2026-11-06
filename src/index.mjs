@@ -2,7 +2,7 @@ export { validateTranscript } from './transcript/validate.mjs';
 export { getEngineCapabilities } from './capabilities.mjs';
 export { validateAnimationCues, animationStateAt } from './animation/cues.mjs';
 export { audioLevelCues } from './animation/audio-cues.mjs';
-export { mapRhubarbCuesToSpriteStates, normalizeRhubarbOutput, rhubarbLipSyncCues } from './animation/rhubarb.mjs';
+export { mapRhubarbCuesToSpriteStates, normalizeRhubarbOutput, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
 export { createAvatarComposition } from './animation/avatar.mjs';
 export { validateTimeline } from './timeline/validate.mjs';
 export { inspectTimeline } from './timeline/inspect.mjs';
