@@ -1297,3 +1297,6 @@ smoke render alone.
   scanline lengths, and filter bytes instead of trusting the image header. This
   rejects truncated or corrupt mouth sprites before Rhubarb or composition.
   Syntax and whitespace checks only; no tests or renders were run.
+- Corrected avatar composition to pass PNG file bytes into the shared image
+  validator; the previous caller passed a path string to a Buffer-only helper.
+  Syntax and whitespace checks only; no composition or render was run.

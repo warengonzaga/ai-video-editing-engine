@@ -51,7 +51,7 @@ export function createAvatarComposition(projectPath, specification) {
     let defaultDimensions;
     for (const [state, path] of Object.entries(states)) {
       if (!/^[a-z][a-z0-9-]*$/.test(state) || typeof path !== 'string' || !existsSync(resolve(path)) || extname(path).toLowerCase() !== '.png') throw new TypeError(`Invalid sprite for ${layer.name}.${state}.`);
-      const dimensions = pngDimensions(resolve(path), `${layer.name}.${state}`);
+      const dimensions = pngDimensions(readFileSync(resolve(path)), `${layer.name}.${state}`);
       dimensionsByState.push(dimensions);
       if (state === 'default') defaultDimensions = dimensions;
     }
