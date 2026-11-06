@@ -10,7 +10,7 @@ export { blendModeStyle, validateBlendMode } from './timeline/blend-mode.mjs';
 export { timelineForRender } from './timeline/track-state.mjs';
 export { SPEED_RAMP_EASES, speedRampDuration } from './timeline/speed-ramp.mjs';
 export { timelineFromEdl } from './timeline/from-edl.mjs';
-export { renderTimeline, renderTimelineAsync } from './timeline/render.mjs';
+export { renderTimeline, renderTimelineAsync, renderTimelineRange, renderTimelineRangeAsync } from './timeline/render.mjs';
 export { DEFAULT_SOURCE_FIT, SOURCE_FIT_MODES, resolveSourceFit, validateSourceFit } from './timeline/source-fit.mjs';
 export { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, extractTimelineRange, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineMarker, removeTimelineTrack, reorderTimelineTrack, replaceTimelineClipAsset, rippleDeleteTimelineClip, rippleDeleteTimelineRange, setTimelineAudioMastering, setTimelineAudioMix, setTimelineClipAudioEffects, setTimelineClipAudioState, setTimelineClipState, setTimelineClipVideoState, setTimelineClipFraming, setTimelineClipKeyframes, setTimelineClipReverse, setTimelineClipSpeed, setTimelineClipVolumeKeyframes, setTimelineMarker, setTimelineOverlay, setTimelineProjectState, setTimelineTrackAudioEffects, setTimelineTrackState, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from './timeline/edit.mjs';
 export { createTimelineHistory } from './timeline/history.mjs';

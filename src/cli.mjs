@@ -21,8 +21,8 @@ import { createAvatarComposition } from './animation/avatar.mjs';
 import { validateTimeline } from './timeline/validate.mjs';
 import { inspectTimeline } from './timeline/inspect.mjs';
 import { timelineFromEdl } from './timeline/from-edl.mjs';
-import { renderTimelineAsync } from './timeline/render.mjs';
-import { editTimeline, editTimelineBatch, extractTimelineRange, previewTimelineEdit } from './timeline/edit.mjs';
+import { renderTimelineAsync, renderTimelineRangeAsync } from './timeline/render.mjs';
+import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
 import { editTimelineFile, getTimelineFileHistory, redoTimelineFile, resetTimelineFileHistory, undoTimelineFile } from './timeline/history-store.mjs';
 import { createProjectTimeline } from './timeline/project.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
@@ -245,9 +245,9 @@ async function main(args) {
     const startSeconds = Number(startText);
     const endSeconds = Number(endText);
     if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)) throw new TypeError('Timeline range start and end must be numbers in seconds.');
-    const timeline = extractTimelineRange(readJson(resolve(timelinePath)), startSeconds, endSeconds);
+    const timeline = readJson(resolve(timelinePath));
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    console.log(JSON.stringify(await runWithInterrupt((signal) => renderTimelineAsync(resolve(project), timeline, resolve(outputPath), quality, { ...options, signal })), null, 2));
+    console.log(JSON.stringify(await runWithInterrupt((signal) => renderTimelineRangeAsync(resolve(project), timeline, startSeconds, endSeconds, resolve(outputPath), quality, { ...options, signal })), null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'from-edl' && commandArgs.length >= 4 && commandArgs.length <= 5) {

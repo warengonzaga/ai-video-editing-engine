@@ -323,10 +323,13 @@ node src/cli.mjs render video-projects/my-video renders/frames high png-options.
 ```
 
 `timeline render-range` renders a selected project-time window from the source
-timeline without editing it. The JavaScript API exposes the same operation via
-`extractTimelineRange(timeline, startSeconds, endSeconds)`; pass the returned
-timeline to `renderTimelineAsync`. A range must include at least one project
-frame and cannot cut through a clip fade or edge transition.
+timeline without editing it. JavaScript consumers can use
+`renderTimelineRangeAsync(projectPath, timeline, startSeconds, endSeconds,
+outputPath, quality, options)` or extract a reusable segment with
+`extractTimelineRange(timeline, startSeconds, endSeconds)` and pass it to
+`renderTimelineAsync`. The synchronous `renderTimelineRange` API is also
+available. A range must include at least one project frame and cannot cut
+through a clip fade or edge transition.
 
 `render-options.json` can choose a video `codec`, integer encoder `crf`, or
 `videoBitrate`, for example `{ "encoder": { "codec": "h265", "crf": 26 } }`

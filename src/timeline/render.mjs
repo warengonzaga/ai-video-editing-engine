@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { renderProject, renderProjectAsync } from '../render/hyperframes.mjs';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { validateTimeline } from './validate.mjs';
+import { extractTimelineRange } from './edit.mjs';
 import { resolveSourceFit } from './source-fit.mjs';
 import { buildAudioVolumeAutomation } from './audio-mix.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
@@ -55,6 +56,16 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
     if (prepared) cleanupTemporaryAssets(prepared.temporaryAssets);
     renderControl.dispose();
   }
+}
+
+/** Render a selected project-time window without changing the source timeline. */
+export function renderTimelineRange(projectPath, timeline, startSeconds, endSeconds, outputPath, quality = 'draft', options = {}) {
+  return renderTimeline(projectPath, extractTimelineRange(timeline, startSeconds, endSeconds), outputPath, quality, options);
+}
+
+/** Async, cancellable counterpart to renderTimelineRange. */
+export function renderTimelineRangeAsync(projectPath, timeline, startSeconds, endSeconds, outputPath, quality = 'draft', options = {}) {
+  return renderTimelineAsync(projectPath, extractTimelineRange(timeline, startSeconds, endSeconds), outputPath, quality, options);
 }
 
 function renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectFunction, renderControl, prepared) {
