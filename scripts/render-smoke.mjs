@@ -287,6 +287,9 @@ try {
     color: '#ffffff',
     backgroundColor: 'transparent',
     fontSize: 44,
+    y: 0.52,
+    height: 0.4,
+    paddingPixels: 0,
     layoutPreset: 'subtitle',
   });
   const captionTimeline = { schemaVersion: 1, project: captionProject, assets: [], tracks: [{ ...captionTrack, order: 0 }] };
