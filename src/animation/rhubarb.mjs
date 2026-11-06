@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { probeMedia } from '../media/probe.mjs';
+import { pngDimensions } from './png-image.mjs';
 import { validateAnimationCues } from './cues.mjs';
 
 const RHUBARB_SHAPES = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X']);
@@ -127,6 +128,7 @@ export function validateRhubarbSpriteStates(states, options = {}) {
     throw new TypeError(`Phonetic avatar mouth pack is incomplete. Missing sprite states for: ${details}. Required shapes: A-H and X.`);
   }
   const imageByDigest = new Map();
+  let sharedDimensions;
   for (let index = 0; index < requiredStates.length; index += 1) {
     const state = requiredStates[index];
     const shape = requiredShapes[index];
@@ -135,7 +137,13 @@ export function validateRhubarbSpriteStates(states, options = {}) {
       throw new TypeError(`Phonetic avatar mouth sprite ${shape.toUpperCase()} (${state}) must point to an existing image file.`);
     }
     const imagePath = resolve(path);
-    const digest = createHash('sha256').update(readFileSync(imagePath)).digest('hex');
+    const image = readFileSync(imagePath);
+    const dimensions = pngDimensions(image, `${shape.toUpperCase()} (${state})`);
+    if (sharedDimensions && (dimensions.width !== sharedDimensions.width || dimensions.height !== sharedDimensions.height)) {
+      throw new TypeError(`Phonetic avatar mouth sprites must share one PNG canvas. ${shape.toUpperCase()} (${state}) is ${dimensions.width}x${dimensions.height}; expected ${sharedDimensions.width}x${sharedDimensions.height}.`);
+    }
+    sharedDimensions ??= dimensions;
+    const digest = createHash('sha256').update(image).digest('hex');
     const duplicate = imageByDigest.get(digest);
     if (duplicate) {
       throw new TypeError(`Phonetic avatar mouth pack reuses identical image data for ${duplicate.shape.toUpperCase()} (${duplicate.state}) and ${shape.toUpperCase()} (${state}); each A-H viseme and X rest requires a distinct image.`);

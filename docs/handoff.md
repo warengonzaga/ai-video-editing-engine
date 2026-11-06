@@ -666,13 +666,16 @@ smoke render alone.
   The temporary consumer and tarball live under ignored `video-projects/`;
   nothing was published to npm. Installation initially hit the sandbox's npm
   registry DNS restriction, then completed after the authorized network retry.
-- Reviewed the current Voice 015 A-H render contact sheet. The Engine hard-cuts
-  between its supplied sprite states, and authored art quality still determines
-  how distinct the shapes appear. Strengthened the phonetic mouth-pack gate to
-  reject state mappings that reuse byte-identical image files before invoking
-  Rhubarb. This prevents exact file reuse but cannot assess perceptual
-  similarity, placement, or phoneme accuracy. No test suite or new render was
-  run for this change, per the implementation-first direction.
+- Reviewed the current Voice 015 A-H render contact sheet and Rhubarb's official
+  shape guidance. Rhubarb 1.x uses replacement animation; its C and E shapes
+  also act as in-betweens, so the artwork and cue timing must make adjacent
+  changes read smoothly. The Engine cannot synthesize convincing intermediate
+  mouth drawings by fading raster sprites. Strengthened the public mouth-pack
+  validator to require readable PNGs with matching canvas dimensions and reject
+  byte-identical files before invoking Rhubarb. Perceptual similarity,
+  within-canvas alignment, and phoneme accuracy still require review. No test
+  suite or new render was run for this change, per the implementation-first
+  direction.
 
 - Added `insertTimelineGap` / `editTimeline({ type: 'insert-gap', ... })` as a
   generic synchronized timeline operation. It shifts clips after the insertion

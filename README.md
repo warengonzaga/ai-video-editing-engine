@@ -120,10 +120,11 @@ viseme recognition accuracy.
 Avatar-generation workflows can call `validateRhubarbSpriteStates(states,
 options)` before saving or using a mouth pack. It throws when any required shape
 is missing, mapped to the same state as another shape, or backed by an
-image file with byte-identical content to another required shape. This catches
-reused or duplicated files, but cannot judge perceptual similarity, mouth
-placement, or whether the artwork matches the intended phoneme; those still
-need visual review.
+PNG with an invalid header, a different canvas size, or byte-identical image
+content to another required shape. This catches malformed headers,
+inconsistent canvases, reused, or duplicated files, but cannot judge perceptual
+similarity, mouth placement within the canvas, or whether the artwork matches
+the intended phoneme; those still need visual review.
 `avatar-compose` also checks every sprite file and confirms that states on a
 layer share the same PNG canvas dimensions before it invokes Rhubarb, so broken
 assets fail before cue generation.

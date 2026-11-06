@@ -250,8 +250,10 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   states and an X rest state. Default cue generation enables GHX. Consumers can
   use custom state names through an explicit one-to-one `spriteStateMap`; missing
   states, reused state mappings, or byte-identical sprite image files fail with
-  an actionable error. Perceptual similarity and phoneme-to-art accuracy still
-  require visual review. This requirement
+  an actionable error. The public validator also confirms that each state is a
+  readable PNG with the same canvas dimensions. Perceptual similarity,
+  within-canvas alignment, and phoneme-to-art accuracy still require visual
+  review. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
   arbitrary external cue tracks. `avatar-compose` validates the required mouth
   PNGs and shared canvas dimensions before invoking Rhubarb.

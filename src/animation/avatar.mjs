@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import { validateAnimationCues } from './cues.mjs';
+import { pngDimensions } from './png-image.mjs';
 import { mapRhubarbCuesToSpriteStates, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './rhubarb.mjs';
 
 /** Build a generic sprite-avatar composition from user-supplied images and timed cues. */
@@ -131,16 +132,4 @@ export function createAvatarComposition(projectPath, specification) {
     writeFileSync(indexPath, withAudio);
   }
   return { compositionPath: output, layers: safeLayers.length };
-}
-
-function pngDimensions(path, label) {
-  const image = readFileSync(path);
-  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  if (image.length < 24 || !image.subarray(0, 8).equals(signature) || image.toString('ascii', 12, 16) !== 'IHDR') {
-    throw new TypeError(`Sprite ${label} must be a valid PNG image.`);
-  }
-  const width = image.readUInt32BE(16);
-  const height = image.readUInt32BE(20);
-  if (width === 0 || height === 0) throw new TypeError(`Sprite ${label} has invalid dimensions.`);
-  return { width, height };
 }
