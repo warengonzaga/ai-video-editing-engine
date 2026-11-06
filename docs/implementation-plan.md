@@ -466,8 +466,8 @@ retime paths require an explicitly approved EDL before applying those cuts.
 
 ## Current starting point
 
-The current local branch is `feature/generic-video-engine`, eight commits ahead
-of `origin/feature/generic-video-engine` as of 2026-11-07. It contains the
+The current local branch is `feature/generic-video-engine` with local commits
+ahead of `origin/feature/generic-video-engine`. It contains the
 generic timeline, media catalog and proxy support, edit operations, transcript
 and provider workflows, layered video/overlay composition, audio mixing and
 mastering, preview assets, export controls, and OpenTimelineIO interchange.
