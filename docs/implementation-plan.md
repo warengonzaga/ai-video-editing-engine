@@ -74,6 +74,9 @@ audio policy, cross-platform and broader format coverage remain open.
   output fingerprints, and opt into proxies for timeline draft renders.
 - [x] Model ordered tracks, clips, source ranges, trim, split, move, cuts,
   placement, and layer order with deterministic timing and source provenance.
+- [x] Move clips between compatible tracks while preserving clip metadata,
+  applying normal overlap validation, and allowing an optional new timeline
+  position.
 - [x] Slip media source ranges without moving or resizing timeline clips;
   validate registered asset boundaries and preserve speed ramps and keyframes.
 - [x] Probe and retain metadata for every audio stream; detach a selected video's
@@ -336,6 +339,8 @@ new clip extends project duration while removals preserve the existing duration.
 Timeline edit plans can now be previewed through the API or CLI before writing:
 the dry run reports exact track and clip changes plus before/after project
 duration, and leaves the source timeline untouched.
+Clips can also move between compatible same-kind tracks without losing their
+source range, keyframes, effects, transitions, or other clip metadata.
 
 ## Current starting point
 

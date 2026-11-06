@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
 import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
+import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
@@ -161,6 +161,28 @@ test('adds and removes timeline tracks and clips as immutable edits', () => {
   assert.throws(() => removeTimelineClip(valid, 'music', 'missing-clip'), /Unknown clip/);
   assert.equal(editTimeline(valid, { type: 'add-track', track }).tracks.length, 4);
   assert.equal(editTimeline(withTrack, { type: 'remove-track', trackId: 'music-two' }).tracks.length, 3);
+});
+
+test('moves clips between compatible tracks while preserving their edit data', () => {
+  const withTarget = addTimelineTrack(valid, { id: 'video-broll', kind: 'video', order: 3, clips: [] });
+  const source = withTarget.tracks[0].clips[0];
+  source.keyframes = [{ time: 0, properties: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } }];
+  const originalClip = structuredClone(source);
+  const moved = moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'video-broll', 4);
+  assert.equal(moved.tracks.find((track) => track.id === 'video-main').clips.some((clip) => clip.id === 'clip-one'), false);
+  const clip = moved.tracks.find((track) => track.id === 'video-broll').clips[0];
+  assert.equal(clip.timelineStart, 4);
+  assert.deepEqual(clip.keyframes, source.keyframes);
+  assert.deepEqual(withTarget.tracks[0].clips[0], originalClip);
+  assert.equal(editTimeline(withTarget, { type: 'move-track', trackId: 'video-main', clipId: 'clip-one', targetTrackId: 'video-broll' }).tracks.find((track) => track.id === 'video-broll').clips[0].timelineStart, 0);
+  const occupiedTarget = addTimelineTrack(valid, {
+    id: 'video-occupied', kind: 'video', order: 3,
+    clips: [{ id: 'target-clip', assetId: 'camera', sourceIn: 0, sourceOut: 2, timelineStart: 1, durationSeconds: 2 }],
+  });
+  assert.throws(() => moveTimelineClipToTrack(occupiedTarget, 'video-main', 'clip-one', 'video-occupied', 1), /overlapping clips/);
+  assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'music'), /Cannot move a video clip to a track of kind audio/);
+  assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'missing', 'video-broll'), /Unknown clip/);
+  assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'missing'), /Unknown timeline track/);
 });
 
 test('detaches a video clip audio range to a synchronized audio track', () => {

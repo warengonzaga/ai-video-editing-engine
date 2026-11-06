@@ -83,6 +83,28 @@ test('timeline CLI previews an edit plan without writing or changing the timelin
   }
 });
 
+test('timeline CLI moves a clip to another compatible layer', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
+  try {
+    const inputPath = join(root, 'timeline.json');
+    const operationPath = join(root, 'operation.json');
+    const outputPath = join(root, 'edited.json');
+    const inputTimeline = structuredClone(timeline);
+    inputTimeline.tracks.push({ id: 'video-broll', kind: 'video', order: 1, clips: [] });
+    writeFileSync(inputPath, JSON.stringify(inputTimeline));
+    writeFileSync(operationPath, JSON.stringify({ type: 'move-track', trackId: 'video-main', clipId: 'clip-one', targetTrackId: 'video-broll', timelineStart: 1 }));
+
+    execFileSync(process.execPath, [cliPath, 'timeline', 'edit', inputPath, operationPath, outputPath], { encoding: 'utf8' });
+    const result = JSON.parse(readFileSync(outputPath, 'utf8'));
+    assert.equal(result.tracks.find((track) => track.id === 'video-main').clips.some((clip) => clip.id === 'clip-one'), false);
+    const moved = result.tracks.find((track) => track.id === 'video-broll').clips[0];
+    assert.equal(moved.id, 'clip-one');
+    assert.equal(moved.timelineStart, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('timeline CLI applies an edit plan as one atomic batch', () => {
   const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
   try {

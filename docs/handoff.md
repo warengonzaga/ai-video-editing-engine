@@ -86,6 +86,9 @@ Last updated: 2026-11-06
   clips and retiming downstream media, captions, keyframes, and speed ramps.
   Addition validates the full timeline and extends duration when needed;
   ordinary removal preserves the current project duration.
+- `moveTimelineClipToTrack` and the `move-track` edit operation move a clip to a
+  different track of the same kind, preserve its full edit metadata, optionally
+  change its timeline position, and validate target-track overlaps.
 - The `detach-audio` timeline edit creates or uses an audio track for a selected
   video clip, preserving its asset, source range, timeline placement, and
   constant or ramped playback timing. `audioStreamIndex` selects a zero-based
@@ -271,13 +274,15 @@ Last updated: 2026-11-06
 - A GitHub Actions workflow runs the test suite and production dependency
   audit on Ubuntu, macOS, and Windows with Node.js 22 and FFmpeg. It installs Python
   3.13 and the pinned OTIO adapter so the interchange tests are exercised on
-  both operating systems. Its first hosted run is still pending.
+  all matrix operating systems. Hosted run 42174734803 passed tests, render
+  smoke, and the production dependency audit on Linux, Windows, and macOS.
 - After upgrading HyperFrames to 0.9.17, the full Windows render smoke passed,
   including VFR ingest, layered video/still/nested composition, blend mode,
   captions, speed ramps, Rec.2020 SDR, audio-only/video-only output, sidechain
   mixing, and 12-second A/V sync. Cue offsets were 0.000021s at both 0.5s and
   10.5s. The smoke cleanup now uses asynchronous Windows retry handling. Hosted
-  Linux/macOS runs and human review remain open.
+  matrix validation is complete for the current smoke suite; human audiovisual
+  review and representative real-media validation remain open.
 - A sampled Windows process-tree profile of the complete synthetic render smoke
   took 62.19 seconds, peaked at 3,419.2 MiB working set across 53 processes,
   and exited successfully. The host was the 16-core AMD Ryzen 7 7840HS system
@@ -504,8 +509,8 @@ passed against the real OTIO adapter. The package is not installed globally.
   output. Its audio stream has been verified technically, but not auditioned.
 - Decide a distribution model. The private package exposes an installable CLI
   binary for local/Git dependency use; public npm installation is not enabled.
-- Observe the first hosted Linux/macOS/Windows CI runs and add a clean-machine setup
-  validation. Review current dependency versions before upgrading.
+- Recheck current hosted Linux/macOS/Windows CI state and add a clean-machine
+  setup validation. Review current dependency versions before upgrading.
 - Integrate Explainer Studio only after Engine behavior and outputs pass the
   agreed visual and audio review.
 
@@ -695,3 +700,24 @@ smoke render alone.
   at the timeline boundary and can be disabled per caption. The render smoke
   uses a narrow social-pop caption and samples the active word on separate
   output rows to verify wrapping and highlight timing together.
+- Added `previewTimelineEdit` and `timeline preview-edit`. The dry run executes
+  the same per-operation timeline validation as a real edit, reports exact
+  track/clip changes and before/after duration, and leaves the input untouched.
+  API and CLI tests verify successful previews, invalid-batch isolation, and no
+  CLI output-file creation. `npm test`: 119 passed, 2 optional OTIO skips.
+- Added `moveTimelineClipToTrack` and the `move-track` operation for moving
+  media between same-kind layers. The move preserves the full clip, validates
+  target overlap and source boundaries, and can optionally update timeline
+  placement. API coverage checks immutable source preservation, metadata, kind
+  mismatch, and missing clip/track errors; CLI coverage exercises the operation.
+  `npm test`: 121 passed, 2 optional OTIO skips, 0 failures; offline production
+  dependency audit: 0 vulnerabilities. These changes are committed locally but
+  are not pushed because GitHub was unreachable from the environment.
+- Fresh Windows `npm run test:render-smoke` completed successfully. It covered
+  timeline gaps and track-state filtering, social-pop caption wrapping, SDR
+  color output, video-only and audio-only behavior, MP4/WebM/MOV/GIF/PNG
+  sequence exports, detached audio, sidechain recovery, and a 12-second A/V
+  sync render. The sync cues were both 0.000021 seconds late with effectively
+  zero drift. This is synthetic render evidence; real-footage and human review
+  remain open. The first sandboxed attempt was denied a temporary-file rename;
+  the same smoke passed with normal local render permissions.

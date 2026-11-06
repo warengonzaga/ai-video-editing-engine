@@ -356,7 +356,7 @@ JavaScript API (`timelineFromEdl`, `editTimeline`, `editTimelineBatch`,
 and `renderTimeline`).
 
 Generic edit operations can add/remove tracks and clips, detach clip audio,
-move/trim/slip/split clips,
+move clips within and between compatible tracks, trim/slip/split clips,
 insert a synchronized gap or ripple-delete a time range across every track,
 apply crossfades or clip-edge transitions, and preserve timeline validation at
 each step. Gap insertion trims clips at the insertion point and shifts their
@@ -365,6 +365,19 @@ speed ramps, captions, and track synchronization aligned. Ripple deletion
 trims or splits clips that straddle the cut, retimes later clips, and shortens
 the project. Adding a clip or inserting a gap can extend project duration;
 ordinary removal leaves it unchanged so existing downstream timing is preserved.
+Cross-track moves preserve the clip id and all clip metadata, and require the
+source and destination tracks to have the same kind. To move a video clip to a
+different video layer, use `move-track` in an operation file:
+
+```json
+{
+  "type": "move-track",
+  "trackId": "video-main",
+  "clipId": "interview-shot",
+  "targetTrackId": "video-broll",
+  "timelineStart": 8
+}
+```
 
 Review the exact result before writing an edit. `preview-edit` prints the
 duration change and each added, removed, or updated track and clip as JSON; it

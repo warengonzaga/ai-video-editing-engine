@@ -180,6 +180,33 @@ export function moveTimelineClip(timeline, trackId, clipId, timelineStart) {
   return validateTimeline(next);
 }
 
+export function moveTimelineClipToTrack(timeline, trackId, clipId, targetTrackId, timelineStart) {
+  if (timelineStart !== undefined && (!Number.isFinite(timelineStart) || timelineStart < 0)) {
+    throw new TypeError('timelineStart must be a non-negative number.');
+  }
+  if (trackId === targetTrackId) {
+    findClipEntry(timeline, trackId, clipId);
+    return timelineStart === undefined ? validateTimeline(structuredClone(timeline)) : moveTimelineClip(timeline, trackId, clipId, timelineStart);
+  }
+
+  const next = structuredClone(timeline);
+  const { track: sourceTrack, clip, index } = findClipEntry(next, trackId, clipId);
+  const targetTrack = next.tracks.find((candidate) => candidate.id === targetTrackId);
+  if (!targetTrack) throw new TypeError(`Unknown timeline track: ${targetTrackId}`);
+  if (sourceTrack.kind !== targetTrack.kind) {
+    throw new TypeError(`Cannot move a ${sourceTrack.kind} clip to a track of kind ${targetTrack.kind}.`);
+  }
+  if (targetTrack.clips.some((candidate) => candidate.id === clipId)) {
+    throw new TypeError(`Timeline clip already exists on track ${targetTrackId}: ${clipId}`);
+  }
+
+  sourceTrack.clips.splice(index, 1);
+  if (timelineStart !== undefined) clip.timelineStart = timelineStart;
+  targetTrack.clips.push(clip);
+  next.project.durationSeconds = Math.max(next.project.durationSeconds, clip.timelineStart + clip.durationSeconds);
+  return validateTimeline(next);
+}
+
 export function trimTimelineClip(timeline, trackId, clipId, sourceIn, sourceOut) {
   if (!Number.isFinite(sourceIn) || !Number.isFinite(sourceOut)) throw new TypeError('Trim source bounds must be finite numbers.');
   const next = structuredClone(timeline);
@@ -303,12 +330,13 @@ export function editTimeline(timeline, operation) {
   if (type === 'ripple-delete') return rippleDeleteTimelineClip(timeline, trackId, clipId);
   if (type === 'insert-gap') return insertTimelineGap(timeline, operation.timelineStart, operation.durationSeconds);
   if (type === 'move') return moveTimelineClip(timeline, trackId, clipId, operation.timelineStart);
+  if (type === 'move-track') return moveTimelineClipToTrack(timeline, trackId, clipId, operation.targetTrackId, operation.timelineStart);
   if (type === 'trim') return trimTimelineClip(timeline, trackId, clipId, operation.sourceIn, operation.sourceOut);
   if (type === 'slip') return slipTimelineClip(timeline, trackId, clipId, operation.sourceDelta);
   if (type === 'split') return splitTimelineClip(timeline, trackId, clipId, operation.splitAt, operation.rightClipId);
   if (type === 'crossfade') return crossfadeTimelineClips(timeline, trackId, clipId, operation.incomingClipId, operation.durationSeconds);
   if (type === 'transition') return setTimelineTransition(timeline, trackId, clipId, operation.edge, operation.transition);
-  throw new TypeError('Timeline edit type must be add-track, remove-track, add-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, trim, slip, split, crossfade, or transition.');
+  throw new TypeError('Timeline edit type must be add-track, remove-track, add-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, trim, slip, split, crossfade, or transition.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */
