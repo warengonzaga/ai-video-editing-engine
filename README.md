@@ -1225,10 +1225,11 @@ including trailing gaps. Imported dissolves become overlapping clips with
 video opacity fades or audio crossfades. Constant-rate retiming uses OTIO's
 `LinearTimeWarp`; imported clip duration is calculated from the source span and
 playback rate. Variable speed ramps and retimed crossfades remain unsupported.
-Import also rejects custom transition types, other overlaps, trimmed
-tracks/stacks, effects, disabled clips, nested compositions inside tracks, and
-remote media references. Export converts explicitly faded two-clip overlaps
-into standard `SMPTE_Dissolve` transitions. Unmarked overlaps, chained
+Import applies a trimmed track's source range to its clips and gaps; it rejects
+trims that intersect transitions and trimmed stacks. It also rejects custom
+transition types, other overlaps, effects, disabled clips, nested compositions
+inside tracks, and remote media references. Export converts explicitly faded
+two-clip overlaps into standard `SMPTE_Dissolve` transitions. Unmarked overlaps, chained
 overlaps, standalone fades, clip-edge transitions, track-level volume
 automation, and track-level audio effects are rejected instead of silently
 changing their meaning.

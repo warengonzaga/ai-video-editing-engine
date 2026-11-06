@@ -206,11 +206,19 @@ def import_timeline(request):
     def import_track(track, group_path, parent_enabled):
         if track.kind not in (otio.schema.TrackKind.Audio, otio.schema.TrackKind.Video):
             raise ValueError(f"Track {track.name!r} has unsupported kind {track.kind!r}.")
-        if track.source_range is not None:
-            raise ValueError(f"Track {track.name!r} uses a trimmed source range, which the OTIO interchange profile does not support.")
         if track.effects:
             effects = ", ".join(effect.effect_name or type(effect).__name__ for effect in track.effects)
             raise ValueError(f"Track {track.name!r} has effects ({effects}) that the OTIO interchange profile does not support.")
+        track_range = track.source_range
+        range_start = 0.0 if track_range is None else track_range.start_time.to_seconds()
+        range_end = math.inf if track_range is None else track_range.end_time_exclusive().to_seconds()
+        if (
+            not math.isfinite(range_start)
+            or not math.isfinite(range_end)
+            or range_start < 0
+            or range_end <= range_start
+        ):
+            raise ValueError(f"Track {track.name!r} has an invalid or negative trimmed source range.")
         kind = "audio" if track.kind == otio.schema.TrackKind.Audio else "video"
         name = " / ".join([*group_path, track.name])
         imported = {
@@ -223,8 +231,10 @@ def import_timeline(request):
         }
         cursor = 0.0
         expanded_items = otio.algorithms.track_with_expanded_transitions(track)
+        if track_range is not None and any(isinstance(item, tuple) for item in expanded_items):
+            raise ValueError(f"Track {track.name!r} trims content containing transitions; transition-boundary trims are not supported.")
 
-        def clip_record(item, timeline_start, crossfade=None):
+        def clip_record(item, timeline_start, crossfade=None, source_window=None):
             if not isinstance(item, otio.schema.Clip):
                 raise ValueError("Only transitions between two clips are supported by the OTIO interchange profile.")
             unsupported_effects = [effect for effect in item.effects if not isinstance(effect, otio.schema.LinearTimeWarp)]
@@ -252,15 +262,17 @@ def import_timeline(request):
             source_range = item.source_range or media_reference.available_range
             if source_range is None:
                 raise ValueError(f"Clip {item.name!r} has no source range or available media range.")
-            source_duration = source_range.duration.to_seconds()
+            source_offset, timeline_duration = (0.0, None) if source_window is None else source_window
+            source_start = source_range.start_time.to_seconds() + source_offset * playback_rate
+            source_duration = source_range.duration.to_seconds() if timeline_duration is None else timeline_duration * playback_rate
             duration = source_duration / playback_rate
             metadata = item.metadata.get(ENGINE_KEY, {})
             return {
                 "name": item.name,
                 "path": str(local_reference(media_reference.target_url, otio_path)),
                 "timelineStart": timeline_start,
-                "sourceIn": source_range.start_time.to_seconds(),
-                "sourceOut": source_range.start_time.to_seconds() + source_duration,
+                "sourceIn": source_start,
+                "sourceOut": source_start + source_duration,
                 "durationSeconds": duration,
                 **({"playbackRate": playback_rate} if abs(playback_rate - 1) > 1e-9 else {}),
                 "engineClipId": metadata.get("clipId") if crossfade is None else None,
@@ -298,10 +310,25 @@ def import_timeline(request):
                 raise ValueError(
                     f"OTIO item {item.name!r} is not a clip or gap; unsupported transitions and nested compositions inside tracks cannot be imported."
                 )
-            record = clip_record(item, cursor)
-            imported["clips"].append(record)
-            cursor += record["durationSeconds"]
-        payload["durationSeconds"] = max(payload["durationSeconds"], cursor)
+            full_record = clip_record(item, cursor)
+            item_duration = full_record["durationSeconds"]
+            selected_start = max(cursor, range_start)
+            selected_end = min(cursor + item_duration, range_end)
+            if selected_end > selected_start:
+                if track_range is None:
+                    imported["clips"].append(full_record)
+                else:
+                    relative_start = selected_start - cursor
+                    relative_end = selected_end - cursor
+                    record = clip_record(
+                        item,
+                        selected_start - range_start,
+                        source_window=(relative_start, relative_end - relative_start),
+                    )
+                    imported["clips"].append(record)
+            cursor += item_duration
+        visible_duration = cursor if track_range is None else track_range.duration.to_seconds()
+        payload["durationSeconds"] = max(payload["durationSeconds"], visible_duration)
         payload["tracks"].append(imported)
 
     def import_stack(stack, group_path=(), include_self=True, parent_enabled=True):
