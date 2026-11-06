@@ -1304,9 +1304,9 @@ smoke render alone.
 - Extended media compatibility entries with both zero-based stream ordinals
   and FFmpeg-global indexes, so AI consumers can use the reported ordinal
   directly in timeline stream selection. No media probe or tests were run.
-- Ran `node src/cli.mjs media support "C:/Users/Waren/Downloads/Voice 015.mp3"`.
-  It reports the MP3 container and decoder as available, audio ordinal 0 and
-  FFmpeg stream index 0, and `compatible: true`; this is metadata preflight only.
+- Ran `media support` against the supplied narration recording. The report
+  showed the MP3 container and decoder as available, audio ordinal 0 and FFmpeg
+  stream index 0, and `compatible: true`; this was metadata preflight only.
 - Unified video-stream metadata normalization for timeline creation and the
   read-only asset catalog. Legacy manifests with only FFmpeg-global indexes now
   expose both the selectable video ordinal and global index without a write.
