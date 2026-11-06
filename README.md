@@ -105,6 +105,9 @@ sprite states for all of them before rendering. The default extended-shape
 setting is `GHX`.
 See the [Rhubarb usage guide](https://github.com/DanielSWolf/rhubarb-lip-sync)
 and [license](https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/LICENSE.md).
+The Engine exposes its machine-readable articulation guide through capability
+discovery. See [mouth-pack authoring](docs/avatar-mouth-packs.md) for the
+shape meanings, visual consistency requirements, and preflight workflow.
 
 ```sh
 node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json

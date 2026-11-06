@@ -274,9 +274,12 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   states, reused state mappings, or byte-identical sprite image files fail with
   an actionable error. The public validator also confirms that each state is a
   readable PNG with the same canvas dimensions. A read-only CLI command exposes
-  the same check to asset-generation skills before project creation. Perceptual
-  similarity, within-canvas alignment, and phoneme-to-art accuracy still
-  require visual review. This requirement
+  the same check to asset-generation skills before project creation. Capability
+  discovery exposes A-H/X articulation guidance, and
+  `docs/avatar-mouth-packs.md` records drawing, alignment, and consistency
+  requirements for asset-generation workflows. Perceptual similarity,
+  within-canvas alignment, and phoneme-to-art accuracy still require visual
+  review. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
   arbitrary external cue tracks. `avatar-compose` validates the required mouth
   PNGs and shared canvas dimensions before invoking Rhubarb.

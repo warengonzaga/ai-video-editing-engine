@@ -14,6 +14,17 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
   requiredAvatarShapes: Object.freeze(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']),
   restShape: 'x',
   defaultExtendedShapes: 'GHX',
+  mouthShapeGuidance: Object.freeze({
+    a: Object.freeze({ articulation: 'closed with gentle lip pressure', sounds: ['P', 'B', 'M'], role: 'bilabial closure' }),
+    b: Object.freeze({ articulation: 'slightly open with teeth close together', sounds: ['K', 'S', 'T', 'EE'], role: 'consonants and narrow vowels' }),
+    c: Object.freeze({ articulation: 'open, medium width', sounds: ['EH', 'AE'], role: 'medium-open vowel and in-between toward D' }),
+    d: Object.freeze({ articulation: 'widest open jaw', sounds: ['AA'], role: 'wide-open vowel' }),
+    e: Object.freeze({ articulation: 'slightly rounded; no wider than C', sounds: ['AO', 'ER'], role: 'rounded vowel and in-between toward F' }),
+    f: Object.freeze({ articulation: 'strongly puckered lips', sounds: ['UW', 'OW', 'W'], role: 'rounded or puckered vowel' }),
+    g: Object.freeze({ articulation: 'upper teeth touch lower lip', sounds: ['F', 'V'], role: 'labiodental consonant; optional extended shape' }),
+    h: Object.freeze({ articulation: 'raised tongue behind upper teeth; medium-open jaw', sounds: ['L'], role: 'long L; optional extended shape' }),
+    x: Object.freeze({ articulation: 'closed, relaxed lips', sounds: [], role: 'idle and pause rest position' }),
+  }),
 });
 const DEFAULT_SPRITE_STATES = Object.freeze({
   a: 'a',

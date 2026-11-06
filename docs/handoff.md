@@ -1312,6 +1312,13 @@ smoke render alone.
   installed CLI could not read its local configuration lock and reported
   authentication failure before the scan started; no local alternative
   scanner is installed. No source scan result is available.
+- Added machine-readable articulation guidance for Rhubarb's A-H/X mouth
+  shapes to `getEngineCapabilities()` and documented mouth-pack drawing,
+  alignment, style consistency, preflight, and recognition guidance in
+  `docs/avatar-mouth-packs.md`. Included the guide in package contents and
+  linked it from the README. These changes help any consumer skill generate
+  assets against the Engine's contract without adding Studio coupling. Static
+  syntax and diff checks only; no tests, render, or audiovisual review were run.
 - Fixed the synthetic render smoke harness to save each edited timeline into its
   isolated temporary project before rendering. This respects the renderer's
   protection against rendering a timeline that differs from the project's saved
