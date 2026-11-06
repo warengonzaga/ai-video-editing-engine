@@ -1244,3 +1244,8 @@ smoke render alone.
   computed summary end times to six decimal places; the source timeline remains
   unchanged. CLI inspection confirms it now reports `0.9`. No test suite or
   render was run.
+- Synchronous media registration previously probed the source, then copied it,
+  so a source replacement during that interval could produce manifest metadata
+  that did not describe the committed bytes. It now probes and fingerprints a
+  staged copy before linking the asset into the project. Syntax and whitespace
+  checks only; no test suite or media probe was run.

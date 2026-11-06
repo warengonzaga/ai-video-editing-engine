@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
+import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
 import { link, rename, unlink } from 'node:fs/promises';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -32,19 +32,22 @@ export function registerMediaAsset(projectPath, sourcePath, options = {}) {
   const relativePath = `assets/${id}${extension}`;
   const destination = join(root, relativePath);
   if (existsSync(destination)) throw new Error(`Asset destination already exists: ${relativePath}`);
+  const stagedPath = join(root, 'assets', `.${id}.${randomUUID()}.register.tmp`);
   const manifestPath = join(root, 'assets', 'manifest.json');
   const originalManifest = existsSync(manifestPath) ? readFileSync(manifestPath) : undefined;
   let copied = false;
   let timelineUpdate;
   try {
-    copyFileSync(source, destination, fsConstants.COPYFILE_EXCL);
+    copyFileSync(source, stagedPath, fsConstants.COPYFILE_EXCL);
+    const probe = image ? probeImage(stagedPath) : probeMedia(stagedPath, { requireVideo: false });
+    linkSync(stagedPath, destination);
     copied = true;
     const asset = {
       id,
       path: relativePath,
       type: image ? 'image' : probe.width === null ? 'audio' : 'video',
-      sizeBytes: statSync(source).size,
-      sha256: hashFile(destination),
+      sizeBytes: statSync(stagedPath).size,
+      sha256: hashFile(stagedPath),
       ...(image ? { width: probe.width, height: probe.height, codec: probe.codec } : {
         durationSeconds: probe.durationSeconds,
         width: probe.width,
@@ -70,6 +73,8 @@ export function registerMediaAsset(projectPath, sourcePath, options = {}) {
       else rmSync(destination, { force: true });
     }
     throw error;
+  } finally {
+    rmSync(stagedPath, { force: true });
   }
   return readAssetManifest(root).assets.find((asset) => asset.id === id);
 }

@@ -464,6 +464,9 @@ existing project assets are left untouched. When `timeline.json` exists, the
 new asset's probed metadata is added to its asset catalog without adding a clip;
 the editing agent can then place it on a track. JavaScript consumers can use
 `await registerMediaAssetAsync(projectPath, sourcePath, { id, signal })`.
+Both synchronous and asynchronous registration now probe and fingerprint the
+staged copy, so the recorded metadata describes the bytes committed to the
+project.
 
 `asset verify` checks registered source and proxy SHA-256 identities against
 the manifest and reports missing or modified files. `asset relink` replaces
