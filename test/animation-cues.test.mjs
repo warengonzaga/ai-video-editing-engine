@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import { animationStateAt, validateAnimationCues } from '../src/animation/cues.mjs';
 import { mapRhubarbCuesToSpriteStates, normalizeRhubarbOutput, rhubarbLipSyncCues } from '../src/animation/rhubarb.mjs';
+
+const existingDialogFile = fileURLToPath(new URL('./animation-cues.test.mjs', import.meta.url));
 
 test('selects timed states with explicit gaps and exclusive ends', () => {
   const track = { schemaVersion: 1, durationSeconds: 2, cues: [
@@ -57,4 +60,10 @@ test('maps Rhubarb mouth shapes to a consumer sprite pack and allows overrides',
   assert.throws(() => mapRhubarbCuesToSpriteStates(track, { x: 'rest' }), /No sprite state is mapped/);
   assert.throws(() => mapRhubarbCuesToSpriteStates(track, { x: '' }), /non-empty state names/);
   assert.throws(() => rhubarbLipSyncCues('unused.mp3', { spriteStateMap: { a: '' } }), /non-empty state names/);
+});
+
+test('rejects empty or conflicting inline dialog options', () => {
+  assert.throws(() => rhubarbLipSyncCues('unused.mp3', { dialogText: '' }), /dialogText must be a non-empty string/);
+  assert.throws(() => rhubarbLipSyncCues('unused.mp3', { dialogText: 'spoken words', dialogFile: existingDialogFile }), /Specify either dialogText or dialogFile/);
+  assert.throws(() => rhubarbLipSyncCues('unused.mp3', { dialogText: 'spoken words', ffmpeg: '' }), /Rhubarb and FFmpeg executable names must be non-empty strings/);
 });

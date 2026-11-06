@@ -15,6 +15,8 @@ test('reports versioned runtime, tools, encoder and filter capabilities', () => 
   assert.equal(typeof capabilities.render.videoEncoders.vp9, 'boolean');
   assert.equal(typeof capabilities.render.filters.colorspace, 'boolean');
   assert.equal(capabilities.requiredToolsReady, true);
+  assert.deepEqual(Object.keys(capabilities.avatar.phoneticLipSync.mouthShapeGuidance), ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'x']);
+  assert.deepEqual(capabilities.avatar.phoneticLipSync.mouthShapeGuidance.c.sounds, ['EH', 'AE']);
 });
 
 test('reports absent external tools without throwing', () => {
