@@ -172,6 +172,7 @@ def make_otio_clip(source_clip, project_root, assets, source_in, source_out, nam
         source_range=time_range(source_in, source_out - source_in),
     )
     clip.metadata[ENGINE_KEY] = {"clipId": source_clip["id"], "assetId": asset["id"]}
+    clip.enabled = source_clip.get("enabled", True)
     playback_rate = source_clip.get("playbackRate", 1)
     if abs(playback_rate - 1) > 1e-9:
         clip.effects.append(otio.schema.LinearTimeWarp(name="Engine Playback Rate", time_scalar=playback_rate))
@@ -259,8 +260,6 @@ def import_timeline(request):
                 raise ValueError(f"Clip {item.name!r} uses a LinearTimeWarp rate outside the Engine's supported range (0.1 to 5).")
             if crossfade and abs(playback_rate - 1) > 1e-9:
                 raise ValueError(f"Transition clip {item.name!r} uses retiming, which the OTIO interchange profile does not support.")
-            if not item.enabled:
-                raise ValueError(f"Clip {item.name!r} is disabled; disabled clips are not supported by the OTIO interchange profile.")
             media_reference = item.media_reference
             if not isinstance(media_reference, otio.schema.ExternalReference):
                 raise ValueError(f"Clip {item.name!r} does not use an external media reference.")
@@ -279,6 +278,7 @@ def import_timeline(request):
                 "sourceIn": source_start,
                 "sourceOut": source_start + source_duration,
                 "durationSeconds": duration,
+                "enabled": bool(item.enabled),
                 **({"playbackRate": playback_rate} if abs(playback_rate - 1) > 1e-9 else {}),
                 "engineClipId": metadata.get("clipId") if crossfade is None else None,
                 "engineAssetId": metadata.get("assetId"),

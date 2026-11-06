@@ -577,6 +577,18 @@ export function setTimelineTrackState(timeline, trackId, state) {
   return validateTimeline(next);
 }
 
+export function setTimelineClipState(timeline, trackId, clipId, state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('Clip state must be an object.');
+  const fields = Object.keys(state);
+  if (fields.length !== 1 || fields[0] !== 'enabled') throw new TypeError('Clip state must set enabled.');
+  if (state.enabled !== null && typeof state.enabled !== 'boolean') throw new TypeError('Clip enabled must be a boolean or null.');
+  const next = structuredClone(timeline);
+  const { clip } = findClipEntry(next, trackId, clipId);
+  if (state.enabled === null) delete clip.enabled;
+  else clip.enabled = state.enabled;
+  return validateTimeline(next);
+}
+
 export function setTimelineTrackAudioEffects(timeline, trackId, effects) {
   if (effects !== null && !Array.isArray(effects)) throw new TypeError('Track audioEffects must be an array or null.');
   const next = structuredClone(timeline);
@@ -677,6 +689,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'set-volume-keyframes') return setTimelineClipVolumeKeyframes(timeline, trackId, clipId, operation.volumeKeyframes);
   if (type === 'set-audio-state') return setTimelineClipAudioState(timeline, trackId, clipId, operation.state);
   if (type === 'set-video-state') return setTimelineClipVideoState(timeline, trackId, clipId, operation.state);
+  if (type === 'set-clip-state') return setTimelineClipState(timeline, trackId, clipId, operation.state);
   if (type === 'set-keyframes') return setTimelineClipKeyframes(timeline, trackId, clipId, operation.keyframes);
   if (type === 'set-framing') return setTimelineClipFraming(timeline, trackId, clipId, operation.framing);
   if (type === 'set-track-state') return setTimelineTrackState(timeline, trackId, operation.state);
@@ -685,7 +698,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'set-audio-mastering') return setTimelineAudioMastering(timeline, operation.audioMastering);
   if (type === 'set-project-state') return setTimelineProjectState(timeline, operation.state);
   if (type === 'set-overlay') return setTimelineOverlay(timeline, trackId, clipId, operation.properties);
-  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
+  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-clip-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */

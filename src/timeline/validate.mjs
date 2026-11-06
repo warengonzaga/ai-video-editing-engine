@@ -58,6 +58,7 @@ export function validateTimeline(timeline) {
     for (const clip of clips) {
       if (!clip || !/^[a-z][a-z0-9-]*$/.test(clip.id ?? '') || clipIds.has(clip.id)) throw new TypeError(`Track ${track.id} clip ids must be unique kebab-case ids.`);
       clipIds.add(clip.id);
+      if (clip.enabled !== undefined && typeof clip.enabled !== 'boolean') throw new TypeError(`Clip ${clip.id} enabled must be a boolean.`);
       if (!Number.isFinite(clip.timelineStart) || clip.timelineStart < 0 || !Number.isFinite(clip.durationSeconds) || clip.durationSeconds <= 0 || clip.timelineStart + clip.durationSeconds > project.durationSeconds + 1e-6) throw new TypeError(`Clip ${clip.id} has invalid timeline bounds.`);
       if (track.kind === 'overlay') {
         const hasComposition = typeof clip.composition === 'string' && clip.composition.trim();

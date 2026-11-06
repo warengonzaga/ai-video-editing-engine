@@ -93,6 +93,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
         sourceOut: sourceClip.sourceOut,
         timelineStart: sourceClip.timelineStart,
         durationSeconds: sourceClip.durationSeconds,
+        enabled: sourceClip.enabled,
         ...(sourceClip.playbackRate !== undefined ? { playbackRate: sourceClip.playbackRate } : {}),
         ...(sourceClip.crossfade?.role === 'incoming' ? { fadeInSeconds: sourceClip.crossfade.durationSeconds } : {}),
         ...(sourceClip.crossfade?.role === 'outgoing' && sourceTrack.kind === 'audio' ? { fadeOutSeconds: sourceClip.crossfade.durationSeconds } : {}),

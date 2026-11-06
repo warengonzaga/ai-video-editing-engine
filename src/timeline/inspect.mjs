@@ -72,6 +72,7 @@ function inspectClip(track, clip, asset) {
   const result = {
     id: clip.id,
     assetId: clip.assetId ?? null,
+    ...(clip.enabled === undefined ? {} : { enabled: clip.enabled }),
     mediaType: track.kind === 'overlay' ? (clip.text === undefined ? 'composition' : 'text') : asset?.type ?? track.kind,
     timeline: {
       startSeconds: clip.timelineStart,

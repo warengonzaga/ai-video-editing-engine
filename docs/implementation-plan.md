@@ -430,7 +430,7 @@ in this order:
   `LinearTimeWarp` using source-span divided by playback rate for Engine
   duration. Variable speed ramps, retimed crossfades, custom transitions,
   other overlaps, trims that cut through transitions, nested or combined stack
-  trims, effects, disabled clips, and nested compositions inside tracks remain
+  trims, effects, and nested compositions inside tracks remain
   unsupported.
   Trimmed track source ranges are applied to clips and gaps during import.
   Trimmed stacks apply their source range to direct tracks.
@@ -483,6 +483,9 @@ Track ordering can be changed through the same validated edit-plan interface;
 the complete track objects and their clips stay intact.
 Clips can be duplicated into an explicit position with all edit metadata
 preserved, subject to target track overlap and project-bound validation.
+Individual clips can be disabled and re-enabled through a reviewable state edit;
+rendering omits disabled clips while preserving them in the timeline, and OTIO
+import/export retains the enabled state.
 Injected media-analysis findings can propose explicit source-range removals;
 the Engine emits a confidence-filtered review-required EDL, and render and
 retime paths require an explicitly approved EDL before applying those cuts.

@@ -575,11 +575,11 @@ The optional OpenTimelineIO bridge uses the maintained Python library,
 references project media externally, and stores Engine timeline data in
 namespaced OTIO metadata for Engine round trips. Its current interchange
 profile supports video/audio cuts, gaps, constant-rate `LinearTimeWarp`
-retiming, and standard two-clip dissolves; variable speed ramps, retimed
-crossfades, trims that cut through transitions, nested or combined stack trims,
-nested compositions, and remote references are rejected. Trimmed track ranges
-are applied to clips and gaps; trimmed stacks apply their range to direct
-tracks. Install it with
+retiming, standard two-clip dissolves, and clip enabled state; variable speed
+ramps, retimed crossfades, trims that cut through transitions, nested or
+combined stack trims, nested compositions, and remote references are rejected.
+Trimmed track ranges are applied to clips and gaps; trimmed stacks apply their
+range to direct tracks. Install it with
 `python -m pip install -r requirements-otio.txt`.
 
 OpenTimelineIO 0.18.1 was installed in a temporary validation target on the
@@ -932,9 +932,9 @@ smoke render alone.
   review found the earlier y-coordinate out of range.
 - Expanded the OpenTimelineIO profile to flatten nested track stacks, preserve
   audio mute/video visibility through OTIO track enabled state, and retain
-  trailing gaps when exporting/importing project duration. Import now rejects
-  trimmed tracks/stacks, effects, and disabled clips explicitly instead of
-  silently discarding them. Nested compositions inside tracks remain
+  trailing gaps when exporting/importing project duration. At that checkpoint,
+  import rejected trimmed tracks/stacks, effects, and disabled clips explicitly
+  instead of silently discarding them. Nested compositions inside tracks remain
   unsupported. No tests or bridge invocation were run per user direction.
 - Updated OTIO import to expand standard `SMPTE_Dissolve` transitions into
   overlapping Engine clips and map them to video opacity fades or audio

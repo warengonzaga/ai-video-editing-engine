@@ -51,16 +51,19 @@ interchange. The pinned optional dependency is in `requirements-otio.txt`.
 
 The interchange profile maps external media references, video/audio tracks,
 nested track stacks (flattened into ordered Engine tracks), clips, gaps, track
-enabled state, and project duration including trailing gaps. Import expands
-standard `SMPTE_Dissolve` transitions into overlapping Engine clips with
-video opacity fades or audio crossfades. It rejects custom transition types,
-other overlaps, speed changes, trimmed tracks/stacks, effects, disabled clips,
-nested compositions inside tracks, non-file remote references, and missing
-media instead of silently changing their meaning. Export converts explicitly
-faded two-clip overlaps to standard `SMPTE_Dissolve` transitions. Unmarked or
-chained overlaps, standalone fades, clip-edge transitions, and retiming are
-rejected instead of silently changing their meaning. Track-level audio effects
-and volume automation are also refused on export because the profile does not
+enabled state, clip enabled state, and project duration including trailing
+gaps. Import expands standard `SMPTE_Dissolve` transitions into overlapping
+Engine clips with video opacity fades or audio crossfades. It supports
+constant-rate `LinearTimeWarp` retiming and trimmed track/stack ranges when
+their boundaries preserve complete transitions. It rejects variable speed
+ramps, retimed crossfades, nested or combined stack trims, custom transition
+types, other overlaps, effects, nested compositions inside tracks, non-file
+remote references, and missing media instead of silently changing their
+meaning. Export converts explicitly faded two-clip overlaps to standard
+`SMPTE_Dissolve` transitions. Unmarked or
+chained overlaps, standalone fades, clip-edge transitions, and variable speed
+ramps are rejected instead of silently changing their meaning. Track-level
+audio effects and volume automation are also refused on export because the profile does not
 map them to standard OTIO effects. The full Engine timeline is carried in
 namespaced OTIO metadata so Engine-specific overlays and settings can survive
 an Engine-to-OTIO-to-Engine round trip. Other editors may discard unknown

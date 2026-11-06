@@ -656,6 +656,17 @@ Partial state updates preserve other settings, and `null` clears an override:
 { "type": "set-track-state", "trackId": "music", "state": { "muted": true, "volume": 0.35 } }
 ```
 
+Disable an individual clip without removing it from the timeline with
+`set-clip-state`. Re-enable it with `enabled: true`, or clear the override with
+`null`:
+
+```json
+{ "type": "set-clip-state", "trackId": "video-main", "clipId": "unused-take", "state": { "enabled": false } }
+```
+
+The JavaScript API exposes the same operation through
+`setTimelineClipState(timeline, trackId, clipId, state)`.
+
 To process every clip on a music track with the same chain, set its effects at
 track level:
 
@@ -1228,9 +1239,10 @@ playback rate. Variable speed ramps and retimed crossfades remain unsupported.
 Import applies a trimmed track's source range to its clips and gaps; it rejects
 trims that partially cut transitions. Trimmed stacks are applied to direct tracks;
 nested or combined stack/track trims remain unsupported. Import also rejects
-custom transition types, other overlaps, effects, disabled clips, nested
-compositions inside tracks, and remote media references. Export converts explicitly faded
-two-clip overlaps into standard `SMPTE_Dissolve` transitions. Unmarked or
+custom transition types, other overlaps, effects, nested compositions inside
+tracks, and remote media references. Clip enabled state is retained on import
+and export. Export converts explicitly faded two-clip overlaps into standard
+`SMPTE_Dissolve` transitions. Unmarked or
 chained overlaps, standalone fades, clip-edge transitions, track-level volume
 automation, and track-level audio effects are rejected instead of silently
 changing their meaning.
