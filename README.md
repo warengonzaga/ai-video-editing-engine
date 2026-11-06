@@ -182,6 +182,9 @@ them required even when a consumer chooses a reduced cue set. A custom
 the same sprite state.
 This lets a consumer create and render a speech-driven avatar from one
 `avatar-compose` specification instead of writing an intermediate cue file.
+Composition files, narration, and new sprites are staged before publishing;
+`index.html` is replaced last so a failed composition does not leave a partial
+scene mounted in the project.
 For example, the spec can supply a body track and mouth sprites while asking
 the Engine to generate the mouth track:
 

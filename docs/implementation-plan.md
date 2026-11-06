@@ -246,7 +246,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   share PNG canvas dimensions so blink, mouth, and pose changes do not resize
   the layer or shift parent-anchored features. Before copying, avatar composition
   preflights all generated sprite destinations and refuses same-named files with
-  different content.
+  different content. It stages the scene, narration, and new sprites before
+  publishing them, replaces `index.html` last, and rolls back newly published
+  files if an earlier publish step fails.
 - [x] Enforce a complete phonetic mouth pack when `avatar-compose` generates
   Rhubarb lip-sync: each speaking mouth layer must provide distinct A-H viseme
   states and an X rest state. Default cue generation enables GHX. Consumers can

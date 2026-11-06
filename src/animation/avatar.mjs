@@ -1,5 +1,6 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { validateAnimationCues } from './cues.mjs';
 import { pngDimensions } from './png-image.mjs';
 import { mapRhubarbCuesToSpriteStates, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './rhubarb.mjs';
@@ -118,26 +119,68 @@ export function createAvatarComposition(projectPath, specification) {
     const layout = layouts.get(layer.name);
     return { name: layer.name, role: layer.role, image: states.default, states, ...layout, cues };
   });
-  mkdirSync(assetDir, { recursive: true });
-  for (const { source, target } of spriteCopies) copyFileSync(source, target);
   const id = 'avatar-scene';
   const timeline = safeLayers.map((layer) => ({ name: layer.name, states: layer.states, cues: layer.cues })).map(({name,states,cues}) => ({name,states,cues:cues.cues}));
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><script src="assets/gsap.min.js"></script><style>*{box-sizing:border-box}html,body,#${id}{margin:0;width:${meta.width}px;height:${meta.height}px;overflow:hidden}#${id}{position:relative;background:transparent}.sprite{position:absolute;left:calc(var(--x)*100%);top:calc(var(--y)*100%);width:calc(var(--w)*100%);height:auto;transform:translate(-50%,-50%)}</style></head><body><div id="${id}" data-composition-id="${id}" data-start="0" data-duration="${durationSeconds}" data-width="${meta.width}" data-height="${meta.height}">${safeLayers.map((layer, index) => `<img id="avatar-${layer.name}" class="clip sprite" data-track-index="${index}" data-start="0" data-duration="${durationSeconds}" src="${layer.image}" style="--x:${layer.x};--y:${layer.y};--w:${layer.width}">`).join('')}</div><script>const tracks=${JSON.stringify(timeline)};const tl=gsap.timeline({paused:true});for(let i=0;i<tracks.length;i++){const t=tracks[i],el=document.querySelector('.sprite[data-track-index="'+i+'"]');for(const c of t.cues){const src=t.states[c.state];if(!src)throw new Error('Missing sprite for '+t.name+': '+c.state);tl.set(el,{attr:{src}},c.start);tl.set(el,{attr:{src:t.states.default}},c.end)}}window.__timelines=window.__timelines||{};window.__timelines['${id}']=tl;</script></body></html>`;
-  writeFileSync(output, html, { flag: 'wx' });
   const mount = `\n    <div id="avatar-scene-instance" data-composition-id="avatar-scene-instance" data-composition-src="compositions/avatar-scene.html" data-start="0" data-duration="${durationSeconds}" data-track-index="10"></div>`;
   const withoutStarterTitle = index
     .replace(/\s*<div id="title" class="clip" data-start="0" data-duration="[^"]+" data-track-index="0">[^<]*<\/div>/, '')
     .replace(/^\s*timeline\.from\('#title',\s*\{[^}]+\}\);\s*$/m, '');
   const updated = withoutStarterTitle.replace(/\n\s*<\/div>\s*\n\s*<script>/, (match) => `${mount}${match}`);
   if (updated === index) throw new Error('Could not find the generated project root composition.');
-  writeFileSync(indexPath, updated);
-  if (narrationPath) {
-    const audio = resolve(narrationPath);
-    if (!existsSync(audio)) throw new TypeError('Narration file does not exist.');
-    const audioName = `narration${extname(audio).toLowerCase()}`;
-    copyFileSync(audio, join(project, 'assets', audioName));
-    const withAudio = readFileSync(indexPath, 'utf8').replace('</body>', `<audio id="narration" src="assets/${audioName}" data-start="0" data-duration="${durationSeconds}" data-volume="1" hidden></audio></body>`);
-    writeFileSync(indexPath, withAudio);
+  const committedFiles = [];
+  let temporaryDirectory;
+  let temporaryIndex;
+  try {
+    temporaryDirectory = mkdtempSync(join(project, '.avatar-scene-'));
+    const stagedSprites = spriteCopies.map(({ source, target }, index) => {
+      const staged = join(temporaryDirectory, `sprite-${index}.png`);
+      copyFileSync(source, staged);
+      return { staged, target };
+    });
+    const stagedComposition = join(temporaryDirectory, 'avatar-scene.html');
+    writeFileSync(stagedComposition, html, { flag: 'wx' });
+    let stagedNarration;
+    let narrationName;
+    if (narrationPath) {
+      const audio = resolve(narrationPath);
+      narrationName = `narration${extname(audio).toLowerCase()}`;
+      stagedNarration = join(temporaryDirectory, narrationName);
+      copyFileSync(audio, stagedNarration);
+    }
+    const finalIndex = narrationName
+      ? updated.replace('</body>', `<audio id="narration" src="assets/${narrationName}" data-start="0" data-duration="${durationSeconds}" data-volume="1" hidden></audio></body>`)
+      : updated;
+    temporaryIndex = join(project, `.index.html.${randomUUID()}.tmp`);
+    writeFileSync(temporaryIndex, finalIndex, { flag: 'wx' });
+
+    mkdirSync(assetDir, { recursive: true });
+    for (const { staged, target } of stagedSprites) {
+      linkSync(staged, target);
+      committedFiles.push(target);
+      unlinkSync(staged);
+    }
+    if (stagedNarration) {
+      const narrationTarget = join(project, 'assets', narrationName);
+      linkSync(stagedNarration, narrationTarget);
+      committedFiles.push(narrationTarget);
+      unlinkSync(stagedNarration);
+    }
+    linkSync(stagedComposition, output);
+    committedFiles.push(output);
+    unlinkSync(stagedComposition);
+    renameSync(temporaryIndex, indexPath);
+    temporaryIndex = undefined;
+  } catch (error) {
+    const rollbackErrors = [];
+    for (const path of committedFiles.reverse()) {
+      try { rmSync(path, { force: true }); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+    }
+    if (rollbackErrors.length) throw new AggregateError([error, ...rollbackErrors], `Avatar composition failed and rollback was incomplete. Preserve project files and inspect ${project}.`);
+    throw error;
+  } finally {
+    if (temporaryIndex) rmSync(temporaryIndex, { force: true });
+    if (temporaryDirectory) rmSync(temporaryDirectory, { recursive: true, force: true });
   }
   return { compositionPath: output, layers: safeLayers.length };
 }

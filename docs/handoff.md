@@ -1223,3 +1223,9 @@ smoke render alone.
   `duration_ts × time_base` when the stream duration is absent. Files with no
   usable duration remain rejected. No media probes or tests were run for this
   change.
+- Avatar composition now stages new sprite files, narration, scene HTML, and the
+  updated project index before publishing. New files are linked without
+  overwriting concurrent destinations; the project index is replaced last, and
+  newly published outputs are rolled back if an earlier step fails. Syntax and
+  whitespace checks passed; no test suite, media render, or audiovisual review
+  was run.
