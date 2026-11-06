@@ -576,7 +576,7 @@ function readCenterPixel(path, frameNumber) {
 function readPixelAt(path, frameNumber, x, y) {
   const result = spawnSync('ffmpeg', [
     '-nostdin', '-hide_banner', '-v', 'error', '-i', path,
-    '-vf', `select=eq(n\\,${frameNumber}),format=rgb24`, '-vsync', '0',
+    '-vf', `select=eq(n\\,${frameNumber}),format=rgb24`, '-fps_mode', 'passthrough',
     '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1',
   ], { windowsHide: true, maxBuffer: 1024 * 1024 });
   if (result.error || result.status !== 0 || result.stdout.length !== 320 * 180 * 3) {
@@ -589,7 +589,7 @@ function readPixelAt(path, frameNumber, x, y) {
 function countRedPixels(path, frameNumber) {
   const result = spawnSync('ffmpeg', [
     '-nostdin', '-hide_banner', '-v', 'error', '-i', path,
-    '-vf', `select=eq(n\\,${frameNumber}),format=rgb24`, '-vsync', '0',
+    '-vf', `select=eq(n\\,${frameNumber}),format=rgb24`, '-fps_mode', 'passthrough',
     '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1',
   ], { windowsHide: true, maxBuffer: 1024 * 1024 });
   if (result.error || result.status !== 0 || result.stdout.length !== 320 * 180 * 3) {
