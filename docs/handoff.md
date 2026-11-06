@@ -1263,3 +1263,7 @@ smoke render alone.
   package contents, and documented third-party license boundaries. Metadata
   parsing and whitespace checks only; no test suite, render, package publish,
   or registry access was performed.
+- Extended the versioned capabilities report with locally detected output
+  formats, codec and color-profile support, and the predefined canvas presets.
+  This gives generic consumers preflight data without parsing `doctor` output.
+  Syntax and CLI response inspection only; no test suite or render was run.

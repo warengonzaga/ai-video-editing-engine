@@ -43,9 +43,10 @@ Consumers can check the same environment programmatically with
 node src/cli.mjs capabilities
 ```
 
-The report includes required tool availability, common FFmpeg output encoders,
-optional filters used by specific render features, and the generic phonetic
-avatar sprite contract. Consumers can read the required A-H mouth shapes, X
+The report includes required tool availability, output formats with detected
+codec and color-profile support, named canvas presets, optional filters used by
+specific render features, and the generic phonetic avatar sprite contract.
+Consumers can read the required A-H mouth shapes, X
 rest shape, shared-canvas and distinct-image requirements, the default GHX
 extended-shape setting, and whether the Rhubarb adapter is installed instead
 of hard-coding Engine-specific avatar assumptions.

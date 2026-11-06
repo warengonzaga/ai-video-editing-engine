@@ -360,8 +360,11 @@ doctor` checks Node.js, FFmpeg, ffprobe, HyperFrames, and GSAP, then runs
 HyperFrames' environment doctor for browser/render setup and optional local AI
 runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
 `ai-video-engine capabilities` CLI command to discover required tools, common
-FFmpeg encoders, and optional render filters without relying on doctor output
-parsing.
+FFmpeg encoders, output formats and detected codec/color-profile support,
+predefined canvas presets, and optional render filters without relying on
+doctor output parsing. Output availability reflects the local FFmpeg, ffprobe,
+HyperFrames, encoder, and filter inventory; it does not guarantee that every
+input codec or media-specific render operation is supported.
 
 Pinned package versions are an initial baseline from the installed Herk Edit Kit
 setup, not a promise of compatibility with future releases. Recheck versions and

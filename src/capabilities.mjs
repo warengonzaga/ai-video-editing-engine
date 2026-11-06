@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
 import { RHUBARB_SPRITE_CONTRACT } from './animation/rhubarb.mjs';
+import { CANVAS_PRESETS } from './project/presets.mjs';
 
 const require = createRequire(import.meta.url);
 const VIDEO_ENCODERS = Object.freeze({
@@ -40,6 +41,14 @@ export function getEngineCapabilities(options = {}) {
 
   const hyperframes = packageAvailable('hyperframes');
   const gsap = packageAvailable('gsap');
+  const renderRuntimeAvailable = nodeMajor >= 22 && ffmpeg.available && ffprobe.available && hyperframes && gsap;
+  const supportsFilter = (name) => filters.has(name);
+  const supportsEncoder = (name) => encoders.has(name);
+  const colorProfiles = {
+    rec709: { available: supportsFilter('colorspace'), formats: ['mp4', 'mov', 'webm'] },
+    'rec2020-sdr': { available: supportsFilter('colorspace'), formats: ['mp4', 'mov', 'webm'] },
+    hdr10: { available: supportsFilter('zscale') && supportsEncoder('libx265'), formats: ['mp4', 'mov'] },
+  };
   return {
     schemaVersion: 1,
     node: { version: nodeVersion, supported: nodeMajor >= 22 },
@@ -67,6 +76,32 @@ export function getEngineCapabilities(options = {}) {
     },
     render: {
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
+      outputs: {
+        mp4: {
+          available: renderRuntimeAvailable && supportsEncoder('libx264'),
+          codecs: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265') },
+          defaultCodec: 'h264',
+          colorProfiles: { rec709: colorProfiles.rec709.available, 'rec2020-sdr': colorProfiles['rec2020-sdr'].available, hdr10: colorProfiles.hdr10.available },
+        },
+        mov: {
+          available: renderRuntimeAvailable && supportsEncoder('libx264'),
+          codecs: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265'), prores: supportsEncoder('prores_ks') },
+          defaultCodec: 'h264',
+          colorProfiles: { rec709: colorProfiles.rec709.available, 'rec2020-sdr': colorProfiles['rec2020-sdr'].available, hdr10: colorProfiles.hdr10.available },
+        },
+        webm: {
+          available: renderRuntimeAvailable && supportsEncoder('libvpx-vp9'),
+          codecs: { vp9: supportsEncoder('libvpx-vp9') },
+          defaultCodec: 'vp9',
+          colorProfiles: { rec709: colorProfiles.rec709.available, 'rec2020-sdr': colorProfiles['rec2020-sdr'].available },
+        },
+        gif: { available: renderRuntimeAvailable && supportsEncoder('gif') },
+        'png-sequence': { available: hyperframes },
+      },
+      colorProfiles,
+      canvasPresets: CANVAS_PRESETS.map(({ id, aspectRatio, width, height, platforms }) => ({
+        id, aspectRatio, width, height, platforms: [...platforms],
+      })),
       filters: {
         rubberband: filters.has('rubberband'),
         afftdn: filters.has('afftdn'),
