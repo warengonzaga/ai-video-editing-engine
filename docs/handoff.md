@@ -96,6 +96,9 @@ Last updated: 2026-11-06
   change its timeline position, and validate target-track overlaps.
 - `reorderTimelineTrack` and the `reorder-track` operation adjust visual/audio
   track order and preserve every clip while renumbering tracks deterministically.
+- `duplicateTimelineClip` and the `duplicate-clip` operation copy a clip under
+  a new ID and explicit timeline position. They preserve source bounds, effects,
+  keyframes, and transitions; normal timeline and overlap validation still apply.
 - The `detach-audio` timeline edit creates or uses an audio track for a selected
   video clip, preserving its asset, source range, timeline placement, and
   constant or ramped playback timing. `audioStreamIndex` selects a zero-based
@@ -741,6 +744,9 @@ smoke render alone.
   `reorderTimelineTrack` API. They preserve the complete clips and reassign
   deterministic order indices; API and CLI tests cover ordering and source
   immutability. Current full suite: 125 passed, 2 optional OTIO skips.
+- Clip duplication is now available as an immutable API/CLI operation with a
+  required new kebab-case ID and timeline position. Tests cover preserved
+  source/effect metadata, project-duration extension, and overlap rejection.
 - Hosted run 42181292620 on commit `e3b508a` passed macOS and Windows but failed
   Ubuntu's synthetic sidechain recovery assertion: RMS was 0.0769 during voice
   and 0.1022 after voice. The assertion expected a larger recovery than this

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
 import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
+import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
@@ -197,6 +197,26 @@ test('reorders visual and audio tracks without changing clips', () => {
   assert.deepEqual(editTimeline(valid, { type: 'reorder-track', trackId: 'music', order: 0 }).tracks[0].id, 'music');
   assert.throws(() => reorderTimelineTrack(valid, 'missing', 0), /Unknown timeline track/);
   assert.throws(() => reorderTimelineTrack(valid, 'graphics', valid.tracks.length), /Track order/);
+});
+
+test('duplicates a clip with its complete edit metadata and a new position', () => {
+  const source = structuredClone(valid);
+  source.tracks[0].clips[0].keyframes = [{ time: 0, properties: { x: 0.1, width: 0.8 } }];
+  source.tracks[0].clips[0].transitionOut = { schemaVersion: 1, type: 'fade', durationSeconds: 0.5 };
+  const originalClip = structuredClone(source.tracks[0].clips[0]);
+  const duplicated = duplicateTimelineClip(source, 'video-main', 'clip-one', 'clip-one-copy', 8);
+  const copy = duplicated.tracks[0].clips.find((clip) => clip.id === 'clip-one-copy');
+  assert.equal(copy.timelineStart, 8);
+  assert.equal(copy.sourceIn, originalClip.sourceIn);
+  assert.equal(copy.sourceOut, originalClip.sourceOut);
+  assert.deepEqual(copy.keyframes, originalClip.keyframes);
+  assert.deepEqual(copy.transitionOut, originalClip.transitionOut);
+  assert.equal(duplicated.project.durationSeconds, 11);
+  assert.deepEqual(source.tracks[0].clips[0], originalClip);
+  assert.equal(editTimeline(source, { type: 'duplicate-clip', trackId: 'video-main', clipId: 'clip-one', newClipId: 'copy-two', timelineStart: 8 }).tracks[0].clips.find((clip) => clip.id === 'copy-two').timelineStart, 8);
+  assert.throws(() => duplicateTimelineClip(source, 'video-main', 'clip-one', 'copy-two', 2), /overlapping clips/);
+  assert.throws(() => duplicateTimelineClip(source, 'video-main', 'clip-one', 'invalid ID', 7), /kebab-case/);
+  assert.throws(() => duplicateTimelineClip(source, 'video-main', 'clip-one', 'copy', -1), /non-negative/);
 });
 
 test('detaches a video clip audio range to a synchronized audio track', () => {

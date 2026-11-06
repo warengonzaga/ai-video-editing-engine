@@ -48,6 +48,17 @@ export function addTimelineClip(timeline, trackId, clip) {
   return validateTimeline(next);
 }
 
+export function duplicateTimelineClip(timeline, trackId, clipId, newClipId, timelineStart) {
+  if (!/^[a-z][a-z0-9-]*$/.test(newClipId ?? '')) throw new TypeError('newClipId must be a lowercase kebab-case id.');
+  if (!Number.isFinite(timelineStart) || timelineStart < 0) throw new TypeError('timelineStart must be a non-negative number.');
+  const { clip } = findClipEntry(timeline, trackId, clipId);
+  return addTimelineClip(timeline, trackId, {
+    ...structuredClone(clip),
+    id: newClipId,
+    timelineStart,
+  });
+}
+
 export function detachAudioFromTimelineClip(timeline, videoTrackId, videoClipId, audioTrackId, audioClipId, audioStreamIndex) {
   if (!/^[a-z][a-z0-9-]*$/.test(audioTrackId ?? '') || !/^[a-z][a-z0-9-]*$/.test(audioClipId ?? '')) {
     throw new TypeError('Detached audio track and clip ids must be kebab-case ids.');
@@ -342,6 +353,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'remove-track') return removeTimelineTrack(timeline, operation.trackId);
   if (type === 'reorder-track') return reorderTimelineTrack(timeline, operation.trackId, operation.order);
   if (type === 'add-clip') return addTimelineClip(timeline, trackId, operation.clip);
+  if (type === 'duplicate-clip') return duplicateTimelineClip(timeline, trackId, clipId, operation.newClipId, operation.timelineStart);
   if (type === 'detach-audio') return detachAudioFromTimelineClip(timeline, trackId, clipId, operation.audioTrackId, operation.audioClipId, operation.audioStreamIndex);
   if (type === 'remove-clip') return removeTimelineClip(timeline, trackId, clipId);
   if (type === 'ripple-delete') return rippleDeleteTimelineClip(timeline, trackId, clipId);
@@ -353,7 +365,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'split') return splitTimelineClip(timeline, trackId, clipId, operation.splitAt, operation.rightClipId);
   if (type === 'crossfade') return crossfadeTimelineClips(timeline, trackId, clipId, operation.incomingClipId, operation.durationSeconds);
   if (type === 'transition') return setTimelineTransition(timeline, trackId, clipId, operation.edge, operation.transition);
-  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, trim, slip, split, crossfade, or transition.');
+  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, trim, slip, split, crossfade, or transition.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */

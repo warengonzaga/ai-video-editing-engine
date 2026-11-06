@@ -129,6 +129,26 @@ test('timeline CLI reorders a track and preserves its clips', () => {
   }
 });
 
+test('timeline CLI duplicates a clip at the requested timeline position', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
+  try {
+    const inputPath = join(root, 'timeline.json');
+    const operationPath = join(root, 'operation.json');
+    const outputPath = join(root, 'edited.json');
+    writeFileSync(inputPath, JSON.stringify(timeline));
+    writeFileSync(operationPath, JSON.stringify({ type: 'duplicate-clip', trackId: 'video-main', clipId: 'clip-one', newClipId: 'clip-one-copy', timelineStart: 8 }));
+
+    execFileSync(process.execPath, [cliPath, 'timeline', 'edit', inputPath, operationPath, outputPath], { encoding: 'utf8' });
+    const result = JSON.parse(readFileSync(outputPath, 'utf8'));
+    const copy = result.tracks[0].clips.find((clip) => clip.id === 'clip-one-copy');
+    assert.equal(copy.timelineStart, 8);
+    assert.equal(copy.durationSeconds, 3);
+    assert.equal(result.project.durationSeconds, 11);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('timeline CLI applies an edit plan as one atomic batch', () => {
   const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
   try {
