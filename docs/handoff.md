@@ -187,6 +187,10 @@ Last updated: 2026-11-07
   compositions; externally authored cue tracks and non-avatar editing remain
   generic. Studio's avatar-generation skill still needs to produce and review
   these assets.
+- `avatar-compose` now validates all mouth PNG paths, signatures, and shared
+  canvas dimensions before Rhubarb starts. The same dimensional check still
+  applies to all sprite layers during composition. This avoids spending time on
+  phonetic analysis when a generated or edited mouth asset is already invalid.
 - `getEngineCapabilities()` now exposes the phonetic mouth-shape contract and
   Rhubarb availability so any consumer can discover Rhubarb's base A-F shapes,
   the Engine avatar requirement A-H plus X rest, the default GHX cue setting,
@@ -209,11 +213,13 @@ Last updated: 2026-11-07
   adds distinct G (F/V) and H (L) sprites on 280x171 transparent canvases,
   enables GHX cues, and passes avatar composition. Rhubarb produced 59 cues from
   Voice 015: 20 B, 15 C, 6 E, 5 F, 7 A, 5 X, and 1 G; this recording did not
-  produce an H cue. The new 1920x1080/30 fps render is
-  `video-projects/waren-avatar-viseme-v3/renders/waren-voice015-viseme-v3.mp4`.
+  produce an H cue. The 1920x1080/30 fps render is
+  `video-projects/waren-avatar-viseme-v4/renders/waren-voice015-viseme-v4.mp4`.
   FFprobe confirms H.264, 48 kHz stereo AAC, and 11.133333 seconds. One extracted
   G-state frame confirms the F/V sprite appears in the rendered composition.
-  The original v2 render remains untouched. The v2 contact sheet is
+  A fresh v4 project also re-renders successfully after sprite PNG signatures
+  and shared dimensions were moved ahead of the Rhubarb call; this render took
+  19.2 seconds. The original v2 render remains untouched. The v2 contact sheet is
   `video-projects/waren-avatar-viseme-v2/renders/avatar-viseme-contact-sheet.png`.
   This is a visual spot-check only: the recording was not listened through for
   Taglish phoneme accuracy, and D was not selected by this recording's cues.

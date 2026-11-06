@@ -122,6 +122,9 @@ options)` before saving or using a mouth pack. It throws when any required shape
 is missing or mapped to the same state as another shape. This is a structural
 check only: it cannot judge whether the artwork looks distinct, stays aligned,
 or matches the intended phoneme visually.
+`avatar-compose` also checks every sprite file and confirms that states on a
+layer share the same PNG canvas dimensions before it invokes Rhubarb, so broken
+assets fail before cue generation.
 
 ```js
 import { validateRhubarbSpriteStates } from 'ai-video-editing-engine';

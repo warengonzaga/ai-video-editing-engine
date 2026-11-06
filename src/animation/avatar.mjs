@@ -22,6 +22,7 @@ export function createAvatarComposition(projectPath, specification) {
   if (index.includes('data-composition-src="compositions/avatar-scene.html"')) throw new Error('Avatar composition is already mounted.');
   const narrationPath = narration ?? lipSync?.audioPath;
   if (narrationPath && (!existsSync(resolve(narrationPath)) || existsSync(join(project, 'assets', `narration${extname(narrationPath).toLowerCase()}`)))) throw new Error('Narration is missing or the destination already exists.');
+  let lipSyncLayerIndex = -1;
   if (lipSync !== undefined) {
     if (!lipSync || typeof lipSync !== 'object' || Array.isArray(lipSync)
         || typeof lipSync.audioPath !== 'string' || !lipSync.audioPath.trim()
@@ -29,31 +30,20 @@ export function createAvatarComposition(projectPath, specification) {
         || (lipSync.options !== undefined && (!lipSync.options || typeof lipSync.options !== 'object' || Array.isArray(lipSync.options)))) {
       throw new TypeError('Avatar lipSync requires an audioPath, a mouth layer name, and optional Rhubarb options.');
     }
-    const layerIndex = layers.findIndex((layer) => layer?.name === lipSync.layer && layer.role === 'mouth');
-    if (layerIndex < 0) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} must name a mouth layer.`);
-    if (layers[layerIndex].track !== undefined) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} already has a track.`);
-    validateRhubarbSpriteStates({ default: layers[layerIndex].image, ...(layers[layerIndex].states ?? {}) }, lipSync.options ?? {});
-    const { spriteStateMap, ...rhubarbOptions } = lipSync.options ?? {};
-    const generatedTrack = rhubarbLipSyncCues(lipSync.audioPath, rhubarbOptions);
-    const spriteTrack = mapRhubarbCuesToSpriteStates(generatedTrack, spriteStateMap);
-    layers = layers.map((layer, index) => index === layerIndex
-      ? { ...layer, track: {
-        schemaVersion: spriteTrack.schemaVersion,
-        durationSeconds,
-        cues: spriteTrack.cues
-          .filter((cue) => cue.start < durationSeconds)
-          .map((cue) => ({ ...cue, end: Math.min(cue.end, durationSeconds) })),
-      } }
-      : layer);
+    lipSyncLayerIndex = layers.findIndex((layer) => layer?.name === lipSync.layer && layer.role === 'mouth');
+    if (lipSyncLayerIndex < 0) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} must name a mouth layer.`);
+    if (layers[lipSyncLayerIndex].track !== undefined) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} already has a track.`);
+    validateRhubarbSpriteStates({ default: layers[lipSyncLayerIndex].image, ...(layers[lipSyncLayerIndex].states ?? {}) }, lipSync.options ?? {});
   }
   const names = new Set();
   const layouts = new Map();
   const canvasAspect = meta.width / meta.height;
-  for (const layer of layers) {
+  for (let index = 0; index < layers.length; index += 1) {
+    const layer = layers[index];
     if (!layer || names.has(layer.name) || !/^[a-z][a-z0-9-]*$/.test(layer.name) || !['eyes', 'mouth', 'body', 'custom'].includes(layer.role)) throw new TypeError('Invalid or duplicate avatar layer.');
     names.add(layer.name);
-    const track = validateAnimationCues(layer.track);
-    if (Math.abs(track.durationSeconds - durationSeconds) > 0.001) throw new TypeError('Avatar layer timing does not match the scene.');
+    const track = index === lipSyncLayerIndex ? undefined : validateAnimationCues(layer.track);
+    if (track && Math.abs(track.durationSeconds - durationSeconds) > 0.001) throw new TypeError('Avatar layer timing does not match the scene.');
     const states = { default: layer.image, ...(layer.states ?? {}) };
     const dimensionsByState = [];
     let defaultDimensions;
@@ -67,7 +57,7 @@ export function createAvatarComposition(projectPath, specification) {
       width !== defaultDimensions.width || height !== defaultDimensions.height)) {
       throw new TypeError(`Sprite states for ${layer.name} must use matching canvas dimensions.`);
     }
-    for (const cue of track.cues) if (!Object.hasOwn(states, cue.state)) throw new TypeError(`Missing sprite for ${layer.name}.${cue.state}.`);
+    for (const cue of track?.cues ?? []) if (!Object.hasOwn(states, cue.state)) throw new TypeError(`Missing sprite for ${layer.name}.${cue.state}.`);
     const width = Number(layer.width ?? .2);
     let x, y;
     if (layer.relativeTo !== undefined) {
@@ -92,6 +82,20 @@ export function createAvatarComposition(projectPath, specification) {
       [x, y] = position;
       layouts.set(layer.name, { x, y, width, height: width * (defaultDimensions.height / defaultDimensions.width) * canvasAspect });
     }
+  }
+  if (lipSyncLayerIndex >= 0) {
+    const { spriteStateMap, ...rhubarbOptions } = lipSync.options ?? {};
+    const generatedTrack = rhubarbLipSyncCues(lipSync.audioPath, rhubarbOptions);
+    const spriteTrack = mapRhubarbCuesToSpriteStates(generatedTrack, spriteStateMap);
+    layers = layers.map((layer, index) => index === lipSyncLayerIndex
+      ? { ...layer, track: {
+        schemaVersion: spriteTrack.schemaVersion,
+        durationSeconds,
+        cues: spriteTrack.cues
+          .filter((cue) => cue.start < durationSeconds)
+          .map((cue) => ({ ...cue, end: Math.min(cue.end, durationSeconds) })),
+      } }
+      : layer);
   }
   mkdirSync(assetDir, { recursive: true });
   const safeLayers = layers.map((layer) => {

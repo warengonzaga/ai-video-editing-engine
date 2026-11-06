@@ -251,7 +251,8 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   use custom state names through an explicit one-to-one `spriteStateMap`; missing
   or collapsed mouth shapes fail with an actionable error. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
-  arbitrary external cue tracks.
+  arbitrary external cue tracks. `avatar-compose` validates the required mouth
+  PNGs and shared canvas dimensions before invoking Rhubarb.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an
@@ -260,10 +261,12 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   consumer-provided body, mouth, and blink sprites with Voice 015. Representative
   frames verify mouth placement and full-body framing. A new local 1920x1080,
   30 fps Voice 015 render uses A-H visemes plus X rest and fixed-canvas blink
-  assets. The v3 render generated 59 cues, including one G cue; H was present in
+  assets. The v4 render generated 59 cues, including one G cue; H was present in
   the validated pack but not selected for this recording. A sampled G frame
-  confirms the new sprite appears at the existing mouth anchor. The earlier v2
-  render remains available for comparison. Human speech-alignment review remains
+  confirms the new sprite appears at the existing mouth anchor. The v4 render
+  was regenerated after moving mouth-file and dimension preflight ahead of the
+  Rhubarb call. The earlier v2 render remains available for comparison. Human
+  speech-alignment review remains
   outstanding; Rhubarb is an optional external runtime and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
