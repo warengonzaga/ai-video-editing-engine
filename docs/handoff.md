@@ -179,16 +179,18 @@ Last updated: 2026-11-07
   speech-avatar workflow. No tests were run per the user's direction to focus
   on implementation before manual debugging.
 - Phonetic avatar composition now enforces a complete, distinct mouth set before
-  Rhubarb runs: A-F and X are required, while G/H are required when enabled.
+  Rhubarb runs: A-H and X are required. GHX is the default extended-shape set;
+  consumers can request a reduced cue set, but still supply all nine pack states.
   An explicit `spriteStateMap` supports consumer-specific state names but cannot
   collapse multiple phonemes onto one generic sprite. X maps to the layer's
   default image by default. This check is limited to generated Rhubarb avatar
   compositions; externally authored cue tracks and non-avatar editing remain
   generic. Studio's avatar-generation skill still needs to produce and review
-  these assets; no tests or renders were run for this implementation.
+  these assets.
 - `getEngineCapabilities()` now exposes the phonetic mouth-shape contract and
-  Rhubarb availability so any consumer can discover the required A-F shapes,
-  X rest state, optional G/H shapes, and distinct-state invariant at runtime.
+  Rhubarb availability so any consumer can discover Rhubarb's base A-F shapes,
+  the Engine avatar requirement A-H plus X rest, the default GHX cue setting,
+  and the distinct-state invariant at runtime.
   Existing assertions in `test/animation-cues.test.mjs` still expect the former
   five-state adapter default; update those assertions when the deferred test
   work resumes. Tests remain unrun per user direction.
@@ -203,8 +205,16 @@ Last updated: 2026-11-07
   `video-projects/waren-avatar-viseme-v2/renders/waren-voice015-viseme-v2.mp4`.
   FFprobe confirms H.264 video and 48 kHz stereo AAC narration.
   Frame spot-checks at B, C, E+blink, F, X, and A confirm a stable mouth anchor,
-  centered rounded/pursed variants, and no body-size blink flicker. The contact
-  sheet is `video-projects/waren-avatar-viseme-v2/renders/avatar-viseme-contact-sheet.png`.
+  centered rounded/pursed variants, and no body-size blink flicker. A v3 fixture
+  adds distinct G (F/V) and H (L) sprites on 280x171 transparent canvases,
+  enables GHX cues, and passes avatar composition. Rhubarb produced 59 cues from
+  Voice 015: 20 B, 15 C, 6 E, 5 F, 7 A, 5 X, and 1 G; this recording did not
+  produce an H cue. The new 1920x1080/30 fps render is
+  `video-projects/waren-avatar-viseme-v3/renders/waren-voice015-viseme-v3.mp4`.
+  FFprobe confirms H.264, 48 kHz stereo AAC, and 11.133333 seconds. One extracted
+  G-state frame confirms the F/V sprite appears in the rendered composition.
+  The original v2 render remains untouched. The v2 contact sheet is
+  `video-projects/waren-avatar-viseme-v2/renders/avatar-viseme-contact-sheet.png`.
   This is a visual spot-check only: the recording was not listened through for
   Taglish phoneme accuracy, and D was not selected by this recording's cues.
 - The standard fixture render completed in 18.8s (setup 5.2s, browser capture

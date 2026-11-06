@@ -45,9 +45,9 @@ node src/cli.mjs capabilities
 
 The report includes required tool availability, common FFmpeg output encoders,
 optional filters used by specific render features, and the generic phonetic
-avatar sprite contract. Consumers can read the required A-F mouth shapes, X
-rest shape, optional G/H shapes, and whether the Rhubarb adapter is installed
-instead of hard-coding Engine-specific avatar assumptions.
+avatar sprite contract. Consumers can read the required A-H mouth shapes, X
+rest shape, the default GHX extended-shape setting, and whether the Rhubarb
+adapter is installed instead of hard-coding Engine-specific avatar assumptions.
 
 The package exposes an `ai-video-engine` CLI binary for local or Git-based
 consumer installs. The repository remains private and is not configured for
@@ -82,9 +82,10 @@ converts its JSON output into the Engine's validated animation-cue format.
 FFmpeg converts supported audio inputs to mono WAV for Rhubarb. The Engine does
 not install or bundle Rhubarb. The default `phonetic` recognizer works across
 languages, though its results are less precise than English PocketSphinx;
-supply a dialog file when available to help recognition. Rhubarb returns shape
-states `a`–`f` and `x` by default; avatar layers need matching sprite states
-before rendering. Add `g` or `h` assets only when enabling those extended shapes.
+supply a dialog file when available to help recognition. Rhubarb can return
+shape states `a`–`h` and `x`; Engine avatar composition requires matching
+sprite states for all of them before rendering. The default extended-shape
+setting is `GHX`.
 See the [Rhubarb usage guide](https://github.com/DanielSWolf/rhubarb-lip-sync)
 and [license](https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/LICENSE.md).
 
@@ -96,7 +97,7 @@ node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json
 {
   "rhubarb": "rhubarb",
   "recognizer": "phonetic",
-  "extendedShapes": "X",
+  "extendedShapes": "GHX",
   "dialogFile": "script.txt",
   "spriteStateMap": {
     "a": "a",
@@ -105,6 +106,8 @@ node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json
     "d": "d",
     "e": "e",
     "f": "f",
+    "g": "g",
+    "h": "h",
     "x": "default"
   }
 }
@@ -130,12 +133,14 @@ validateRhubarbSpriteStates({
   d: 'mouth-d.png',
   e: 'mouth-e.png',
   f: 'mouth-f.png',
+  g: 'mouth-g.png',
+  h: 'mouth-h.png',
   default: 'mouth-rest.png',
 });
 ```
 
 Use `mapRhubarbCuesToSpriteStates(track, mapping)` to adapt Rhubarb labels to a
-sprite pack's available states. The default mapping preserves A-F as distinct
+sprite pack's available states. The default mapping preserves A-H as distinct
 lowercase states and maps X to `default`; consumers can provide their own
 lowercase Rhubarb-label-to-state mapping when their artwork uses different
 mouth-shape names. The same `spriteStateMap` can go in the lip-sync options
@@ -151,10 +156,11 @@ the name of a mouth layer, and optional Rhubarb options. The selected mouth
 layer must provide its sprite states and omit a precomputed `track`. The audio
 is also used as narration unless `narration` is set separately. Rhubarb must be
 installed by the consumer; this convenience does not bundle the optional tool.
-Phonetic avatar composition requires distinct A-F mouth sprites and a default
-X/rest sprite. G and H sprites are also required when those extended shapes are
-enabled. A custom `spriteStateMap` may rename states but cannot map multiple
-required shapes to the same sprite state.
+Phonetic avatar composition requires distinct A-H mouth sprites and a default
+X/rest sprite. Rhubarb generates G/H by default; the avatar pack contract keeps
+them required even when a consumer chooses a reduced cue set. A custom
+`spriteStateMap` may rename states but cannot map multiple required shapes to
+the same sprite state.
 This lets a consumer create and render a speech-driven avatar from one
 `avatar-compose` specification instead of writing an intermediate cue file.
 For example, the spec can supply a body track and mouth sprites while asking
@@ -176,6 +182,8 @@ the Engine to generate the mouth track:
         "d": "d",
         "e": "e",
         "f": "f",
+        "g": "g",
+        "h": "h",
         "x": "default"
       }
     }
@@ -197,7 +205,9 @@ the Engine to generate the mouth track:
         "c": "assets/avatar/mouth-c.png",
         "d": "assets/avatar/mouth-d.png",
         "e": "assets/avatar/mouth-e.png",
-        "f": "assets/avatar/mouth-f.png"
+        "f": "assets/avatar/mouth-f.png",
+        "g": "assets/avatar/mouth-g.png",
+        "h": "assets/avatar/mouth-h.png"
       },
       "x": 0.5,
       "y": 0.4,

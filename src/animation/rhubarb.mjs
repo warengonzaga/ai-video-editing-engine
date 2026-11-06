@@ -8,8 +8,10 @@ import { validateAnimationCues } from './cues.mjs';
 const RHUBARB_SHAPES = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X']);
 export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
   requiredShapes: Object.freeze(['a', 'b', 'c', 'd', 'e', 'f']),
-  restShape: 'x',
   optionalShapes: Object.freeze(['g', 'h']),
+  requiredAvatarShapes: Object.freeze(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']),
+  restShape: 'x',
+  defaultExtendedShapes: 'GHX',
 });
 const DEFAULT_SPRITE_STATES = Object.freeze({
   a: 'a',
@@ -110,8 +112,7 @@ export function validateRhubarbSpriteStates(states, options = {}) {
     throw new TypeError('Phonetic avatar lip sync requires the X rest mouth shape.');
   }
   const mapping = settings.spriteStateMap ?? DEFAULT_SPRITE_STATES;
-  const requiredShapes = [...RHUBARB_SPRITE_CONTRACT.requiredShapes, RHUBARB_SPRITE_CONTRACT.restShape, ...[...'GH']
-    .filter((shape) => settings.extendedShapes.includes(shape)).map((shape) => shape.toLowerCase())];
+  const requiredShapes = [...RHUBARB_SPRITE_CONTRACT.requiredAvatarShapes, RHUBARB_SPRITE_CONTRACT.restShape];
   const requiredStates = requiredShapes.map((shape) => mapping[shape]);
   if (requiredStates.some((state) => typeof state !== 'string' || !state.trim())) {
     throw new TypeError(`Phonetic avatar lip sync requires mappings for Rhubarb shapes ${requiredShapes.join(', ')}.`);
@@ -122,7 +123,7 @@ export function validateRhubarbSpriteStates(states, options = {}) {
   const missing = requiredShapes.filter((shape, index) => !Object.hasOwn(states, requiredStates[index]));
   if (missing.length) {
     const details = missing.map((shape) => `${shape.toUpperCase()} (${mapping[shape]})`).join(', ');
-    throw new TypeError(`Phonetic avatar mouth pack is incomplete. Missing sprite states for: ${details}. Required shapes: A-F and X${requiredShapes.includes('g') ? ', G' : ''}${requiredShapes.includes('h') ? ', H' : ''}.`);
+    throw new TypeError(`Phonetic avatar mouth pack is incomplete. Missing sprite states for: ${details}. Required shapes: A-H and X.`);
   }
 }
 
@@ -144,7 +145,7 @@ function validateOptions(options) {
   for (const key of Object.keys(options)) if (!allowed.has(key)) throw new TypeError(`Unsupported lip-sync option: ${key}.`);
   const recognizer = options.recognizer ?? 'phonetic';
   if (!['phonetic', 'pocketSphinx'].includes(recognizer)) throw new TypeError('Rhubarb recognizer must be phonetic or pocketSphinx.');
-  const extendedShapes = options.extendedShapes ?? 'X';
+  const extendedShapes = options.extendedShapes ?? RHUBARB_SPRITE_CONTRACT.defaultExtendedShapes;
   if (typeof extendedShapes !== 'string' || !/^(?!.*(.).*\1)[GHX]*$/.test(extendedShapes)) {
     throw new TypeError('Rhubarb extendedShapes may contain each of G, H, and X at most once.');
   }
