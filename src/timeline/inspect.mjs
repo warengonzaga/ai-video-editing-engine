@@ -44,11 +44,15 @@ export function inspectTimeline(timeline) {
     ...(timeline.audioMix === undefined ? {} : { audioMix: structuredClone(timeline.audioMix) }),
     ...(timeline.audioMastering === undefined ? {} : { audioMastering: structuredClone(timeline.audioMastering) }),
     ...(timeline.lineage === undefined ? {} : { lineage: structuredClone(timeline.lineage) }),
+    markers: [...(timeline.markers ?? [])]
+      .sort((left, right) => left.timeSeconds - right.timeSeconds || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+      .map((marker) => structuredClone(marker)),
     summary: {
       assetCount: timeline.assets.length,
       trackCount: tracks.length,
       clipCount: Object.values(clipCounts).reduce((total, count) => total + count, 0),
       clipCounts,
+      markerCount: timeline.markers?.length ?? 0,
     },
     assets: timeline.assets.map((asset) => ({
       id: asset.id,

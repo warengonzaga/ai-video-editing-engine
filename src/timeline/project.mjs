@@ -40,6 +40,7 @@ export function createProjectTimeline(projectPath, options = {}) {
       ...(asset.streamTiming === undefined ? {} : { streamTiming: structuredClone(asset.streamTiming) }),
       sha256: asset.sha256,
     })),
+    markers: [],
     tracks: [
       { id: 'video-main', kind: 'video', order: 0, clips: [] },
       { id: 'audio-main', kind: 'audio', order: 1, clips: [] },

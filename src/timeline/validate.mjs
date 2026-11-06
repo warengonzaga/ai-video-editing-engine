@@ -21,6 +21,30 @@ export function validateTimeline(timeline) {
   if (!Number.isFinite(project.durationSeconds) || project.durationSeconds <= 0) throw new TypeError('Timeline project durationSeconds must be positive.');
   validateSourceFit(project.sourceFit, 'Timeline project sourceFit');
   if (!Array.isArray(timeline.assets) || !Array.isArray(timeline.tracks)) throw new TypeError('Timeline assets and tracks must be arrays.');
+  if (timeline.markers !== undefined) {
+    if (!Array.isArray(timeline.markers)) throw new TypeError('Timeline markers must be an array.');
+    const markerIds = new Set();
+    for (const marker of timeline.markers) {
+      if (!marker || typeof marker !== 'object' || Array.isArray(marker)
+          || !/^[a-z][a-z0-9-]*$/.test(marker.id ?? '') || markerIds.has(marker.id)) {
+        throw new TypeError('Timeline marker ids must be unique kebab-case ids.');
+      }
+      if (!Number.isFinite(marker.timeSeconds) || marker.timeSeconds < 0 || marker.timeSeconds > project.durationSeconds) {
+        throw new TypeError(`Timeline marker ${marker.id} must be within the project duration.`);
+      }
+      if (typeof marker.label !== 'string' || !marker.label.trim() || marker.label.length > 200) {
+        throw new TypeError(`Timeline marker ${marker.id} label must contain 1 to 200 characters.`);
+      }
+      if (marker.color !== undefined && (typeof marker.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(marker.color))) {
+        throw new TypeError(`Timeline marker ${marker.id} color must be a six-digit hex color.`);
+      }
+      for (const field of Object.keys(marker)) {
+        if (!['id', 'timeSeconds', 'label', 'color'].includes(field)) throw new TypeError(`Timeline marker ${marker.id} has unsupported field ${field}.`);
+        if (marker[field] === undefined) throw new TypeError(`Timeline marker ${marker.id} field ${field} must not be undefined.`);
+      }
+      markerIds.add(marker.id);
+    }
+  }
 
   const assets = new Set();
   for (const asset of timeline.assets) {

@@ -1197,6 +1197,11 @@ smoke render alone.
   filenames before embedding them in HTML. This prevents URL-reserved filename
   characters from changing the generated element attributes. Syntax and
   whitespace checks only; no test suite or render was run.
+- Added project-time timeline markers for chapter points and review notes.
+  Markers are validated, inspectable, undoable through timeline edits, and move
+  with synchronized gap insertion/ripple deletion. They stay out of rendered
+  video and external interchange may drop them. No tests, renders, or OTIO
+  operations were run.
 - Ran the read-only `doctor` and capabilities commands on Windows with Node.js
   22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, the cached Chrome
   Headless Shell, and required Engine filters/encoders available. Rhubarb,

@@ -667,6 +667,31 @@ Disable an individual clip without removing it from the timeline with
 The JavaScript API exposes the same operation through
 `setTimelineClipState(timeline, trackId, clipId, state)`.
 
+Add a project-time marker for chapter points or review notes with `set-marker`.
+Markers are stored in the edit timeline and returned by `inspectTimeline`; they
+do not render into the video. Gap insertion moves markers at or after the
+insertion point, and ripple deletion removes markers inside the cut and shifts
+later markers with the retained edit:
+
+```json
+{
+  "type": "set-marker",
+  "marker": {
+    "id": "review-audio-mix",
+    "timeSeconds": 12.5,
+    "label": "Review music level",
+    "color": "#f59e0b"
+  }
+}
+```
+
+Use `remove-marker` with the marker id to delete it. The JavaScript API exposes
+these operations as `setTimelineMarker(timeline, marker)` and
+`removeTimelineMarker(timeline, markerId)`. Markers use stable kebab-case ids,
+non-empty labels of at most 200 characters, optional six-digit hex colors, and
+times within the project duration. They are Engine metadata; external
+interchange adapters may not preserve or display them.
+
 To process every clip on a music track with the same chain, set its effects at
 track level:
 

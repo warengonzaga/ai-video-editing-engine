@@ -183,6 +183,10 @@ will be checked into docs only after the validator and CLI/API land.
 - `overlays`: timed composition references with validated duration and layer
   order. Text/caption semantics live in composition data, not in a Studio-only
   field.
+- `markers`: optional project-time review/chapter points with stable ids,
+  labels, and optional display colors. Markers are non-rendering and are retimed
+  by synchronized gap insertion and ripple deletion. External interchange may
+  drop them unless the destination supports the Engine metadata namespace.
 - `lineage`: optional transcript/EDL references and source identities so
   transcript edits can compile into the same timeline.
 

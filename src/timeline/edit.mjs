@@ -22,6 +22,29 @@ export function removeTimelineTrack(timeline, trackId) {
   return validateTimeline(next);
 }
 
+/** Add or replace a timeline review marker by its stable id. */
+export function setTimelineMarker(timeline, marker) {
+  validateTimeline(timeline);
+  if (!marker || typeof marker !== 'object' || Array.isArray(marker)) throw new TypeError('Timeline marker must be an object.');
+  const next = structuredClone(timeline);
+  next.markers ??= [];
+  const index = next.markers.findIndex((entry) => entry.id === marker.id);
+  if (index < 0) next.markers.push(structuredClone(marker));
+  else next.markers[index] = structuredClone(marker);
+  return validateTimeline(next);
+}
+
+/** Remove a timeline review marker by its stable id. */
+export function removeTimelineMarker(timeline, markerId) {
+  validateTimeline(timeline);
+  if (typeof markerId !== 'string' || !/^[a-z][a-z0-9-]*$/.test(markerId)) throw new TypeError('Timeline marker id must be a kebab-case id.');
+  const next = structuredClone(timeline);
+  const index = (next.markers ?? []).findIndex((marker) => marker.id === markerId);
+  if (index < 0) throw new TypeError(`Unknown timeline marker: ${markerId}`);
+  next.markers.splice(index, 1);
+  return validateTimeline(next);
+}
+
 export function reorderTimelineTrack(timeline, trackId, order) {
   validateTimeline(timeline);
   if (!Number.isSafeInteger(order) || order < 0 || order >= timeline.tracks.length) {
@@ -156,6 +179,11 @@ export function rippleDeleteTimelineClip(timeline, trackId, clipId) {
   }
 
   next.project.durationSeconds = Math.max(1 / frameRateNumber(next.project.fps), timeline.project.durationSeconds - cutDuration);
+  if (next.markers) {
+    next.markers = next.markers
+      .filter((marker) => marker.timeSeconds < cutStart || marker.timeSeconds >= cutEnd)
+      .map((marker) => marker.timeSeconds < cutStart ? marker : { ...marker, timeSeconds: marker.timeSeconds - cutDuration });
+  }
   return validateTimeline(next);
 }
 
@@ -169,6 +197,11 @@ export function insertTimelineGap(timeline, timelineStart, durationSeconds) {
   }
 
   const next = structuredClone(timeline);
+  if (next.markers) {
+    next.markers = next.markers.map((marker) => marker.timeSeconds >= timelineStart
+      ? { ...marker, timeSeconds: marker.timeSeconds + durationSeconds }
+      : marker);
+  }
   const usedIds = new Set(next.tracks.flatMap((track) => track.clips.map((clip) => clip.id)));
   for (const track of next.tracks) {
     if (track.volumeKeyframes) track.volumeKeyframes = insertTrackVolumeGap(track.volumeKeyframes, timelineStart, durationSeconds);
@@ -659,6 +692,8 @@ export function editTimeline(timeline, operation) {
   if (!operation || typeof operation !== 'object') throw new TypeError('Timeline edit operation must be an object.');
   const { type, trackId, clipId } = operation;
   if (type === 'add-track') return addTimelineTrack(timeline, operation.track);
+  if (type === 'set-marker') return setTimelineMarker(timeline, operation.marker);
+  if (type === 'remove-marker') return removeTimelineMarker(timeline, operation.markerId);
   if (type === 'remove-track') return removeTimelineTrack(timeline, operation.trackId);
   if (type === 'reorder-track') return reorderTimelineTrack(timeline, operation.trackId, operation.order);
   if (type === 'add-clip') return addTimelineClip(timeline, trackId, operation.clip);
@@ -698,7 +733,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'set-audio-mastering') return setTimelineAudioMastering(timeline, operation.audioMastering);
   if (type === 'set-project-state') return setTimelineProjectState(timeline, operation.state);
   if (type === 'set-overlay') return setTimelineOverlay(timeline, trackId, clipId, operation.properties);
-  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-clip-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
+  throw new TypeError('Timeline edit type must be add-track, set-marker, remove-marker, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-clip-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */
