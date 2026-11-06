@@ -150,6 +150,11 @@ export function validateRhubarbSpriteStates(states, options = {}) {
     }
     imageByDigest.set(digest, { shape, state });
   }
+  return {
+    valid: true,
+    shapeStates: Object.fromEntries(requiredShapes.map((shape, index) => [shape.toUpperCase(), requiredStates[index]])),
+    canvas: sharedDimensions,
+  };
 }
 
 function validateSpriteStateMapping(mapping) {

@@ -60,6 +60,8 @@ export function getEngineCapabilities(options = {}) {
         optionalMouthShapes: RHUBARB_SPRITE_CONTRACT.optionalShapes,
         defaultExtendedShapes: RHUBARB_SPRITE_CONTRACT.defaultExtendedShapes,
         spriteStatesMustBeDistinct: true,
+        spriteCanvasesMustMatch: true,
+        spriteFilesMustHaveDistinctContent: true,
         externalCueTracks: true,
       },
     },

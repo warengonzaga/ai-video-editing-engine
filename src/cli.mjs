@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { approveEdl, retimeTranscript } from './edits/retime-transcript.mjs';
 import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
@@ -15,7 +15,7 @@ import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
 import { audioLevelCues } from './animation/audio-cues.mjs';
-import { rhubarbLipSyncCues } from './animation/rhubarb.mjs';
+import { rhubarbLipSyncCues, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
 import { createAvatarComposition } from './animation/avatar.mjs';
 import { validateTimeline } from './timeline/validate.mjs';
 import { inspectTimeline } from './timeline/inspect.mjs';
@@ -260,6 +260,22 @@ async function main(args) {
     console.log(`Wrote ${resolve(output)}`);
     return;
   }
+  if (command === 'avatar' && commandArgs[0] === 'validate-mouth-pack' && commandArgs.length === 2) {
+    const specificationPath = resolve(commandArgs[1]);
+    const specification = readJson(specificationPath);
+    if (!specification || typeof specification !== 'object' || Array.isArray(specification)
+        || !specification.states || typeof specification.states !== 'object' || Array.isArray(specification.states)) {
+      throw new TypeError('Mouth-pack specification must contain a states object and optional options object.');
+    }
+    const states = Object.fromEntries(Object.entries(specification.states).map(([state, imagePath]) => [
+      state,
+      typeof imagePath === 'string' && imagePath.trim()
+        ? isAbsolute(imagePath) ? imagePath : resolve(dirname(specificationPath), imagePath)
+        : imagePath,
+    ]));
+    console.log(JSON.stringify(validateRhubarbSpriteStates(states, specification.options ?? {}), null, 2));
+    return;
+  }
   if (command === 'avatar-compose' && commandArgs.length === 2) {
     const [project, spec] = commandArgs;
     console.log(JSON.stringify(createAvatarComposition(resolve(project), readJson(resolve(spec))), null, 2));
@@ -435,6 +451,7 @@ async function main(args) {
   transcribe <project> <media> [model] [language] | import-transcript <project> <media> <transcript>
   plan-silence <transcript.json> <new-edl.json> | detect-silence <media> <new-edl.json> [options.json]
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
+  avatar validate-mouth-pack <mouth-pack.json> | avatar-compose <project> <spec.json>
   analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
   approve-edl <reviewed-edl.json> <new-approved-edl.json>
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>

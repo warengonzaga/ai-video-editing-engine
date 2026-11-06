@@ -676,6 +676,12 @@ smoke render alone.
   within-canvas alignment, and phoneme accuracy still require review. No test
   suite or new render was run for this change, per the implementation-first
   direction.
+- Added `avatar validate-mouth-pack <mouth-pack.json>` as a read-only CLI
+  preflight for asset-generation workflows. Sprite paths resolve relative to
+  the specification file, and the result reports the A-H/X state mapping and
+  shared canvas dimensions without creating a project. Capability discovery
+  now advertises the canvas and image-content invariants. No test suite or
+  runtime preflight was run for this change.
 
 - Added `insertTimelineGap` / `editTimeline({ type: 'insert-gap', ... })` as a
   generic synchronized timeline operation. It shifts clips after the insertion

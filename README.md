@@ -46,8 +46,9 @@ node src/cli.mjs capabilities
 The report includes required tool availability, common FFmpeg output encoders,
 optional filters used by specific render features, and the generic phonetic
 avatar sprite contract. Consumers can read the required A-H mouth shapes, X
-rest shape, the default GHX extended-shape setting, and whether the Rhubarb
-adapter is installed instead of hard-coding Engine-specific avatar assumptions.
+rest shape, shared-canvas and distinct-image requirements, the default GHX
+extended-shape setting, and whether the Rhubarb adapter is installed instead
+of hard-coding Engine-specific avatar assumptions.
 
 The package exposes an `ai-video-engine` CLI binary for local or Git-based
 consumer installs. The repository remains private and is not configured for
@@ -128,6 +129,18 @@ the intended phoneme; those still need visual review.
 `avatar-compose` also checks every sprite file and confirms that states on a
 layer share the same PNG canvas dimensions before it invokes Rhubarb, so broken
 assets fail before cue generation.
+
+For a generation workflow that needs to validate sprites before creating a
+project, save a mouth-pack JSON with `states` and optional Rhubarb `options`,
+then run:
+
+```sh
+node src/cli.mjs avatar validate-mouth-pack mouth-pack.json
+```
+
+Relative sprite paths resolve from the JSON file's directory. The command
+returns the validated shape-to-state mapping and shared canvas dimensions; it
+does not create or modify files.
 
 ```js
 import { validateRhubarbSpriteStates } from 'ai-video-editing-engine';
