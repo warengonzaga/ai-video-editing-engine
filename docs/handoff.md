@@ -162,11 +162,13 @@ Last updated: 2026-11-07
   Automatic phonetic recognition can misread Taglish, so cue timing and visual
   quality still require listening and human review before Studio integration.
 - `mapRhubarbCuesToSpriteStates` adapts Rhubarb labels to consumer-defined sprite
-  states, with a default five-state map. The `lip-sync` CLI accepts an optional
-  `spriteStateMap` in its options JSON to emit sprite-ready cues; without it, the
-  raw lowercase Rhubarb labels remain unchanged. Capability JSON and `doctor`
-  identify Rhubarb as optional, without including it in the Engine's required
-  readiness gate.
+  states. Its default mapping preserves all six basic visemes as distinct
+  lowercase states, maps G/H to matching lowercase states, and maps X to the
+  avatar layer's `default` state. The `lip-sync` CLI accepts an optional
+  `spriteStateMap` in its options JSON to emit sprite-ready cues; without it,
+  the CLI leaves raw lowercase Rhubarb labels unchanged. Capability JSON and
+  `doctor` identify Rhubarb as optional, without including it in the Engine's
+  required readiness gate.
 - `avatar-compose` specs can now request `lipSync` generation directly by
   naming the narration audio, mouth layer, and optional Rhubarb settings. The
   generated track is mapped using consumer-provided sprite states, clipped to
@@ -176,6 +178,20 @@ Last updated: 2026-11-07
   files. This removes the intermediate cue-file step for the common
   speech-avatar workflow. No tests were run per the user's direction to focus
   on implementation before manual debugging.
+- Phonetic avatar composition now enforces a complete, distinct mouth set before
+  Rhubarb runs: A-F and X are required, while G/H are required when enabled.
+  An explicit `spriteStateMap` supports consumer-specific state names but cannot
+  collapse multiple phonemes onto one generic sprite. X maps to the layer's
+  default image by default. This check is limited to generated Rhubarb avatar
+  compositions; externally authored cue tracks and non-avatar editing remain
+  generic. Studio's avatar-generation skill still needs to produce and review
+  these assets; no tests or renders were run for this implementation.
+- `getEngineCapabilities()` now exposes the phonetic mouth-shape contract and
+  Rhubarb availability so any consumer can discover the required A-F shapes,
+  X rest state, optional G/H shapes, and distinct-state invariant at runtime.
+  Existing assertions in `test/animation-cues.test.mjs` still expect the former
+  five-state adapter default; update those assertions when the deferred test
+  work resumes. Tests remain unrun per user direction.
 - Sidechain audio-proxy FFmpeg filter graphs now use one filter thread each to
   limit nested thread fan-out during parallel renders. After this change, the
   full parallel local suite passed 128 tests, skipped 3 optional OTIO tests,

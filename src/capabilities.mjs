@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
+import { RHUBARB_SPRITE_CONTRACT } from './animation/rhubarb.mjs';
 
 const require = createRequire(import.meta.url);
 const VIDEO_ENCODERS = Object.freeze({
@@ -48,6 +49,17 @@ export function getEngineCapabilities(options = {}) {
       rhubarb,
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
+    },
+    avatar: {
+      phoneticLipSync: {
+        available: rhubarb.available,
+        adapter: 'rhubarb',
+        requiredMouthShapes: RHUBARB_SPRITE_CONTRACT.requiredShapes,
+        restShape: RHUBARB_SPRITE_CONTRACT.restShape,
+        optionalMouthShapes: RHUBARB_SPRITE_CONTRACT.optionalShapes,
+        spriteStatesMustBeDistinct: true,
+        externalCueTracks: true,
+      },
     },
     render: {
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),

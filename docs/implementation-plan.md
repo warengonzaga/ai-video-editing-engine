@@ -245,6 +245,13 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   does not bundle avatar assets or Rhubarb. Sprite states within one layer must
   share PNG canvas dimensions so blink, mouth, and pose changes do not resize
   the layer or shift parent-anchored features.
+- [x] Enforce a complete phonetic mouth pack when `avatar-compose` generates
+  Rhubarb lip-sync: each speaking mouth layer must provide distinct A-F viseme
+  states and an X rest state. G and H become required when enabled in the
+  Rhubarb options. Consumers can use custom state names through an explicit
+  one-to-one `spriteStateMap`; missing or collapsed mouth shapes fail with an
+  actionable error. This requirement applies only to phonetic avatar
+  composition; the generic Engine still accepts arbitrary external cue tracks.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an
@@ -315,6 +322,8 @@ human review evidence on each claimed supported environment.
 - [x] Document local installation requirements, doctor capability checks, and
   generic CLI/API examples independent of Studio. Provide a versioned
   `getEngineCapabilities()` API and JSON CLI command for consumer preflight.
+  The report exposes the phonetic avatar mouth-shape contract and optional
+  Rhubarb availability so consumers can discover the required states at runtime.
 - [ ] After the engine prototype passes audiovisual review, connect Explainer
   Studio as a required consumer; provide actionable setup and compatibility
   errors when the engine is unavailable.

@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import { validateAnimationCues } from './cues.mjs';
-import { rhubarbLipSyncCues } from './rhubarb.mjs';
+import { mapRhubarbCuesToSpriteStates, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './rhubarb.mjs';
 
 /** Build a generic sprite-avatar composition from user-supplied images and timed cues. */
 export function createAvatarComposition(projectPath, specification) {
@@ -32,12 +32,15 @@ export function createAvatarComposition(projectPath, specification) {
     const layerIndex = layers.findIndex((layer) => layer?.name === lipSync.layer && layer.role === 'mouth');
     if (layerIndex < 0) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} must name a mouth layer.`);
     if (layers[layerIndex].track !== undefined) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} already has a track.`);
-    const generatedTrack = rhubarbLipSyncCues(lipSync.audioPath, lipSync.options ?? {});
+    validateRhubarbSpriteStates({ default: layers[layerIndex].image, ...(layers[layerIndex].states ?? {}) }, lipSync.options ?? {});
+    const { spriteStateMap, ...rhubarbOptions } = lipSync.options ?? {};
+    const generatedTrack = rhubarbLipSyncCues(lipSync.audioPath, rhubarbOptions);
+    const spriteTrack = mapRhubarbCuesToSpriteStates(generatedTrack, spriteStateMap);
     layers = layers.map((layer, index) => index === layerIndex
       ? { ...layer, track: {
-        schemaVersion: generatedTrack.schemaVersion,
+        schemaVersion: spriteTrack.schemaVersion,
         durationSeconds,
-        cues: generatedTrack.cues
+        cues: spriteTrack.cues
           .filter((cue) => cue.start < durationSeconds)
           .map((cue) => ({ ...cue, end: Math.min(cue.end, durationSeconds) })),
       } }

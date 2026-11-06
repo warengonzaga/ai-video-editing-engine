@@ -6,16 +6,21 @@ import { probeMedia } from '../media/probe.mjs';
 import { validateAnimationCues } from './cues.mjs';
 
 const RHUBARB_SHAPES = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X']);
+export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
+  requiredShapes: Object.freeze(['a', 'b', 'c', 'd', 'e', 'f']),
+  restShape: 'x',
+  optionalShapes: Object.freeze(['g', 'h']),
+});
 const DEFAULT_SPRITE_STATES = Object.freeze({
-  a: 'closed',
-  b: 'small',
-  c: 'open',
-  d: 'wide',
-  e: 'small',
-  f: 'small',
-  g: 'small',
-  h: 'open',
-  x: 'rest',
+  a: 'a',
+  b: 'b',
+  c: 'c',
+  d: 'd',
+  e: 'e',
+  f: 'f',
+  g: 'g',
+  h: 'h',
+  x: 'default',
 });
 
 /** Generate provider-neutral mouth-shape cues with the optional Rhubarb CLI. */
@@ -93,6 +98,32 @@ export function mapRhubarbCuesToSpriteStates(track, mapping = DEFAULT_SPRITE_STA
     return { ...cue, state: mapping[shape] };
   });
   return validateAnimationCues({ ...track, cues });
+}
+
+/** Require distinct sprite states for every Rhubarb shape enabled by the composition. */
+export function validateRhubarbSpriteStates(states, options = {}) {
+  if (!states || typeof states !== 'object' || Array.isArray(states)) {
+    throw new TypeError('Rhubarb mouth sprites must be supplied as a state-to-image object.');
+  }
+  const settings = validateOptions(options);
+  if (!settings.extendedShapes.includes('X')) {
+    throw new TypeError('Phonetic avatar lip sync requires the X rest mouth shape.');
+  }
+  const mapping = settings.spriteStateMap ?? DEFAULT_SPRITE_STATES;
+  const requiredShapes = [...RHUBARB_SPRITE_CONTRACT.requiredShapes, RHUBARB_SPRITE_CONTRACT.restShape, ...[...'GH']
+    .filter((shape) => settings.extendedShapes.includes(shape)).map((shape) => shape.toLowerCase())];
+  const requiredStates = requiredShapes.map((shape) => mapping[shape]);
+  if (requiredStates.some((state) => typeof state !== 'string' || !state.trim())) {
+    throw new TypeError(`Phonetic avatar lip sync requires mappings for Rhubarb shapes ${requiredShapes.join(', ')}.`);
+  }
+  if (new Set(requiredStates).size !== requiredStates.length) {
+    throw new TypeError('Each required Rhubarb mouth shape must map to a distinct sprite state.');
+  }
+  const missing = requiredShapes.filter((shape, index) => !Object.hasOwn(states, requiredStates[index]));
+  if (missing.length) {
+    const details = missing.map((shape) => `${shape.toUpperCase()} (${mapping[shape]})`).join(', ');
+    throw new TypeError(`Phonetic avatar mouth pack is incomplete. Missing sprite states for: ${details}. Required shapes: A-F and X${requiredShapes.includes('g') ? ', G' : ''}${requiredShapes.includes('h') ? ', H' : ''}.`);
+  }
 }
 
 function validateSpriteStateMapping(mapping) {

@@ -44,7 +44,10 @@ node src/cli.mjs capabilities
 ```
 
 The report includes required tool availability, common FFmpeg output encoders,
-and optional filters used by specific render features.
+optional filters used by specific render features, and the generic phonetic
+avatar sprite contract. Consumers can read the required A-F mouth shapes, X
+rest shape, optional G/H shapes, and whether the Rhubarb adapter is installed
+instead of hard-coding Engine-specific avatar assumptions.
 
 The package exposes an `ai-video-engine` CLI binary for local or Git-based
 consumer installs. The repository remains private and is not configured for
@@ -96,13 +99,13 @@ node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json
   "extendedShapes": "X",
   "dialogFile": "script.txt",
   "spriteStateMap": {
-    "a": "closed",
-    "b": "small",
-    "c": "open",
-    "d": "wide",
-    "e": "small",
-    "f": "small",
-    "x": "rest"
+    "a": "a",
+    "b": "b",
+    "c": "c",
+    "d": "d",
+    "e": "e",
+    "f": "f",
+    "x": "default"
   }
 }
 ```
@@ -112,11 +115,11 @@ produces timing and mouth labels; it does not generate avatar art or guarantee
 viseme recognition accuracy.
 
 Use `mapRhubarbCuesToSpriteStates(track, mapping)` to adapt Rhubarb labels to a
-sprite pack's available states. The default mapping targets a five-state pack
-(`rest`, `closed`, `small`, `open`, `wide`); consumers can provide their own
+sprite pack's available states. The default mapping preserves A-F as distinct
+lowercase states and maps X to `default`; consumers can provide their own
 lowercase Rhubarb-label-to-state mapping when their artwork uses different
-mouth shapes. The same `spriteStateMap` can go in the lip-sync options file to
-write mapped cues directly from the CLI.
+mouth-shape names. The same `spriteStateMap` can go in the lip-sync options
+file to write mapped cues directly from the CLI.
 
 For sprite avatars, `createAvatarComposition(projectPath, spec)` accepts
 consumer-supplied image layers and state cue tracks. Each layer's default image
@@ -128,6 +131,10 @@ the name of a mouth layer, and optional Rhubarb options. The selected mouth
 layer must provide its sprite states and omit a precomputed `track`. The audio
 is also used as narration unless `narration` is set separately. Rhubarb must be
 installed by the consumer; this convenience does not bundle the optional tool.
+Phonetic avatar composition requires distinct A-F mouth sprites and a default
+X/rest sprite. G and H sprites are also required when those extended shapes are
+enabled. A custom `spriteStateMap` may rename states but cannot map multiple
+required shapes to the same sprite state.
 This lets a consumer create and render a speech-driven avatar from one
 `avatar-compose` specification instead of writing an intermediate cue file.
 For example, the spec can supply a body track and mouth sprites while asking
@@ -143,13 +150,13 @@ the Engine to generate the mouth track:
       "rhubarb": "rhubarb",
       "recognizer": "phonetic",
       "spriteStateMap": {
-        "a": "closed",
-        "b": "small",
-        "c": "open",
-        "d": "wide",
-        "e": "small",
-        "f": "small",
-        "x": "rest"
+        "a": "a",
+        "b": "b",
+        "c": "c",
+        "d": "d",
+        "e": "e",
+        "f": "f",
+        "x": "default"
       }
     }
   },
@@ -163,13 +170,14 @@ the Engine to generate the mouth track:
     {
       "name": "mouth",
       "role": "mouth",
-      "image": "assets/avatar/mouth-rest.png",
+      "image": "assets/avatar/mouth-x.png",
       "states": {
-        "rest": "assets/avatar/mouth-rest.png",
-        "closed": "assets/avatar/mouth-closed.png",
-        "small": "assets/avatar/mouth-small.png",
-        "open": "assets/avatar/mouth-open.png",
-        "wide": "assets/avatar/mouth-wide.png"
+        "a": "assets/avatar/mouth-a.png",
+        "b": "assets/avatar/mouth-b.png",
+        "c": "assets/avatar/mouth-c.png",
+        "d": "assets/avatar/mouth-d.png",
+        "e": "assets/avatar/mouth-e.png",
+        "f": "assets/avatar/mouth-f.png"
       },
       "x": 0.5,
       "y": 0.4,
