@@ -1254,3 +1254,8 @@ smoke render alone.
   interrupted write cannot leave a partial timeline at the final path, and a
   concurrent creator cannot be overwritten. Syntax and whitespace checks only;
   no render or test suite was run.
+- Timeline render now replaces `index.html` and temporary duration changes to
+  `meta.json` through same-directory temporary files and atomic rename. Error
+  rollback uses the same path, preventing interrupted writes from truncating
+  either project file. Syntax and whitespace checks only; no render or test
+  suite was run.

@@ -1,5 +1,5 @@
-import { existsSync, linkSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { existsSync, linkSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { renderProject, renderProjectAsync } from '../render/hyperframes.mjs';
@@ -72,7 +72,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   if (Math.abs(frameRateNumber(meta.fps) - frameRateNumber(timeline.project.fps)) > 1e-9) throw new TypeError('Timeline project fps must match the Engine project.');
   const updateDuration = Math.abs(meta.durationSeconds - timeline.project.durationSeconds) > 1e-6;
   const restoreProjectMeta = () => {
-    if (updateDuration) writeFileSync(metaPath, originalMeta);
+    if (updateDuration) writeFileAtomically(metaPath, originalMeta);
   };
   const format = resolveRenderFormat(outputPath, options.format);
   if (!prepared) preflightOutputCapabilities(format, renderOptions);
@@ -185,8 +185,8 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
     writeNewFileAtomically(recordPath, serializedTimeline);
   }
   try {
-    if (updateDuration) writeFileSync(metaPath, `${JSON.stringify({ ...meta, durationSeconds: timeline.project.durationSeconds }, null, 2)}\n`);
-    writeFileSync(indexPath, html);
+    if (updateDuration) writeFileAtomically(metaPath, `${JSON.stringify({ ...meta, durationSeconds: timeline.project.durationSeconds }, null, 2)}\n`);
+    writeFileAtomically(indexPath, html);
     const finishResultSync = (result) => {
       renderedOutput = result.output;
       const expectsAudio = format !== 'gif' && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0);
@@ -225,7 +225,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
       }).catch((error) => {
         if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
         if (!recordExists && existsSync(recordPath)) unlinkSync(recordPath);
-        if (originalHtml) writeFileSync(indexPath, originalHtml);
+        if (originalHtml) writeFileAtomically(indexPath, originalHtml);
         else if (existsSync(indexPath)) unlinkSync(indexPath);
         restoreProjectMeta();
         throw error;
@@ -235,7 +235,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   } catch (error) {
     if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
     if (!recordExists && existsSync(recordPath)) unlinkSync(recordPath);
-    if (originalHtml) writeFileSync(indexPath, originalHtml);
+    if (originalHtml) writeFileAtomically(indexPath, originalHtml);
     else if (existsSync(indexPath)) unlinkSync(indexPath);
     restoreProjectMeta();
     throw error;
@@ -280,6 +280,16 @@ function writeNewFileAtomically(path, content) {
   try {
     writeFileSync(temporaryPath, content, { flag: 'wx' });
     linkSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
+}
+
+function writeFileAtomically(path, content) {
+  const temporaryPath = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporaryPath, content, { flag: 'wx' });
+    renameSync(temporaryPath, path);
   } finally {
     rmSync(temporaryPath, { force: true });
   }
