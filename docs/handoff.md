@@ -639,8 +639,12 @@ passed against the real OTIO adapter. The package is not installed globally.
 
 ### Consumer integration and delivery
 
-- Obtain a human listening review of the Engine-rendered `Voice 015.mp3`
-  output. Its audio stream has been verified technically, but not auditioned.
+- Obtain a human audiovisual review of the current A-H Voice 015 avatar render:
+  `video-projects/waren-avatar-viseme-v4/renders/waren-voice015-viseme-v4.mp4`.
+  A 2 fps mouth/face contact sheet is at
+  `video-projects/waren-avatar-viseme-v4/renders/viseme-v4-mouth-inspection.png`.
+  Its audio stream was technically verified, but has not received a human
+  listening review.
 - Decide a distribution model. The private package exposes an installable CLI
   binary for local/Git dependency use; public npm installation is not enabled.
 - Recheck current hosted Linux/macOS/Windows CI state and validate setup on a
@@ -1013,10 +1017,10 @@ smoke render alone.
   consumer-owned JSON example to the README. This reduced the common
   speech-avatar authoring path to one composition specification. Per the user's
   direction, no tests or automated validation were run after this change.
-- Next implementation focus: complete remaining reusable Engine capabilities
-  without starting the gated Studio migration. Leave user audiovisual review,
-  any correction pass, and Studio integration until the implementation work is
-  complete.
+- At that stage, the next focus was to complete reusable Engine capabilities
+  without starting the gated Studio migration. The implementation checklist is
+  now complete; current outstanding review and validation gates are listed under
+  `Remaining work` above.
 - Added `inspectTimeline(timeline)` and `timeline inspect <timeline.json>` as a
   read-only, validated overview for AI editing workflows. The output summarizes
   canvas settings, media metadata, ordered tracks, clip source/timeline ranges,
