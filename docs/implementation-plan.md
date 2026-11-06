@@ -249,10 +249,11 @@ through the documented engine interface; Studio retains its review gates.
 - [x] Expose a private-installable `ai-video-engine` CLI binary. Public package
   publication and the distribution policy remain undecided.
 - [x] Add a Linux/macOS/Windows GitHub Actions matrix for Node.js 22, FFmpeg-backed
-  tests, and production dependency auditing; first hosted run remains pending.
+  tests, and production dependency auditing. Hosted run 42168696652 passed all
+  jobs on Linux, Windows, and macOS.
 - [x] Add a reproducible HyperFrames render smoke for video ingest, narration,
   captions, export, and output metadata; configure it for every CI operating
-  system. The local Windows run passed; hosted cross-platform results are pending.
+  system. Hosted run 42168696652 passed on all three operating systems.
 - [x] Measure synthetic A/V sync cues near the start and end of a 12-second
   render. The Windows run measured 0.000021s offset at both cues (effectively
   zero drift); real long-form and variable-frame-rate source validation remains open.
@@ -260,7 +261,9 @@ through the documented engine interface; Studio retains its review gates.
   transcript corrections; document supported workflow and known limits.
 - [x] Run the available runtime dependency security scan and document
   limitations, supported environments, and dependencies for each capability.
-- [ ] Prepare labeled feature PRs targeting `dev`; use existing labels only.
+- [x] Prepare labeled feature PRs targeting `dev`; use existing labels only.
+  The generic Engine feature is in PR #1 with `enhancement` and `documentation`
+  labels; it remains open for review.
 - [x] Update the handoff with current status, evidence, blockers, and the next
   concrete task. Avoid claiming completion from test results alone.
 
