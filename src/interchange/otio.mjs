@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, statSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerMediaAsset } from '../project/assets.mjs';
@@ -48,6 +49,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
   const assets = original ? structuredClone(original.assets) : [];
   const tracks = [];
   const registered = new Map();
+  const referenceMatches = new Map();
   const usedTrackIds = new Set();
   const findExisting = (mediaPath) => assets.find((asset) => resolve(root, asset.path) === resolve(mediaPath));
   const usedIds = new Set(assets.map((asset) => asset.id));
@@ -61,7 +63,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
       if (!existsSync(sourceClip.path)) throw new Error(`OTIO clip media is missing: ${sourceClip.path}`);
       const engineAsset = original?.assets.find((asset) => asset.id === sourceClip.engineAssetId);
       let asset = findExisting(sourceClip.path);
-      if (!asset && engineAsset && existsSync(resolve(root, engineAsset.path)) && resolve(root, engineAsset.path) === resolve(sourceClip.path)) {
+      if (!asset && engineAsset && assetMatchesReference(root, engineAsset, sourceClip.path, referenceMatches)) {
         asset = assets.find((item) => item.id === engineAsset.id);
       }
       if (!asset) {
@@ -114,6 +116,34 @@ export function importTimelineFromOtio(projectPath, otioPath) {
   };
   validateTimeline(timeline);
   return timeline;
+}
+
+function assetMatchesReference(root, asset, sourcePath, cache) {
+  const key = `${asset.id}\0${resolve(sourcePath)}`;
+  if (cache.has(key)) return cache.get(key);
+  const registeredPath = resolve(root, asset.path);
+  if (!existsSync(registeredPath) || !existsSync(sourcePath)
+      || !statSync(registeredPath).isFile() || !statSync(sourcePath).isFile()
+      || lstatSync(registeredPath).isSymbolicLink()) {
+    cache.set(key, false);
+    return false;
+  }
+  const matches = hashFile(registeredPath) === asset.sha256 && hashFile(sourcePath) === asset.sha256;
+  cache.set(key, matches);
+  return matches;
+}
+
+function hashFile(path) {
+  const hash = createHash('sha256');
+  const descriptor = openSync(path, 'r');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let bytes;
+    while ((bytes = readSync(descriptor, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, bytes));
+  } finally {
+    closeSync(descriptor);
+  }
+  return hash.digest('hex');
 }
 
 function safeId(value, fallback) {
