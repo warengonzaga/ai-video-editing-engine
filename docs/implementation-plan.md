@@ -98,8 +98,9 @@ audio policy, cross-platform and broader format coverage remain open.
 - [x] Probe and retain metadata for every audio stream; detach a selected video's
   chosen audio stream into a synchronized editable clip, preserving source
   timing and constant or ramped playback rate.
-- [x] Add synchronized ripple deletion across tracks, preserving source and
-  animation timing when clips intersect the removed range.
+- [x] Add synchronized ripple deletion by clip or explicit project-time range
+  across tracks, preserving source and animation timing when clips intersect
+  the removed range.
 - [x] Insert synchronized gaps across tracks, splitting clips at the insertion
   point while preserving source ranges, keyframes, speed ramps, and captions.
 - [x] Apply ordered AI edit plans atomically through the JavaScript API and CLI;

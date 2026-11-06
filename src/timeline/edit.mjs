@@ -150,12 +150,19 @@ export function rippleDeleteTimelineClip(timeline, trackId, clipId) {
   validateTimeline(timeline);
   const targetTrack = timeline.tracks.find((candidate) => candidate.id === trackId);
   if (!targetTrack) throw new TypeError(`Unknown timeline track: ${trackId}`);
-  assertTrackEditable(targetTrack);
   const target = targetTrack.clips.find((clip) => clip.id === clipId);
   if (!target) throw new TypeError(`Unknown clip ${clipId} on track ${trackId}.`);
-  const cutStart = target.timelineStart;
-  const cutEnd = cutStart + target.durationSeconds;
-  const cutDuration = target.durationSeconds;
+  return rippleDeleteTimelineRange(timeline, target.timelineStart, target.timelineStart + target.durationSeconds);
+}
+
+export function rippleDeleteTimelineRange(timeline, cutStart, cutEnd) {
+  validateTimeline(timeline);
+  if (!Number.isFinite(cutStart) || !Number.isFinite(cutEnd)
+      || cutStart < 0 || cutEnd <= cutStart || cutEnd > timeline.project.durationSeconds + 1e-6) {
+    throw new TypeError('Ripple delete range must be a positive time range within the project duration.');
+  }
+  cutEnd = Math.min(cutEnd, timeline.project.durationSeconds);
+  const cutDuration = cutEnd - cutStart;
   for (const track of timeline.tracks) {
     if (track.locked === true && (track.clips.some((clip) => clip.timelineStart + clip.durationSeconds > cutStart)
         || track.volumeKeyframes !== undefined)) {
@@ -732,6 +739,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'detach-audio') return detachAudioFromTimelineClip(timeline, trackId, clipId, operation.audioTrackId, operation.audioClipId, operation.audioStreamIndex);
   if (type === 'remove-clip') return removeTimelineClip(timeline, trackId, clipId);
   if (type === 'ripple-delete') return rippleDeleteTimelineClip(timeline, trackId, clipId);
+  if (type === 'ripple-delete-range') return rippleDeleteTimelineRange(timeline, operation.startSeconds, operation.endSeconds);
   if (type === 'insert-gap') return insertTimelineGap(timeline, operation.timelineStart, operation.durationSeconds);
   if (type === 'move') return moveTimelineClip(timeline, trackId, clipId, operation.timelineStart);
   if (type === 'move-track') return moveTimelineClipToTrack(timeline, trackId, clipId, operation.targetTrackId, operation.timelineStart);
@@ -764,7 +772,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'set-audio-mastering') return setTimelineAudioMastering(timeline, operation.audioMastering);
   if (type === 'set-project-state') return setTimelineProjectState(timeline, operation.state);
   if (type === 'set-overlay') return setTimelineOverlay(timeline, trackId, clipId, operation.properties);
-  throw new TypeError('Timeline edit type must be add-track, set-marker, remove-marker, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-clip-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
+  throw new TypeError('Timeline edit type must be add-track, set-marker, remove-marker, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, ripple-delete-range, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-clip-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */

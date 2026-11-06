@@ -1210,6 +1210,10 @@ smoke render alone.
   effect updates, removals, reorders, and cross-track moves reject locked tracks;
   synchronized gap/ripple edits refuse to shift locked content. Lock state is
   preserved in Engine OTIO metadata. No tests or renders were run.
+- Added `ripple-delete-range` for direct project-time cuts across all tracks,
+  with clip splitting and synchronized source, keyframe, audio-automation, and
+  marker retiming. The existing clip-targeted ripple edit now delegates to the
+  same implementation. Static checks only; no tests or renders were run.
 - Ran the read-only `doctor` and capabilities commands on Windows with Node.js
   22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, the cached Chrome
   Headless Shell, and required Engine filters/encoders available. Rhubarb,

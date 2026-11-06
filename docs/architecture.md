@@ -220,9 +220,9 @@ supported and can be compiled into the timeline model.
 
 Consumers use the same operations through CLI and JavaScript exports. Timeline
 operations include validation, EDL assembly, track/clip add and remove, track
-locks, trim,
-slip, split, move, synchronized gap insertion and ripple deletion, crossfade,
-registered-asset replacement, reviewable speed changes, versioned fade/wipe transitions, reviewable visual framing and keyframe changes,
+locks, trim, slip, split, move, synchronized gap insertion and clip/range ripple
+deletion, crossfade, registered-asset replacement, reviewable speed changes,
+versioned fade/wipe transitions, reviewable visual framing and keyframe changes,
 track visibility/mute/solo/lock/volume changes, caption generation, and rendering.
 Reviewable audio clip gain/fade/stream selection, video stream selection, and
 overlay content/style changes join this operation surface. Video stream

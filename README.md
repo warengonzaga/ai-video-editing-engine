@@ -648,6 +648,18 @@ different video layer, use `move-track` in an operation file:
 }
 ```
 
+For AI-proposed arbitrary time ranges, use `ripple-delete-range` with explicit
+project-time boundaries. It applies the same cut to every track, preserves the
+left/right clip segments, and retimes later clips, keyframes, audio automation,
+and markers together:
+
+```json
+{ "type": "ripple-delete-range", "startSeconds": 12.4, "endSeconds": 13.1 }
+```
+
+The JavaScript API exposes this as
+`rippleDeleteTimelineRange(timeline, startSeconds, endSeconds)`.
+
 Use `set-track-state` to show or hide video/overlay tracks, mute or solo audio
 tracks, lock either track kind, or adjust audio-track volume through the same
 reviewable operation workflow.
