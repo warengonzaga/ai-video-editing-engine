@@ -4,14 +4,17 @@ import { resolveCaptionLayoutPreset } from './caption-layouts.mjs';
 export function createCaptionTrack(transcript, options = {}) {
   validateTranscript(transcript);
   const layout = resolveCaptionLayoutPreset(options.layoutPreset);
-  const wordHighlight = options.wordHighlight ?? false;
+  const wordHighlight = options.wordHighlight ?? layout.wordHighlight ?? false;
   if (typeof wordHighlight !== 'boolean') throw new TypeError('wordHighlight must be a boolean.');
   if (wordHighlight && transcript.granularity === 'cue') throw new TypeError('Word highlighting requires word-level transcript timing.');
-  const wordHighlightColor = options.wordHighlightColor ?? '#ffe45c';
+  const wordHighlightColor = options.wordHighlightColor ?? layout.wordHighlightColor ?? '#ffe45c';
   if (typeof wordHighlightColor !== 'string' || !/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(wordHighlightColor)) {
     throw new TypeError('wordHighlightColor must be a hex color.');
   }
   if (!wordHighlight && options.wordHighlightColor !== undefined) throw new TypeError('wordHighlightColor requires wordHighlight: true.');
+  const wordHighlightAnimation = options.wordHighlightAnimation ?? layout.wordHighlightAnimation ?? 'scale';
+  if (!['scale', 'pop'].includes(wordHighlightAnimation)) throw new TypeError('wordHighlightAnimation must be scale or pop.');
+  if (!wordHighlight && options.wordHighlightAnimation !== undefined) throw new TypeError('wordHighlightAnimation requires wordHighlight: true.');
   const wordsPerCaption = options.wordsPerCaption ?? 6;
   if (!Number.isSafeInteger(wordsPerCaption) || wordsPerCaption < 1 || wordsPerCaption > 20) throw new TypeError('wordsPerCaption must be an integer from 1 to 20.');
   const maxGapSeconds = options.maxGapSeconds ?? 0.8;
@@ -40,6 +43,7 @@ export function createCaptionTrack(transcript, options = {}) {
         end: word.end - words[0].start,
       })),
       wordHighlightColor,
+      wordHighlightAnimation,
     } : {}),
     x: options.x ?? layout.x,
     y: options.y ?? layout.y,

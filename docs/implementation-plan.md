@@ -174,7 +174,8 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   reusable fade/wipe clip-edge transitions are implemented for video and
   overlays with overlap and effect compatibility validation. Caption font,
   outline, shadow, padding, line-height, and vertical alignment controls are
-  implemented. Richer caption layouts and templates remain open.
+  implemented. `socialPop` now adds transcript-timed active-word color and a
+  short scale pop; complex multi-line caption templates remain open.
 - [x] Provide a generic layered composition API and optional experimental
   avatar helpers; the latter are not yet a supported speech-animation feature.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
@@ -319,10 +320,10 @@ avatar art, and narration policy belong to Explainer Studio.
 **Progress:** bounded in-memory timeline history is implemented through the
 JavaScript API. It supports undo/redo, reset, safe cloned snapshots, invalid
 operation isolation, and clearing redo history when a new edit is applied.
-Caption generation also offers reusable subtitle, social, and lower-third
-layout presets with per-option overrides. Word-level caption highlighting now
-animates from transcript timing and is pixel-sampled in the Windows render smoke;
-more complex animated caption templates remain open.
+Caption generation also offers reusable subtitle, social, social-pop, and
+lower-third layouts with per-option overrides. Word highlighting supports a
+steady scale or short pop entrance, and the Windows render smoke pixel-samples
+the active color at timed intervals. Complex multi-line templates remain open.
 The JavaScript API also accepts injected transcription adapters, validates and
 normalizes their output against probed source duration, and stores normalized
 transcripts without writing provider credentials. Media-analysis adapters and

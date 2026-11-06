@@ -62,11 +62,11 @@ Last updated: 2026-11-06
 - The API's `editTimelineBatch` and history's `applyBatch` apply ordered edit
   plans all-or-nothing; a completed batch is one undo/redo action. The CLI also
   accepts an operation array and writes no output if any operation fails.
-- Caption generation provides generic `subtitle`, `social`, and `lowerThird`
-  layout presets with explicit style overrides. Optional word-level highlighting
-  animates color and scale from transcript timing; a pixel-sampled render smoke
-  verifies active and inactive intervals. Complex multi-line templates remain
-  unimplemented.
+- Caption generation provides generic `subtitle`, `social`, `socialPop`, and
+  `lowerThird` layout presets with explicit style overrides. The `socialPop`
+  preset enables word-timed highlighting with a brief GSAP pop on the active
+  word; other layouts can select `scale` or `pop`. A pixel-sampled render smoke
+  verifies the timed highlight. Complex multi-line templates remain open.
 - `transcribeWithProvider` accepts an injected JavaScript provider, supplies
   probed media duration, validates and normalizes returned word/cue timing, and
   writes the result without persisting provider credentials. Media-analysis
@@ -671,3 +671,9 @@ smoke render alone.
   AAC audio. This is a visual spot-check only; phoneme alignment and human
   listening review remain open. The contact sheet and source media remain
   local and ignored.
+- Added a generic `socialPop` caption preset that activates word highlighting
+  from word-timed transcripts and animates each active word from 0.92 to 1.08
+  scale over at most 140 ms with GSAP `back.out(1.6)`. Other layouts can select
+  `scale` or `pop` explicitly; invalid or untimed options are rejected. The
+  Windows full render smoke passed with its timed red-pixel checks using the
+  new preset. `npm test`: 117 passed, 2 optional OpenTimelineIO skips, 0 failed.

@@ -189,8 +189,11 @@ function validateTextClip(clip) {
     if (typeof clip.wordHighlightColor !== 'string' || !/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(clip.wordHighlightColor)) {
       throw new TypeError(`Text overlay ${clip.id} wordHighlightColor must be a hex color.`);
     }
-  } else if (clip.wordHighlightColor !== undefined) {
-    throw new TypeError(`Text overlay ${clip.id} wordHighlightColor requires wordTimings.`);
+    if (clip.wordHighlightAnimation !== undefined && !['scale', 'pop'].includes(clip.wordHighlightAnimation)) {
+      throw new TypeError(`Text overlay ${clip.id} wordHighlightAnimation must be scale or pop.`);
+    }
+  } else if (clip.wordHighlightColor !== undefined || clip.wordHighlightAnimation !== undefined) {
+    throw new TypeError(`Text overlay ${clip.id} word highlighting options require wordTimings.`);
   }
   if (clip.fontSize !== undefined && (!Number.isSafeInteger(clip.fontSize) || clip.fontSize < 8 || clip.fontSize > 256)) throw new TypeError(`Text overlay ${clip.id} fontSize must be an integer from 8 to 256.`);
   if (clip.fontFamily !== undefined && (typeof clip.fontFamily !== 'string' || !/^[\w ,'-]{1,80}$/.test(clip.fontFamily))) throw new TypeError(`Text overlay ${clip.id} fontFamily contains unsupported characters.`);

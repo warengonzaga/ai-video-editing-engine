@@ -731,6 +731,7 @@ test('creates validated timed captions from word or cue transcripts', () => {
   assert.ok(Math.abs(highlighted.clips[0].wordTimings[0].end - 0.5) < 1e-9);
   assert.equal(highlighted.clips[0].wordTimings[1].end, 1);
   assert.equal(highlighted.clips[0].wordHighlightColor, '#ff0000');
+  assert.equal(highlighted.clips[0].wordHighlightAnimation, 'scale');
   const highlightedTimeline = structuredClone(valid);
   highlightedTimeline.tracks.push({ ...highlighted, order: 3 });
   assert.equal(validateTimeline(highlightedTimeline), highlightedTimeline);
@@ -738,14 +739,17 @@ test('creates validated timed captions from word or cue transcripts', () => {
   assert.throws(() => createCaptionTrack(cueTranscript, { wordHighlight: true }), /word-level transcript timing/);
   assert.throws(() => createCaptionTrack(transcript, { wordHighlightColor: '#ff0000' }), /requires wordHighlight/);
   assert.throws(() => createCaptionTrack(transcript, { wordHighlightColor: 'red', wordHighlight: true }), /hex color/);
+  assert.throws(() => createCaptionTrack(transcript, { wordHighlightAnimation: 'pop' }), /requires wordHighlight/);
+  assert.throws(() => createCaptionTrack(transcript, { wordHighlight: true, wordHighlightAnimation: 'spin' }), /must be scale or pop/);
   for (const invalidHighlight of [
     { ...highlighted.clips[0], wordTimings: [{ text: 'Different', start: 0, end: 0.5 }, ...highlighted.clips[0].wordTimings.slice(1)] },
     { ...highlighted.clips[0], wordTimings: [{ text: 'Hello', start: -0.1, end: 0.5 }, ...highlighted.clips[0].wordTimings.slice(1)] },
     { ...highlighted.clips[0], wordHighlightColor: 'red' },
+    { ...highlighted.clips[0], wordHighlightAnimation: 'spin' },
   ]) {
     const invalidTimeline = structuredClone(valid);
     invalidTimeline.tracks.push({ ...highlighted, order: 3, clips: [invalidHighlight] });
-    assert.throws(() => validateTimeline(invalidTimeline), /wordTimings|wordHighlightColor/);
+    assert.throws(() => validateTimeline(invalidTimeline), /wordTimings|wordHighlightColor|wordHighlightAnimation/);
   }
   const styled = createCaptionTrack(transcript, {
     fontFamily: 'Arial, sans-serif', fontWeight: 700, lineHeight: 1.2,
@@ -756,13 +760,16 @@ test('creates validated timed captions from word or cue transcripts', () => {
   const styledTimeline = structuredClone(valid);
   styledTimeline.tracks.push({ ...styled, order: 3 });
   assert.equal(validateTimeline(styledTimeline), styledTimeline);
-  for (const [layoutPreset, expectedAlign] of [['subtitle', 'center'], ['social', 'center'], ['lowerThird', 'left']]) {
+  for (const [layoutPreset, expectedAlign] of [['subtitle', 'center'], ['social', 'center'], ['socialPop', 'center'], ['lowerThird', 'left']]) {
     const presetTrack = createCaptionTrack(transcript, { layoutPreset });
     assert.equal(presetTrack.clips[0].textAlign, expectedAlign);
     const presetTimeline = structuredClone(valid);
     presetTimeline.tracks.push({ ...presetTrack, order: 3 });
     assert.equal(validateTimeline(presetTimeline), presetTimeline);
   }
+  const socialPop = createCaptionTrack(transcript, { layoutPreset: 'socialPop' });
+  assert.equal(socialPop.clips[0].wordHighlightAnimation, 'pop');
+  assert.equal(socialPop.clips[0].wordHighlightColor, '#ffe45c');
   const overridden = createCaptionTrack(transcript, { layoutPreset: 'social', fontSize: 42, textAlign: 'left' });
   assert.equal(overridden.clips[0].fontSize, 42);
   assert.equal(overridden.clips[0].textAlign, 'left');

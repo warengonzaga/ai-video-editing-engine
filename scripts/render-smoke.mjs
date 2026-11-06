@@ -283,7 +283,6 @@ try {
     durationSeconds: 2,
     words: [{ text: 'ONE', start: 0.2, end: 0.8 }, { text: 'TWO', start: 1.2, end: 1.8 }],
   }, {
-    wordHighlight: true,
     wordHighlightColor: '#ff0000',
     color: '#ffffff',
     backgroundColor: 'transparent',
@@ -291,7 +290,7 @@ try {
     y: 0.52,
     height: 0.4,
     paddingPixels: 0,
-    layoutPreset: 'subtitle',
+    layoutPreset: 'socialPop',
   });
   const captionTimeline = {
     schemaVersion: 1,

@@ -183,13 +183,16 @@ APIs do not support checkpoints.
 `textOutline`, and `textShadow`. These settings compile to validated CSS values;
 raw CSS is not accepted. `textOutline` uses `{ color, widthPixels }`, while
 `textShadow` uses `{ color, blurPixels, offsetXPixels, offsetYPixels }`.
-Choose `layoutPreset: 'subtitle' | 'social' | 'lowerThird'` for reusable
-placement and styling defaults; explicit options override the selected preset.
-Use `listCaptionLayoutPresets()` or `resolveCaptionLayoutPreset(name)` to
-inspect the available layouts. With word-timed transcripts, enable
-`wordHighlight: true` to highlight and slightly scale the active word during
-its interval; `wordHighlightColor` customizes the highlight. Cue-level
-transcripts do not contain enough timing detail for this animation.
+Choose `layoutPreset: 'subtitle' | 'social' | 'socialPop' | 'lowerThird'`
+for reusable placement and styling defaults; explicit options override the
+selected preset.
+`socialPop` enables timed word highlighting by default, with a brief pop when
+each word becomes active. For other layouts, word-timed transcripts can set
+`wordHighlight: true` and choose `wordHighlightAnimation: 'scale' | 'pop'`;
+`wordHighlightColor` customizes the highlight. Explicit options override preset
+defaults. Use `listCaptionLayoutPresets()` or `resolveCaptionLayoutPreset(name)`
+to inspect available layouts. Cue-level transcripts do not contain enough
+timing detail for word animations.
 
 GIF cannot carry audio, so timeline rendering rejects GIF requests when audio
 clips are present. PNG image sequences export full-resolution RGBA frames to a
