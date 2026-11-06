@@ -99,7 +99,9 @@ converts its JSON output into the Engine's validated animation-cue format.
 FFmpeg converts supported audio inputs to mono WAV for Rhubarb. The Engine does
 not install or bundle Rhubarb. The default `phonetic` recognizer works across
 languages, though its results are less precise than English PocketSphinx;
-supply a dialog file when available to help recognition. Rhubarb can return
+provide the spoken script as `dialogText` or `dialogFile` when available to
+help recognition. Inline text is staged in a temporary file and removed after
+cue generation. Rhubarb can return
 shape states `a`–`h` and `x`; Engine avatar composition requires matching
 sprite states for all of them before rendering. The default extended-shape
 setting is `GHX`.

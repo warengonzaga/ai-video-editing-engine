@@ -1319,6 +1319,13 @@ smoke render alone.
   linked it from the README. These changes help any consumer skill generate
   assets against the Engine's contract without adding Studio coupling. Static
   syntax and diff checks only; no tests, render, or audiovisual review were run.
+- `rhubarbLipSyncCues` and `avatar-compose` now accept inline `dialogText` as an
+  alternative to `dialogFile`, allowing script-aware cue generation from
+  in-memory AI workflows. Inline text is written only inside the operation's
+  temporary directory and removed with the generated WAV/cue files; the two
+  dialog options are mutually exclusive. README and mouth-pack authoring docs
+  describe the option. Static syntax and diff checks only; no tests or render
+  were run.
 - Fixed the synthetic render smoke harness to save each edited timeline into its
   isolated temporary project before rendering. This respects the renderer's
   protection against rendering a timeline that differs from the project's saved

@@ -259,7 +259,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
 - [x] Provide a generic layered composition API and optional speech-avatar
   helpers. `avatar-compose` can generate mouth-state cues through optional
   Rhubarb integration or consume externally generated cue tracks; the Engine
-  does not bundle avatar assets or Rhubarb. Sprite states within one layer must
+  does not bundle avatar assets or Rhubarb. Consumers can provide optional
+  in-memory dialog text or an existing dialog file to improve cue recognition.
+  Sprite states within one layer must
   share PNG canvas dimensions so blink, mouth, and pose changes do not resize
   the layer or shift parent-anchored features. Before copying, avatar composition
   preflights all generated sprite destinations and refuses same-named files with

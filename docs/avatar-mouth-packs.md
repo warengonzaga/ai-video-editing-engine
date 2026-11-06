@@ -63,10 +63,12 @@ mismatched canvas dimensions, and byte-identical images. These checks do not
 measure perceptual similarity, anchor alignment, or whether each drawing
 actually matches its intended articulation.
 
-For better recognition, provide the spoken dialog when it is known. Use the
-Engine's default `phonetic` recognizer for multilingual recordings; use
-`pocketSphinx` only for English recordings. Always compare generated cues with
-the audio and correct them when necessary.
+For better recognition, provide the spoken dialog when it is known. Pass it as
+`dialogText` from an in-memory workflow, or use `dialogFile` when the text
+already exists on disk. Inline text is staged temporarily and removed after
+cue generation. Use the Engine's default `phonetic` recognizer for multilingual
+recordings; use `pocketSphinx` only for English recordings. Always compare
+generated cues with the audio and correct them when necessary.
 
 The definitions follow [Rhubarb Lip Sync's mouth-shape guide](https://github.com/DanielSWolf/rhubarb-lip-sync#mouth-shapes)
 and its [recognizer and dialog-file guidance](https://github.com/DanielSWolf/rhubarb-lip-sync#recognizers).

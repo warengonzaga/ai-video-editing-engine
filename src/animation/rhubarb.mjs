@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -58,7 +58,12 @@ export function rhubarbLipSyncCues(inputPath, options = {}) {
     }
 
     const args = ['--exportFormat', 'json', '--recognizer', settings.recognizer, '--extendedShapes', settings.extendedShapes, '--quiet'];
-    if (settings.dialogFile) args.push('--dialogFile', settings.dialogFile);
+    let dialogFile = settings.dialogFile;
+    if (settings.dialogText !== undefined) {
+      dialogFile = join(temporaryDirectory, 'dialog.txt');
+      writeFileSync(dialogFile, settings.dialogText, 'utf8');
+    }
+    if (dialogFile) args.push('--dialogFile', dialogFile);
     args.push('--output', cuePath);
     args.push(wavPath);
     const generated = spawnSync(settings.rhubarb, args, {
@@ -182,7 +187,7 @@ function validateSpriteStateMapping(mapping) {
 
 function validateOptions(options) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Lip-sync options must be an object.');
-  const allowed = new Set(['rhubarb', 'ffmpeg', 'recognizer', 'extendedShapes', 'dialogFile', 'timeoutMs', 'spriteStateMap']);
+  const allowed = new Set(['rhubarb', 'ffmpeg', 'recognizer', 'extendedShapes', 'dialogFile', 'dialogText', 'timeoutMs', 'spriteStateMap']);
   for (const key of Object.keys(options)) if (!allowed.has(key)) throw new TypeError(`Unsupported lip-sync option: ${key}.`);
   const recognizer = options.recognizer ?? 'phonetic';
   if (!['phonetic', 'pocketSphinx'].includes(recognizer)) throw new TypeError('Rhubarb recognizer must be phonetic or pocketSphinx.');
@@ -198,13 +203,19 @@ function validateOptions(options) {
     throw new TypeError('Rhubarb and FFmpeg executable names must be non-empty strings.');
   }
   let dialogFile;
+  let dialogText;
   if (options.dialogFile !== undefined) {
     if (typeof options.dialogFile !== 'string' || !options.dialogFile.trim()) throw new TypeError('dialogFile must be a non-empty path.');
     dialogFile = resolve(options.dialogFile);
     if (!existsSync(dialogFile)) throw new Error('Rhubarb dialog file does not exist.');
   }
+  if (options.dialogText !== undefined) {
+    if (typeof options.dialogText !== 'string' || !options.dialogText.trim()) throw new TypeError('dialogText must be a non-empty string.');
+    if (dialogFile) throw new TypeError('Specify either dialogText or dialogFile, not both.');
+    dialogText = options.dialogText;
+  }
   const spriteStateMap = options.spriteStateMap === undefined
     ? undefined
     : validateSpriteStateMapping(options.spriteStateMap);
-  return { rhubarb, ffmpeg, recognizer, extendedShapes, dialogFile, timeoutMs, spriteStateMap };
+  return { rhubarb, ffmpeg, recognizer, extendedShapes, dialogFile, dialogText, timeoutMs, spriteStateMap };
 }
