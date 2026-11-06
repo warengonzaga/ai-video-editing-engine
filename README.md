@@ -601,7 +601,8 @@ node src/cli.mjs timeline inspect timeline.json
 
 The JavaScript API exports the same view through
 `inspectTimeline(timeline)`. It validates the timeline first and does not write
-or modify project files.
+or modify project files. Computed clip end times in the summary are rounded to
+six decimal places to avoid floating-point display noise.
 
 Generic edit operations can add/remove/reorder tracks and add/remove/duplicate clips, detach clip audio,
 move clips within and between compatible tracks, trim/slip/split clips,

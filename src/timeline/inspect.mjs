@@ -74,7 +74,7 @@ function inspectClip(track, clip, asset) {
     mediaType: track.kind === 'overlay' ? (clip.text === undefined ? 'composition' : 'text') : asset?.type ?? track.kind,
     timeline: {
       startSeconds: clip.timelineStart,
-      endSeconds: clip.timelineStart + clip.durationSeconds,
+      endSeconds: roundInspectionSeconds(clip.timelineStart + clip.durationSeconds),
       durationSeconds: clip.durationSeconds,
     },
   };
@@ -99,4 +99,8 @@ function inspectClip(track, clip, asset) {
     if (clip[field] !== undefined) result[field] = structuredClone(clip[field]);
   }
   return result;
+}
+
+function roundInspectionSeconds(seconds) {
+  return Number(seconds.toFixed(6));
 }
