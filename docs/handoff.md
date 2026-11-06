@@ -765,6 +765,10 @@ smoke render alone.
   matrix step starts. GitHub reports failed recent account payments or a
   spending limit as the reason; this is an Actions account blocker, not a test
   result. Retry the hosted matrix after billing is restored.
+- Feature-branch pushes previously triggered one matrix run through `push` and
+  another through the open PR's `pull_request` event. Removed feature/fix branch
+  push triggers to avoid the duplicate three-OS test, render, and audit runs;
+  PRs targeting `dev` still run the full matrix, and pushes to `dev` still run it.
 - The latest Windows render-smoke run also covers an MP4 whose video stream
   starts at 1.0 second. The rendered clip shows its red source frame at timeline
   0.25 seconds; the output records source start time 1.0 second. The complete
