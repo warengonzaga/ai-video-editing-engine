@@ -16,11 +16,13 @@ export async function inspectMediaCompatibility(inputPath, options = {}) {
     : [];
   const containerAvailable = sourceFormats.some((format) => demuxers.has(format));
   const video = media.videoStreams.map((stream) => ({
+    index: stream.index,
     streamIndex: stream.streamIndex,
     codec: stream.codec,
     available: typeof stream.codec === 'string' && decoders.has(stream.codec),
   }));
   const audio = media.audioStreams.map((stream) => ({
+    index: stream.index,
     streamIndex: stream.streamIndex,
     codec: stream.codec,
     available: typeof stream.codec === 'string' && decoders.has(stream.codec),

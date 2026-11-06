@@ -56,7 +56,9 @@ To inspect an audio/video source against the local FFmpeg build before ingesting
 it, run `node src/cli.mjs media support <media>` or call
 `inspectMediaCompatibility(mediaPath)` from the JavaScript API. The report
 checks the container and every detected audio/video stream, but does not decode
-the full file. Still images use the image asset-ingest path.
+the full file. Each stream entry includes `index` (the zero-based ordinal used
+by timeline selection) and `streamIndex` (the FFmpeg-global stream index). Still
+images use the image asset-ingest path.
 Consumers can read the required A-H mouth shapes, X
 rest shape, shared-canvas and distinct-image requirements, the default GHX
 extended-shape setting, and whether the Rhubarb adapter is installed instead

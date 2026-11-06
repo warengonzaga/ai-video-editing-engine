@@ -1301,3 +1301,6 @@ smoke render alone.
 - Corrected avatar composition to pass PNG file bytes into the shared image
   validator; the previous caller passed a path string to a Buffer-only helper.
   Syntax and whitespace checks only; no composition or render was run.
+- Extended media compatibility entries with both zero-based stream ordinals
+  and FFmpeg-global indexes, so AI consumers can use the reported ordinal
+  directly in timeline stream selection. No media probe or tests were run.
