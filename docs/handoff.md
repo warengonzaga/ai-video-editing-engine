@@ -1259,3 +1259,7 @@ smoke render alone.
   rollback uses the same path, preventing interrupted writes from truncating
   either project file. Syntax and whitespace checks only; no render or test
   suite was run.
+- Declared the Engine package license as MIT, included the root license file in
+  package contents, and documented third-party license boundaries. Metadata
+  parsing and whitespace checks only; no test suite, render, package publish,
+  or registry access was performed.

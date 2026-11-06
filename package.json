@@ -2,6 +2,7 @@
   "name": "ai-video-editing-engine",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "bin": {
     "ai-video-engine": "src/cli.mjs"
@@ -12,6 +13,7 @@
   "files": [
     "src/",
     "README.md",
+    "LICENSE",
     "docs/architecture.md",
     "docs/aspect-ratio-presets.md",
     "docs/handoff.md",

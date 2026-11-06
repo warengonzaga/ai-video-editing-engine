@@ -1197,3 +1197,8 @@ Crossfade offsets and source ranges are derived from the overlapping Engine
 clips.
 Engine-only clip settings and overlay tracks are retained in OTIO metadata for
 Engine round trips, but other editors may ignore or remove that metadata.
+
+## License
+
+AI Video Editing Engine is licensed under the MIT License. See [LICENSE](LICENSE)
+for the full text. Third-party dependencies retain their respective licenses.
