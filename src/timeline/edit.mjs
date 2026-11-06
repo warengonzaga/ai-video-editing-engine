@@ -46,6 +46,62 @@ export function removeTimelineMarker(timeline, markerId) {
   return validateTimeline(next);
 }
 
+/** Create a renderable, non-destructive timeline window from project time. */
+export function extractTimelineRange(timeline, startSeconds, endSeconds) {
+  validateTimeline(timeline);
+  if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)
+      || startSeconds < 0 || endSeconds <= startSeconds
+      || endSeconds > timeline.project.durationSeconds + 1e-6) {
+    throw new TypeError('Timeline range must be a positive time range within the project duration.');
+  }
+  const end = Math.min(endSeconds, timeline.project.durationSeconds);
+  const durationSeconds = end - startSeconds;
+  if (durationSeconds < 1 / frameRateNumber(timeline.project.fps) - 1e-9) {
+    throw new TypeError('Timeline range must include at least one project frame.');
+  }
+  const next = structuredClone(timeline);
+  next.project.durationSeconds = durationSeconds;
+  if (next.markers) {
+    next.markers = next.markers
+      .filter((marker) => marker.timeSeconds >= startSeconds && marker.timeSeconds <= end)
+      .map((marker) => ({ ...marker, timeSeconds: marker.timeSeconds - startSeconds }));
+  }
+  for (const track of next.tracks) {
+    if (track.volumeKeyframes) track.volumeKeyframes = sliceAudioVolumeKeyframes(track.volumeKeyframes, startSeconds, end);
+    track.clips = track.clips.flatMap((clip) => {
+      const clipStart = clip.timelineStart;
+      const clipEnd = clipStart + clip.durationSeconds;
+      const overlapStart = Math.max(startSeconds, clipStart);
+      const overlapEnd = Math.min(end, clipEnd);
+      if (overlapEnd <= overlapStart) return [];
+      const localStart = overlapStart - clipStart;
+      const localEnd = overlapEnd - clipStart;
+      assertRangeDoesNotCutEdgeEffects(clip, localStart, localEnd);
+      const segment = sliceTimelineClip(clip, track.kind, localStart, localEnd, overlapStart - startSeconds);
+      if (!segment) return [];
+      return [segment];
+    });
+  }
+  return validateTimeline(next);
+}
+
+function assertRangeDoesNotCutEdgeEffects(clip, localStart, localEnd) {
+  if (clip.fadeInSeconds !== undefined && localStart > 0 && localStart < clip.fadeInSeconds) {
+    throw new TypeError(`Render range cuts through clip ${clip.id}'s fade-in; start the range before or after the fade.`);
+  }
+  if (clip.fadeOutSeconds !== undefined && localEnd < clip.durationSeconds
+      && localEnd > clip.durationSeconds - clip.fadeOutSeconds) {
+    throw new TypeError(`Render range cuts through clip ${clip.id}'s fade-out; end the range before or after the fade.`);
+  }
+  if (clip.transitionIn && localStart > 0 && localStart < clip.transitionIn.durationSeconds) {
+    throw new TypeError(`Render range cuts through clip ${clip.id}'s incoming transition; start the range before or after it.`);
+  }
+  if (clip.transitionOut && localEnd < clip.durationSeconds
+      && localEnd > clip.durationSeconds - clip.transitionOut.durationSeconds) {
+    throw new TypeError(`Render range cuts through clip ${clip.id}'s outgoing transition; end the range before or after it.`);
+  }
+}
+
 export function reorderTimelineTrack(timeline, trackId, order) {
   validateTimeline(timeline);
   if (!Number.isSafeInteger(order) || order < 0 || order >= timeline.tracks.length) {

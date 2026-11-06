@@ -22,7 +22,7 @@ import { validateTimeline } from './timeline/validate.mjs';
 import { inspectTimeline } from './timeline/inspect.mjs';
 import { timelineFromEdl } from './timeline/from-edl.mjs';
 import { renderTimelineAsync } from './timeline/render.mjs';
-import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
+import { editTimeline, editTimelineBatch, extractTimelineRange, previewTimelineEdit } from './timeline/edit.mjs';
 import { editTimelineFile, getTimelineFileHistory, redoTimelineFile, resetTimelineFileHistory, undoTimelineFile } from './timeline/history-store.mjs';
 import { createProjectTimeline } from './timeline/project.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
@@ -240,6 +240,16 @@ async function main(args) {
     console.log(JSON.stringify(await runWithInterrupt((signal) => renderTimelineAsync(resolve(project), readJson(resolve(timelinePath)), outputPath ? resolve(outputPath) : undefined, quality, { ...options, signal })), null, 2));
     return;
   }
+  if (command === 'timeline' && commandArgs[0] === 'render-range' && commandArgs.length >= 6 && commandArgs.length <= 8) {
+    const [, project, timelinePath, startText, endText, outputPath, quality = 'draft', optionsPath] = commandArgs;
+    const startSeconds = Number(startText);
+    const endSeconds = Number(endText);
+    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)) throw new TypeError('Timeline range start and end must be numbers in seconds.');
+    const timeline = extractTimelineRange(readJson(resolve(timelinePath)), startSeconds, endSeconds);
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    console.log(JSON.stringify(await runWithInterrupt((signal) => renderTimelineAsync(resolve(project), timeline, resolve(outputPath), quality, { ...options, signal })), null, 2));
+    return;
+  }
   if (command === 'timeline' && commandArgs[0] === 'from-edl' && commandArgs.length >= 4 && commandArgs.length <= 5) {
     const [, edlPath, assetId, outputPath, optionsPath] = commandArgs;
     const edl = readJson(resolve(edlPath));
@@ -455,6 +465,7 @@ async function main(args) {
   timeline captions <transcript.json> <new-track.json> [options.json]
   timeline from-edl <approved-edl.json> <assetId> <new-timeline.json> [options.json]
   timeline render <project> <timeline.json> [output.mp4] [draft|standard|high]
+  timeline render-range <project> <timeline.json> <start-seconds> <end-seconds> <output.mp4> [draft|standard|high] [options.json]
   transcribe <project> <media> [model] [language] | import-transcript <project> <media> <transcript>
   plan-silence <transcript.json> <new-edl.json> | detect-silence <media> <new-edl.json> [options.json]
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]

@@ -318,8 +318,15 @@ extension:
 node src/cli.mjs render video-projects/my-video renders/final.webm high
 node src/cli.mjs timeline render video-projects/my-video timeline.json renders/final.mov standard
 node src/cli.mjs timeline render video-projects/my-video timeline.json renders/final.mp4 high render-options.json
+node src/cli.mjs timeline render-range video-projects/my-video timeline.json 12.5 24 renders/segment.mp4 standard
 node src/cli.mjs render video-projects/my-video renders/frames high png-options.json
 ```
+
+`timeline render-range` renders a selected project-time window from the source
+timeline without editing it. The JavaScript API exposes the same operation via
+`extractTimelineRange(timeline, startSeconds, endSeconds)`; pass the returned
+timeline to `renderTimelineAsync`. A range must include at least one project
+frame and cannot cut through a clip fade or edge transition.
 
 `render-options.json` can choose a video `codec`, integer encoder `crf`, or
 `videoBitrate`, for example `{ "encoder": { "codec": "h265", "crf": 26 } }`

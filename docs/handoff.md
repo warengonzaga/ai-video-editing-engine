@@ -19,6 +19,10 @@ Last updated: 2026-11-07
   rates from 0.1× to 5× and source-relative eased speed ramps; trim, split,
   move, and crossfade operations; text captions, images,
   reusable HyperFrames compositions, and project/clip source-fit policies.
+- `extractTimelineRange` and `timeline render-range` create a renderable,
+  non-destructive project-time segment. They preserve intersecting clip source
+  timing, keyframes, captions, audio automation, and markers; a requested cut
+  through a clip fade or edge transition is rejected with a clear error.
 - Projects can register copied video, audio, and image assets. The manifest
   records probe metadata and source SHA-256. The original input remains
   unchanged. Audio/video stream start times, durations, and time bases are
