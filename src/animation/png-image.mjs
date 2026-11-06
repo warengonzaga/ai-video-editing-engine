@@ -37,6 +37,9 @@ function inspectPng(image) {
     const chunkEnd = crcOffset + 4;
     if (!Number.isSafeInteger(chunkEnd) || chunkEnd > image.length) throw new TypeError('truncated PNG chunk data');
     const type = image.toString('ascii', typeOffset, dataOffset);
+    if (!/^[A-Za-z]{4}$/.test(type) || type[2] !== type[2].toUpperCase()) {
+      throw new TypeError('PNG chunk type is invalid');
+    }
     const data = image.subarray(dataOffset, crcOffset);
     if (readCrc(image, typeOffset, crcOffset) !== image.readUInt32BE(crcOffset)) {
       throw new TypeError(`PNG ${type} chunk has an invalid checksum`);
