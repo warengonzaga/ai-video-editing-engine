@@ -666,6 +666,13 @@ smoke render alone.
   The temporary consumer and tarball live under ignored `video-projects/`;
   nothing was published to npm. Installation initially hit the sandbox's npm
   registry DNS restriction, then completed after the authorized network retry.
+- Reviewed the current Voice 015 A-H render contact sheet. The Engine hard-cuts
+  between its supplied sprite states, and authored art quality still determines
+  how distinct the shapes appear. Strengthened the phonetic mouth-pack gate to
+  reject state mappings that reuse byte-identical image files before invoking
+  Rhubarb. This prevents exact file reuse but cannot assess perceptual
+  similarity, placement, or phoneme accuracy. No test suite or new render was
+  run for this change, per the implementation-first direction.
 
 - Added `insertTimelineGap` / `editTimeline({ type: 'insert-gap', ... })` as a
   generic synchronized timeline operation. It shifts clips after the insertion

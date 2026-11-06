@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -124,6 +125,22 @@ export function validateRhubarbSpriteStates(states, options = {}) {
   if (missing.length) {
     const details = missing.map((shape) => `${shape.toUpperCase()} (${mapping[shape]})`).join(', ');
     throw new TypeError(`Phonetic avatar mouth pack is incomplete. Missing sprite states for: ${details}. Required shapes: A-H and X.`);
+  }
+  const imageByDigest = new Map();
+  for (let index = 0; index < requiredStates.length; index += 1) {
+    const state = requiredStates[index];
+    const shape = requiredShapes[index];
+    const path = states[state];
+    if (typeof path !== 'string' || !path.trim() || !existsSync(resolve(path))) {
+      throw new TypeError(`Phonetic avatar mouth sprite ${shape.toUpperCase()} (${state}) must point to an existing image file.`);
+    }
+    const imagePath = resolve(path);
+    const digest = createHash('sha256').update(readFileSync(imagePath)).digest('hex');
+    const duplicate = imageByDigest.get(digest);
+    if (duplicate) {
+      throw new TypeError(`Phonetic avatar mouth pack reuses identical image data for ${duplicate.shape.toUpperCase()} (${duplicate.state}) and ${shape.toUpperCase()} (${state}); each A-H viseme and X rest requires a distinct image.`);
+    }
+    imageByDigest.set(digest, { shape, state });
   }
 }
 
