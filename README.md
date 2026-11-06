@@ -49,6 +49,9 @@ color-profile support, named canvas presets, optional filters used by
 specific render features, and the generic phonetic avatar sprite contract.
 Browser runtime availability is intentionally reported as unchecked; run
 `npm run doctor` to let HyperFrames inspect the local render environment.
+The JavaScript API also exposes `listFfmpegDecoders()` and
+`listFfmpegDemuxers()` plus `has` and `assert` helpers for checking a specific
+input capability before accepting media.
 Consumers can read the required A-H mouth shapes, X
 rest shape, shared-canvas and distinct-image requirements, the default GHX
 extended-shape setting, and whether the Rhubarb adapter is installed instead

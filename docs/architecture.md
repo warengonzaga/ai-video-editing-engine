@@ -373,6 +373,9 @@ marks a format available when its render runtime and at least one compatible
 encoder are present; `defaultCodecAvailable` indicates whether the default
 encoder is installed. It does not guarantee that every input codec or
 media-specific render operation is supported.
+For operation-specific input checks, the JavaScript API exposes
+`listFfmpegDecoders()`, `listFfmpegDemuxers()`, their boolean `has` helpers, and
+their throwing `assert` helpers.
 
 Pinned package versions are an initial baseline from the installed Herk Edit Kit
 setup, not a promise of compatibility with future releases. Recheck versions and

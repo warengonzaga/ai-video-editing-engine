@@ -58,10 +58,38 @@ export function assertFfmpegEncoder(encoderName, availableEncoders) {
   return encoderName;
 }
 
+export function assertFfmpegDecoder(decoderName, availableDecoders) {
+  if (typeof decoderName !== 'string' || !/^[a-z0-9_-]+$/i.test(decoderName)) throw new TypeError('FFmpeg decoder name is invalid.');
+  if (!(availableDecoders instanceof Set)) throw new TypeError('Available FFmpeg decoders must be a Set.');
+  if (!availableDecoders.has(decoderName)) {
+    throw new Error(`FFmpeg decoder "${decoderName}" is unavailable in this build. Install an FFmpeg build with this decoder or choose another input format.`);
+  }
+  return decoderName;
+}
+
+export function assertFfmpegDemuxer(demuxerName, availableDemuxers) {
+  if (typeof demuxerName !== 'string' || !/^[a-z0-9_]+$/i.test(demuxerName)) throw new TypeError('FFmpeg demuxer name is invalid.');
+  if (!(availableDemuxers instanceof Set)) throw new TypeError('Available FFmpeg demuxers must be a Set.');
+  if (!availableDemuxers.has(demuxerName)) {
+    throw new Error(`FFmpeg demuxer "${demuxerName}" is unavailable in this build. Install an FFmpeg build with this demuxer or choose another container.`);
+  }
+  return demuxerName;
+}
+
 export function hasFfmpegEncoder(encoderName, ffmpeg = 'ffmpeg') {
   if (typeof encoderName !== 'string' || !/^[a-z0-9_-]+$/i.test(encoderName)) throw new TypeError('FFmpeg encoder name is invalid.');
   assertFfmpegEncoder(encoderName, listFfmpegEncoders(ffmpeg));
   return true;
+}
+
+export function hasFfmpegDecoder(decoderName, ffmpeg = 'ffmpeg') {
+  if (typeof decoderName !== 'string' || !/^[a-z0-9_-]+$/i.test(decoderName)) throw new TypeError('FFmpeg decoder name is invalid.');
+  return listFfmpegDecoders(ffmpeg).has(decoderName);
+}
+
+export function hasFfmpegDemuxer(demuxerName, ffmpeg = 'ffmpeg') {
+  if (typeof demuxerName !== 'string' || !/^[a-z0-9_]+$/i.test(demuxerName)) throw new TypeError('FFmpeg demuxer name is invalid.');
+  return listFfmpegDemuxers(ffmpeg).has(demuxerName);
 }
 
 export function listFfmpegEncoders(ffmpeg = 'ffmpeg') {

@@ -1277,3 +1277,6 @@ smoke render alone.
   Local syntax and CLI response checks confirm the current Windows build
   advertises MP4/MOV/Matroska/WebM, H.264/HEVC/AV1/VP9/ProRes, and common audio
   decoders. No test suite or media render was run.
+- Exported `list`, `has`, and `assert` APIs for FFmpeg input decoders and
+  demuxers so consumers can preflight a specific media path without parsing the
+  capability JSON. Syntax and CLI checks only; no test suite or render was run.
