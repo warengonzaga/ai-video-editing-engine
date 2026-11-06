@@ -1328,6 +1328,10 @@ smoke render alone.
   dialog options are mutually exclusive. README and mouth-pack authoring docs
   describe the option. Static syntax checks and the targeted capability/animation
   suite pass 10/10; this did not invoke Rhubarb with real audio or run a render.
+- `npm pack --dry-run --json` confirmed the current 0.1.0 local package manifest
+  includes the new mouth-pack authoring guide and all runtime source files
+  (71 packaged files total). Dry-run only; no tarball was written, no registry
+  was contacted, and nothing was published.
 - Fixed the synthetic render smoke harness to save each edited timeline into its
   isolated temporary project before rendering. This respects the renderer's
   protection against rendering a timeline that differs from the project's saved
