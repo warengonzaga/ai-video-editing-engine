@@ -6,6 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createAssetProxy, createCaptionTrack, createVideoProject, editTimeline, probeMedia, registerMediaAsset, renderTimelineAsync, speedRampDuration, timelineForRender } from '../src/index.mjs';
 
+async function renderSavedTimelineAsync(projectPath, timeline, outputPath, quality = 'draft', options = {}) {
+  writeFileSync(join(projectPath, 'timeline.json'), `${JSON.stringify(timeline, null, 2)}\n`);
+  return renderTimelineAsync(projectPath, timeline, outputPath, quality, options);
+}
+
 const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'aive-render-smoke-'));
 process.env.HYPERFRAMES_CACHE_DIR = join(root, '.hyperframes-cache');
 if (!process.env.HYPERFRAMES_BROWSER_PATH) {
@@ -164,7 +169,7 @@ try {
     ],
   };
 
-  const render = await renderTimelineAsync(projectPath, timeline, outputPath, 'draft', { timeoutSeconds: 180, useProxies: true });
+  const render = await renderSavedTimelineAsync(projectPath, timeline, outputPath, 'draft', { timeoutSeconds: 180, useProxies: true });
   const media = probeMedia(render.output);
   assert.equal(media.width, 320);
   assert.equal(media.height, 180);
@@ -204,7 +209,7 @@ try {
   const rippleBaseTimeline = { ...structuredClone(timeline), project: rippleProject, assets: rippleAssets };
   const rippleTimeline = editTimeline(rippleBaseTimeline, { type: 'ripple-delete', trackId: 'smoke-still-track', clipId: 'smoke-still-clip' });
   assert.equal(rippleTimeline.project.durationSeconds, 1.5);
-  const rippleRender = await renderTimelineAsync(rippleProjectPath, rippleTimeline, join(rippleProjectPath, 'renders', 'ripple-smoke.mp4'), 'draft', { timeoutSeconds: 180 });
+  const rippleRender = await renderSavedTimelineAsync(rippleProjectPath, rippleTimeline, join(rippleProjectPath, 'renders', 'ripple-smoke.mp4'), 'draft', { timeoutSeconds: 180 });
   const rippleMedia = probeMedia(rippleRender.output);
   assert.equal(rippleMedia.width, 320);
   assert.equal(rippleMedia.height, 180);
@@ -226,7 +231,7 @@ try {
   const gapBaseTimeline = { ...structuredClone(timeline), project: gapProject, assets: gapAssets };
   const gapTimeline = editTimeline(gapBaseTimeline, { type: 'insert-gap', timelineStart: 0.5, durationSeconds: 0.5 });
   assert.equal(gapTimeline.project.durationSeconds, 2.5);
-  const gapRender = await renderTimelineAsync(gapProjectPath, gapTimeline, join(gapProjectPath, 'renders', 'gap-smoke.mp4'), 'draft', { timeoutSeconds: 180 });
+  const gapRender = await renderSavedTimelineAsync(gapProjectPath, gapTimeline, join(gapProjectPath, 'renders', 'gap-smoke.mp4'), 'draft', { timeoutSeconds: 180 });
   const gapMedia = probeMedia(gapRender.output);
   assert.ok(Math.abs(gapMedia.durationSeconds - 2.5) <= 1 / 24, `Gap edit rendered ${gapMedia.durationSeconds}s instead of 2.5s.`);
   assert.equal(gapMedia.hasAudio, true);
@@ -274,7 +279,7 @@ try {
   };
   const trackStateRenderTimeline = timelineForRender(trackStateTimeline);
   assert.equal(trackStateRenderTimeline.audioMix.sidechain.length, 0);
-  const trackStateRender = await renderTimelineAsync(trackStateProjectPath, trackStateTimeline, trackStateOutputPath, 'draft', { timeoutSeconds: 180 });
+  const trackStateRender = await renderSavedTimelineAsync(trackStateProjectPath, trackStateTimeline, trackStateOutputPath, 'draft', { timeoutSeconds: 180 });
   const trackStateMedia = probeMedia(trackStateRender.output);
   const hiddenLayerPixel = readCenterPixel(trackStateRender.output, visualCueFrame);
   assert.equal(trackStateMedia.hasAudio, false, 'Muted audio tracks must not create an output audio stream.');
@@ -313,7 +318,7 @@ try {
       { ...captionTrack, order: 1 },
     ],
   };
-  const captionRender = await renderTimelineAsync(captionProjectPath, captionTimeline, captionOutputPath, 'draft', { timeoutSeconds: 180 });
+  const captionRender = await renderSavedTimelineAsync(captionProjectPath, captionTimeline, captionOutputPath, 'draft', { timeoutSeconds: 180 });
   const captionMedia = probeMedia(captionRender.output);
   assert.equal(captionMedia.hasAudio, false);
   assert.equal(captionTrack.clips[0].wordWrap, true);
@@ -331,7 +336,7 @@ try {
 
   const audioCueStartSeconds = measureAudioCueStart(render.output);
   assert.ok(Math.abs(audioCueStartSeconds - audioCueTimelineSeconds) <= 1 / 24, `Audio cue starts at ${audioCueStartSeconds}s instead of ${audioCueTimelineSeconds}s`);
-  const colorProfileRender = await renderTimelineAsync(projectPath, timeline, colorProfileOutputPath, 'draft', {
+  const colorProfileRender = await renderSavedTimelineAsync(projectPath, timeline, colorProfileOutputPath, 'draft', {
     timeoutSeconds: 180,
     useProxies: true,
     colorProfile: 'rec2020-sdr',
@@ -358,7 +363,7 @@ try {
       clips: [{ id: 'video-only-clip', assetId: videoOnlyAsset.id, sourceIn: 0, sourceOut: 2, timelineStart: 0, durationSeconds: 2 }],
     }],
   };
-  const videoOnlyRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, videoOnlyOutputPath, 'draft', {
+  const videoOnlyRender = await renderSavedTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, videoOnlyOutputPath, 'draft', {
     timeoutSeconds: 180,
   });
   const videoOnlyMedia = probeMedia(videoOnlyRender.output);
@@ -383,14 +388,14 @@ try {
       clips: [{ id: 'video-offset-clip', assetId: offsetAsset.id, sourceIn: 0, sourceOut: 2, timelineStart: 0, durationSeconds: 2 }],
     }],
   };
-  const offsetRender = await renderTimelineAsync(offsetProjectPath, offsetTimeline, offsetOutputPath, 'draft', {
+  const offsetRender = await renderSavedTimelineAsync(offsetProjectPath, offsetTimeline, offsetOutputPath, 'draft', {
     timeoutSeconds: 180,
   });
   const offsetPixel = readPixelAt(offsetRender.output, 6, 160, 90);
   assert.ok(offsetPixel[0] > 150 && offsetPixel[1] < 100 && offsetPixel[2] < 100,
     `A 1-second source timestamp offset should not leave the beginning of the rendered clip blank; got ${offsetPixel}.`);
   const webmOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-vp9.webm');
-  const webmRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, webmOutputPath, 'draft', {
+  const webmRender = await renderSavedTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, webmOutputPath, 'draft', {
     format: 'webm', encoder: { codec: 'vp9', crf: 40 }, workers: 1, timeoutSeconds: 180,
   });
   const webmMedia = probeMedia(webmRender.output);
@@ -400,7 +405,7 @@ try {
   assert.equal(webmMedia.hasAudio, false);
 
   const movOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-prores.mov');
-  const movRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, movOutputPath, 'draft', {
+  const movRender = await renderSavedTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, movOutputPath, 'draft', {
     format: 'mov', encoder: { codec: 'prores' }, workers: 1, timeoutSeconds: 180,
   });
   const movMedia = probeMedia(movRender.output);
@@ -409,7 +414,7 @@ try {
   assert.equal(movMedia.height, 180);
 
   const gifOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke.gif');
-  const gifRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, gifOutputPath, 'draft', {
+  const gifRender = await renderSavedTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, gifOutputPath, 'draft', {
     format: 'gif', workers: 1, timeoutSeconds: 180,
   });
   const gifMedia = probeMedia(gifRender.output);
@@ -419,7 +424,7 @@ try {
   assert.equal(gifMedia.hasAudio, false, 'GIF export should not contain audio.');
 
   const pngSequenceOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-png-sequence');
-  const pngSequenceRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, pngSequenceOutputPath, 'draft', {
+  const pngSequenceRender = await renderSavedTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, pngSequenceOutputPath, 'draft', {
     format: 'png-sequence', workers: 1, timeoutSeconds: 180,
   });
   const pngFrames = readdirSync(pngSequenceRender.output).filter((file) => file.toLowerCase().endsWith('.png'));
@@ -449,7 +454,7 @@ try {
     audioStreamIndex: 1,
   });
   assert.equal(detachedAudioTimeline.tracks.find((track) => track.id === 'interview-audio').clips[0].timelineStart, 0);
-  const detachedAudioRender = await renderTimelineAsync(detachedAudioProjectPath, detachedAudioTimeline, detachedAudioOutputPath, 'draft', { timeoutSeconds: 180 });
+  const detachedAudioRender = await renderSavedTimelineAsync(detachedAudioProjectPath, detachedAudioTimeline, detachedAudioOutputPath, 'draft', { timeoutSeconds: 180 });
   const detachedAudioMedia = probeMedia(detachedAudioRender.output);
   assert.equal(detachedAudioMedia.hasAudio, true, 'Detached video source audio should render as an audio track.');
   const detachedAudioSamples = decodeMono(detachedAudioRender.output);
@@ -483,7 +488,7 @@ try {
       sidechain: [{ sourceTrackId: 'audio-only', targetTrackId: 'music-bed', thresholdDb: -30, ratio: 10, attackSeconds: 0.01, releaseSeconds: 0.1 }],
     },
   };
-  const audioOnlyRender = await renderTimelineAsync(audioOnlyProjectPath, audioOnlyTimeline, audioOnlyOutputPath, 'draft', { timeoutSeconds: 180 });
+  const audioOnlyRender = await renderSavedTimelineAsync(audioOnlyProjectPath, audioOnlyTimeline, audioOnlyOutputPath, 'draft', { timeoutSeconds: 180 });
   const audioOnlyMedia = probeMedia(audioOnlyRender.output);
   assert.equal(audioOnlyMedia.hasAudio, true, 'Audio-only timeline should preserve its audio stream.');
   assert.equal(audioOnlyMedia.width, 320);
@@ -540,7 +545,7 @@ try {
       clips: [{ id: 'long-sync-tone', assetId: longSyncAudio.id, sourceIn: 0, sourceOut: 12, timelineStart: 0, durationSeconds: 12 }],
     }],
   };
-  const longSyncRender = await renderTimelineAsync(longSyncProjectPath, longSyncTimeline, longSyncOutputPath, 'draft', { timeoutSeconds: 180 });
+  const longSyncRender = await renderSavedTimelineAsync(longSyncProjectPath, longSyncTimeline, longSyncOutputPath, 'draft', { timeoutSeconds: 180 });
   const longSyncMedia = probeMedia(longSyncRender.output);
   assert.equal(longSyncMedia.hasAudio, true);
   assert.equal(longSyncMedia.frameRate, 24);

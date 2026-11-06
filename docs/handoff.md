@@ -1312,3 +1312,17 @@ smoke render alone.
   installed CLI could not read its local configuration lock and reported
   authentication failure before the scan started; no local alternative
   scanner is installed. No source scan result is available.
+- Fixed the synthetic render smoke harness to save each edited timeline into its
+  isolated temporary project before rendering. This respects the renderer's
+  protection against rendering a timeline that differs from the project's saved
+  timeline. On Windows with local HyperFrames browser access, `npm run
+  test:render-smoke` now passes across MP4, WebM, MOV, GIF, PNG sequence,
+  detached/audio-only media, Rec.2020 SDR, track state, layered composition,
+  captions, and long A/V synchronization. The 12-second sync cues measured
+  0.000021 seconds late at both ends, with effectively zero measured drift.
+  The serial `node --test --test-concurrency=1` run passes 130 tests, skips 3
+  optional OpenTimelineIO tests because `requirements-otio.txt` is unavailable,
+  and has 0 failures. Temporary smoke projects were removed automatically;
+  the earlier failed debug directory was also cleaned up. No hosted workflow was
+  started. Human review of the Voice 015 avatar's phoneme timing and visual
+  quality, real-footage coverage, and cross-platform runs remain open.
