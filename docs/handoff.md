@@ -1293,3 +1293,7 @@ smoke render alone.
   validation against registered stream metadata, the `set-video-state` CLI/API
   edit, and temporary FFmpeg proxies that also compose with playback-rate and
   speed-ramp processing. No render, test suite, or audiovisual review was run.
+- Strengthened avatar PNG preflight to validate chunk checksums, deflate data,
+  scanline lengths, and filter bytes instead of trusting the image header. This
+  rejects truncated or corrupt mouth sprites before Rhubarb or composition.
+  Syntax and whitespace checks only; no tests or renders were run.

@@ -133,8 +133,8 @@ viseme recognition accuracy.
 Avatar-generation workflows can call `validateRhubarbSpriteStates(states,
 options)` before saving or using a mouth pack. It throws when any required shape
 is missing, mapped to the same state as another shape, or backed by an
-PNG with an invalid header, a different canvas size, or byte-identical image
-content to another required shape. This catches malformed headers,
+incomplete/corrupt PNG, a different canvas size, or byte-identical image
+content to another required shape. This catches malformed image data,
 inconsistent canvases, reused, or duplicated files, but cannot judge perceptual
 similarity, mouth placement within the canvas, or whether the artwork matches
 the intended phoneme; those still need visual review.
