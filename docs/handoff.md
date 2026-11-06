@@ -643,8 +643,13 @@ passed against the real OTIO adapter. The package is not installed globally.
   output. Its audio stream has been verified technically, but not auditioned.
 - Decide a distribution model. The private package exposes an installable CLI
   binary for local/Git dependency use; public npm installation is not enabled.
-- Recheck current hosted Linux/macOS/Windows CI state and add a clean-machine
-  setup validation. Review current dependency versions before upgrading.
+- Recheck current hosted Linux/macOS/Windows CI state and validate setup on a
+  clean target. A local packed-tarball install into a disposable Windows
+  consumer now passes: package dependencies install, the `ai-video-engine`
+  binary reports capabilities, the ESM API imports, and a new blank project
+  timeline validates. This is local packaging evidence only; no npm publish or
+  cross-platform installation claim is made. Review dependency versions before
+  upgrading.
 - Integrate Explainer Studio only after Engine behavior and outputs pass the
   agreed visual and audio review.
 
@@ -653,7 +658,14 @@ The detailed phase checklist and acceptance criteria are maintained in
 changes; do not claim full-editor completion from schema tests or a synthetic
 smoke render alone.
 
-## Latest implementation evidence (2026-11-06)
+## Latest implementation evidence (2026-11-07)
+
+- Packed the existing private package metadata to a local tarball and installed
+  it into an isolated consumer project. Verified the installed CLI capability
+  report, ESM API imports, blank project creation, and timeline validation.
+  The temporary consumer and tarball live under ignored `video-projects/`;
+  nothing was published to npm. Installation initially hit the sandbox's npm
+  registry DNS restriction, then completed after the authorized network retry.
 
 - Added `insertTimelineGap` / `editTimeline({ type: 'insert-gap', ... })` as a
   generic synchronized timeline operation. It shifts clips after the insertion
