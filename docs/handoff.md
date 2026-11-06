@@ -1233,3 +1233,9 @@ smoke render alone.
   filenames before embedding them in HTML. This prevents URL-reserved filename
   characters from changing the generated element attributes. Syntax and
   whitespace checks only; no test suite or render was run.
+- Ran the read-only `doctor` and capabilities commands on Windows with Node.js
+  22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, and the required Engine
+  filters/encoders available. Rhubarb, Whisper, local TTS/BGM runtimes, and
+  Docker are optional and unavailable. Clarified the Engine doctor summary so
+  HyperFrames' optional-feature warnings do not read as missing core Engine
+  requirements. No test suite or render was run.

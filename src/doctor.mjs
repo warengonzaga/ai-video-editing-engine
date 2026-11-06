@@ -48,7 +48,9 @@ if (results.find((result) => result.name === 'HyperFrames')?.ok) {
     process.exitCode = 1;
   }
 }
-console.log(ready ? 'Required engine tools are ready.' : 'Some required engine tools are missing.');
+console.log(ready
+  ? 'Core Engine requirements are available; optional and feature-specific tools are reported above.'
+  : 'Some required Engine tools are missing.');
 try {
   const filters = listFfmpegFilters();
   for (const [filter, requirement] of [
