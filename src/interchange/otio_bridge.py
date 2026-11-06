@@ -2,6 +2,7 @@
 """OpenTimelineIO JSON bridge for the Node.js editing engine."""
 
 import json
+import math
 import os
 import sys
 from collections.abc import Mapping
@@ -58,8 +59,8 @@ def export_timeline(request):
                 raise ValueError(f"Clip {source_clip['id']} uses clip audio effects, which are not supported by the OTIO interchange profile.")
             if source_clip.get("reverse"):
                 raise ValueError(f"Clip {source_clip['id']} uses reverse playback, which is not supported by the OTIO interchange profile.")
-            if source_clip.get("speedRamp") or abs(source_clip.get("playbackRate", 1) - 1) > 1e-9:
-                raise ValueError(f"Clip {source_clip['id']} uses retiming, which is not supported by the OTIO interchange profile.")
+            if source_clip.get("speedRamp"):
+                raise ValueError(f"Clip {source_clip['id']} uses a variable speed ramp, which is not supported by the OTIO interchange profile.")
             if source_clip.get("transitionIn") or source_clip.get("transitionOut"):
                 raise ValueError(f"Clip {source_clip['id']} uses transitions, which are not supported by the OTIO interchange profile.")
             if source_clip["timelineStart"] < cursor - 1e-6:
@@ -72,6 +73,8 @@ def export_timeline(request):
                 source_clip["timelineStart"] + source_clip["durationSeconds"] - next_clip["timelineStart"]
             )
             if overlap > 1e-6:
+                if abs(source_clip.get("playbackRate", 1) - 1) > 1e-9:
+                    raise ValueError(f"Clip {source_clip['id']} uses retiming in a crossfade, which is not supported by the OTIO interchange profile.")
                 validate_crossfade_pair(source_track, source_clip, next_clip, overlap)
                 if next_clip.get("reverse"):
                     raise ValueError(f"Clip {next_clip['id']} uses reverse playback, which is not supported by the OTIO interchange profile.")
@@ -169,6 +172,9 @@ def make_otio_clip(source_clip, project_root, assets, source_in, source_out, nam
         source_range=time_range(source_in, source_out - source_in),
     )
     clip.metadata[ENGINE_KEY] = {"clipId": source_clip["id"], "assetId": asset["id"]}
+    playback_rate = source_clip.get("playbackRate", 1)
+    if abs(playback_rate - 1) > 1e-9:
+        clip.effects.append(otio.schema.LinearTimeWarp(name="Engine Playback Rate", time_scalar=playback_rate))
     return clip
 
 
@@ -192,7 +198,7 @@ def import_timeline(request):
     timeline = otio.adapters.read_from_string(request["otioText"], adapter_name="otio_json")
     payload = {
         "name": timeline.name,
-        "durationSeconds": timeline.duration().to_seconds(),
+        "durationSeconds": 0.0,
         "engineTimeline": plain_json(timeline.metadata.get(ENGINE_KEY, {}).get("timeline")),
         "tracks": [],
     }
@@ -221,9 +227,23 @@ def import_timeline(request):
         def clip_record(item, timeline_start, crossfade=None):
             if not isinstance(item, otio.schema.Clip):
                 raise ValueError("Only transitions between two clips are supported by the OTIO interchange profile.")
-            if item.effects:
-                effects = ", ".join(effect.effect_name or type(effect).__name__ for effect in item.effects)
+            unsupported_effects = [effect for effect in item.effects if not isinstance(effect, otio.schema.LinearTimeWarp)]
+            if unsupported_effects:
+                effects = ", ".join(effect.effect_name or type(effect).__name__ for effect in unsupported_effects)
                 raise ValueError(f"Clip {item.name!r} has effects ({effects}) that the OTIO interchange profile does not support.")
+            time_warps = [effect for effect in item.effects if isinstance(effect, otio.schema.LinearTimeWarp) and effect.enabled]
+            if len(time_warps) > 1:
+                raise ValueError(f"Clip {item.name!r} uses multiple LinearTimeWarp effects, which the OTIO interchange profile does not support.")
+            playback_rate = time_warps[0].time_scalar if time_warps else 1.0
+            if (
+                isinstance(playback_rate, bool)
+                or not isinstance(playback_rate, (int, float))
+                or not math.isfinite(playback_rate)
+                or not 0.1 <= playback_rate <= 5
+            ):
+                raise ValueError(f"Clip {item.name!r} uses a LinearTimeWarp rate outside the Engine's supported range (0.1 to 5).")
+            if crossfade and abs(playback_rate - 1) > 1e-9:
+                raise ValueError(f"Transition clip {item.name!r} uses retiming, which the OTIO interchange profile does not support.")
             if not item.enabled:
                 raise ValueError(f"Clip {item.name!r} is disabled; disabled clips are not supported by the OTIO interchange profile.")
             media_reference = item.media_reference
@@ -232,15 +252,17 @@ def import_timeline(request):
             source_range = item.source_range or media_reference.available_range
             if source_range is None:
                 raise ValueError(f"Clip {item.name!r} has no source range or available media range.")
-            duration = source_range.duration.to_seconds()
+            source_duration = source_range.duration.to_seconds()
+            duration = source_duration / playback_rate
             metadata = item.metadata.get(ENGINE_KEY, {})
             return {
                 "name": item.name,
                 "path": str(local_reference(media_reference.target_url, otio_path)),
                 "timelineStart": timeline_start,
                 "sourceIn": source_range.start_time.to_seconds(),
-                "sourceOut": source_range.end_time_exclusive().to_seconds(),
+                "sourceOut": source_range.start_time.to_seconds() + source_duration,
                 "durationSeconds": duration,
+                **({"playbackRate": playback_rate} if abs(playback_rate - 1) > 1e-9 else {}),
                 "engineClipId": metadata.get("clipId") if crossfade is None else None,
                 "engineAssetId": metadata.get("assetId"),
                 **({"crossfade": crossfade} if crossfade else {}),
@@ -279,6 +301,7 @@ def import_timeline(request):
             record = clip_record(item, cursor)
             imported["clips"].append(record)
             cursor += record["durationSeconds"]
+        payload["durationSeconds"] = max(payload["durationSeconds"], cursor)
         payload["tracks"].append(imported)
 
     def import_stack(stack, group_path=(), include_self=True, parent_enabled=True):

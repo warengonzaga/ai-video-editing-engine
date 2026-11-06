@@ -426,16 +426,17 @@ in this order:
   JSON adapter; the profile imports/exports external-media cuts, gaps, nested
   track stacks (flattened into ordered tracks), track enabled state, and
   timeline duration. Import expands `SMPTE_Dissolve` transitions into video
-  opacity fades or audio crossfades; custom transitions, other overlaps,
-  retiming, trimmed tracks/stacks, effects, disabled clips, and nested
-  compositions inside tracks are explicitly rejected. Retiming support needs
-  explicit source-time and parent-timeline mapping: OTIO `LinearTimeWarp`
-  changes the media time mapping without changing the item's stored duration,
-  so its `time_scalar` cannot be copied directly to Engine `playbackRate`.
-  Export converts
+  opacity fades or audio crossfades; constant clip rates map through OTIO
+  `LinearTimeWarp` using source-span divided by playback rate for Engine
+  duration. Variable speed ramps, retimed crossfades, custom transitions,
+  other overlaps, trimmed tracks/stacks, effects, disabled clips, and nested
+  compositions inside tracks remain unsupported. OTIO's `LinearTimeWarp`
+  changes media-time mapping without changing the item's stored duration, so
+  parent timeline timing must be mapped explicitly. Export converts
   explicitly faded two-clip overlaps into `SMPTE_Dissolve` transitions and
   rejects unmarked/chained overlaps, standalone fades, clip-edge transitions,
-  and retiming. Tests remain deferred until the user resumes manual validation.
+  and variable speed ramps. Tests remain deferred until the user resumes
+  manual validation.
 5. **Workflow quality:** visual preview/review artifacts, richer caption
    layout templates, undoable and dry-run reviewable edit operations, injected transcription and
    media-analysis provider APIs, and CLI-loaded analysis provider modules are

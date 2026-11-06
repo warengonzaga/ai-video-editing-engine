@@ -573,9 +573,10 @@ contracts and runtime boundary.
 
 The optional OpenTimelineIO bridge uses the maintained Python library,
 references project media externally, and stores Engine timeline data in
-namespaced OTIO metadata for Engine round trips. Its current interchange profile
-supports video/audio cuts and gaps; overlaps, retiming, transitions, nested
-compositions, and remote references are rejected. Install it with
+namespaced OTIO metadata for Engine round trips. Its current interchange
+profile supports video/audio cuts, gaps, constant-rate `LinearTimeWarp`
+retiming, and standard two-clip dissolves; variable speed ramps, retimed
+crossfades, nested compositions, and remote references are rejected. Install it with
 `python -m pip install -r requirements-otio.txt`.
 
 OpenTimelineIO 0.18.1 was installed in a temporary validation target on the

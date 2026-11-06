@@ -81,7 +81,10 @@ export function importTimelineFromOtio(projectPath, otioPath) {
           usedIds.add(asset.id);
         }
       }
-      const priorClip = sourceClip.crossfade ? {} : engineTrack?.clips.find((clip) => clip.id === sourceClip.engineClipId) ?? {};
+      const priorClip = sourceClip.crossfade ? {} : { ...(engineTrack?.clips.find((clip) => clip.id === sourceClip.engineClipId) ?? {}) };
+      delete priorClip.playbackRate;
+      delete priorClip.speedRamp;
+      delete priorClip.reverse;
       clips.push({
         ...priorClip,
         id: uniqueId(priorClip.id ?? safeId(sourceClip.name, `${sourceTrack.kind}-clip-${clips.length + 1}`), usedClipIds),
@@ -90,6 +93,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
         sourceOut: sourceClip.sourceOut,
         timelineStart: sourceClip.timelineStart,
         durationSeconds: sourceClip.durationSeconds,
+        ...(sourceClip.playbackRate !== undefined ? { playbackRate: sourceClip.playbackRate } : {}),
         ...(sourceClip.crossfade?.role === 'incoming' ? { fadeInSeconds: sourceClip.crossfade.durationSeconds } : {}),
         ...(sourceClip.crossfade?.role === 'outgoing' && sourceTrack.kind === 'audio' ? { fadeOutSeconds: sourceClip.crossfade.durationSeconds } : {}),
       });

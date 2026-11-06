@@ -1222,13 +1222,16 @@ and do not embed media. The profile supports video/audio tracks, nested track
 stacks flattened into ordered Engine tracks, cuts, gaps, standard
 `SMPTE_Dissolve` transitions on import, track enabled state, and project duration
 including trailing gaps. Imported dissolves become overlapping clips with
-video opacity fades or audio crossfades. Import rejects custom transition
-types, other overlaps, retiming, trimmed tracks/stacks, effects, disabled clips,
-nested compositions inside tracks, and remote media references. Export converts
-explicitly faded two-clip overlaps into standard `SMPTE_Dissolve` transitions.
-Unmarked overlaps, chained overlaps, standalone fades, clip-edge transitions,
-retiming, track-level volume automation, and track-level audio effects are
-rejected instead of silently changing their meaning.
+video opacity fades or audio crossfades. Constant-rate retiming uses OTIO's
+`LinearTimeWarp`; imported clip duration is calculated from the source span and
+playback rate. Variable speed ramps and retimed crossfades remain unsupported.
+Import also rejects custom transition types, other overlaps, trimmed
+tracks/stacks, effects, disabled clips, nested compositions inside tracks, and
+remote media references. Export converts explicitly faded two-clip overlaps
+into standard `SMPTE_Dissolve` transitions. Unmarked overlaps, chained
+overlaps, standalone fades, clip-edge transitions, track-level volume
+automation, and track-level audio effects are rejected instead of silently
+changing their meaning.
 Crossfade offsets and source ranges are derived from the overlapping Engine
 clips.
 Engine-only clip settings and overlay tracks are retained in OTIO metadata for
