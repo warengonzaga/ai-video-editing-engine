@@ -217,7 +217,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
 - [x] Render one layered integration scene combining VFR footage, proxy-backed
   B-roll, a still image, a nested composition, captions, and narration; sample
   encoded output pixels to verify that the visual layers appear at their timed
-  positions. Human review and real-footage coverage remain open.
+  positions. A separate regression render verifies that a video stream whose
+  first timestamp is one second still appears at the start of the timeline.
+  Human review and real-footage coverage remain open.
 - [x] Convert SDR video output to named Rec.709 or Rec.2020 profiles with a
   pixel colorspace transform and verify the encoded stream tags. HDR output is
   not yet supported.

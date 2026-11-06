@@ -29,6 +29,7 @@ const projectPath = createVideoProject(projectRoot, 'render-smoke', {
   durationSeconds: 2,
 });
 const sourceVideoPath = join(root, 'source-video.mp4');
+const offsetVideoPath = join(root, 'source-video-offset.mp4');
 const sourceVideoWithAudioPath = join(root, 'source-video-with-audio.mp4');
 const narrationPath = join(root, 'narration.wav');
 const musicPath = join(root, 'music.wav');
@@ -51,6 +52,11 @@ try {
     '-f', 'lavfi', '-i', 'color=c=black:size=320x180:rate=24:duration=2',
     '-vf', 'drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable=between(t\\,0.5\\,0.7),select=not(eq(mod(n\\,5)\\,3))',
     '-fps_mode', 'vfr', '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', sourceVideoPath,
+  ]);
+  runFfmpeg([
+    '-f', 'lavfi', '-i', 'color=c=red:size=320x180:rate=24:duration=2',
+    '-vf', 'setpts=PTS+1/TB', '-fps_mode', 'vfr', '-an', '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p', '-copyts', offsetVideoPath,
   ]);
   runFfmpeg([
     '-f', 'lavfi', '-i', 'aevalsrc=if(between(t\\,0.5\\,0.7)\\,0.8*sin(2*PI*1000*t)\\,0):s=48000:d=2',
@@ -359,6 +365,30 @@ try {
   assert.equal(videoOnlyMedia.hasAudio, false, 'Video-only timeline should not gain an audio stream.');
   assert.equal(videoOnlyMedia.width, 320);
   assert.equal(videoOnlyMedia.height, 180);
+
+  const offsetProjectPath = createVideoProject(root, 'video-offset-smoke', { width: 320, height: 180, fps: 24, durationSeconds: 2 });
+  const offsetOutputPath = join(offsetProjectPath, 'renders', 'smoke-video-offset.mp4');
+  const offsetAsset = registerMediaAsset(offsetProjectPath, offsetVideoPath, { id: 'video-offset-source' });
+  assert.ok(Math.abs(offsetAsset.streamTiming.videoStartSeconds - 1) <= 1 / 24,
+    `Expected a 1-second video stream offset, got ${offsetAsset.streamTiming.videoStartSeconds}s.`);
+  const offsetProject = JSON.parse(readFileSync(join(offsetProjectPath, 'meta.json'), 'utf8'));
+  const offsetTimeline = {
+    schemaVersion: 1,
+    project: offsetProject,
+    assets: [offsetAsset],
+    tracks: [{
+      id: 'video-offset-track',
+      kind: 'video',
+      order: 0,
+      clips: [{ id: 'video-offset-clip', assetId: offsetAsset.id, sourceIn: 0, sourceOut: 2, timelineStart: 0, durationSeconds: 2 }],
+    }],
+  };
+  const offsetRender = await renderTimelineAsync(offsetProjectPath, offsetTimeline, offsetOutputPath, 'draft', {
+    timeoutSeconds: 180,
+  });
+  const offsetPixel = readPixelAt(offsetRender.output, 6, 160, 90);
+  assert.ok(offsetPixel[0] > 150 && offsetPixel[1] < 100 && offsetPixel[2] < 100,
+    `A 1-second source timestamp offset should not leave the beginning of the rendered clip blank; got ${offsetPixel}.`);
   const webmOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-vp9.webm');
   const webmRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, webmOutputPath, 'draft', {
     format: 'webm', encoder: { codec: 'vp9', crf: 40 }, workers: 1, timeoutSeconds: 180,
@@ -574,6 +604,11 @@ try {
       musicAfterVoiceAmplitude: Number(musicAfterVoiceAmplitude.toFixed(4)),
       expectedVoiceAmplitude: Number(expectedVoiceAmplitude.toFixed(4)),
       renderedVoiceAmplitude: Number(renderedVoiceAmplitude.toFixed(4)),
+    },
+    offsetVideoRender: {
+      sourceStartSeconds: offsetAsset.streamTiming.videoStartSeconds,
+      firstVisiblePixelAtSeconds: 6 / 24,
+      firstVisiblePixel: offsetPixel,
     },
     longSyncValidation: {
       durationSeconds: longSyncMedia.durationSeconds,

@@ -751,8 +751,9 @@ smoke render alone.
   Ubuntu's synthetic sidechain recovery assertion: RMS was 0.0769 during voice
   and 0.1022 after voice. The assertion expected a larger recovery than this
   platform's FFmpeg output showed. It now requires a 20% RMS increase in the
-  same recovery window; two local isolated runs and the full suite pass. A new
-  hosted run is needed to confirm the cross-platform test adjustment.
+  same recovery window; two local isolated runs and the full suite pass. Hosted
+  revalidation is blocked before test execution by the account billing issue
+  recorded below.
 - On commit `2910f16`, `npm test` passes with 127 tests passed and 2 optional
   OpenTimelineIO skips; `npm audit --omit=dev --offline` reports zero
   vulnerabilities. The full Windows `npm run test:render-smoke` also passes,
@@ -764,3 +765,9 @@ smoke render alone.
   matrix step starts. GitHub reports failed recent account payments or a
   spending limit as the reason; this is an Actions account blocker, not a test
   result. Retry the hosted matrix after billing is restored.
+- The latest Windows render-smoke run also covers an MP4 whose video stream
+  starts at 1.0 second. The rendered clip shows its red source frame at timeline
+  0.25 seconds; the output records source start time 1.0 second. The complete
+  smoke passes with this offset regression enabled, along with the existing
+  VFR, layered, format, audio, and sync checks. This remains generated fixture
+  evidence rather than real camera footage or cross-platform validation.
