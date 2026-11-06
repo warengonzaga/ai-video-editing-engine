@@ -23,7 +23,19 @@ Last updated: 2026-11-07
   render-range` create or render a non-destructive project-time segment. They
   preserve intersecting clip source timing, keyframes, captions, audio
   automation, and markers; a requested cut through a clip fade or edge
-  transition is rejected with a clear error.
+  transition is rejected with a clear error. A Windows render on 2026-11-07
+  produced a 2-second H.264/AAC segment from the existing 3-second timeline
+  smoke project; ffprobe confirmed 320×240, 30 fps, and stereo audio. The saved
+  project and timeline durations remained at 3 seconds. A final rerun confirmed
+  SHA-256 equality for `index.html`, `meta.json`, and `timeline.json` before and
+  after range rendering; a contact sheet showed the expected title timing.
+  Range extraction tests passed for source bounds, captions, automation,
+  markers, and effect-boundary errors.
+- Local validation on 2026-11-07: the timeline, timeline CLI, and Rhubarb cue
+  suites passed 56/56. The complete suite reported 123 passed, 6 failed, and 3
+  skipped; each failure was an `EPERM` from Windows sandbox denial of
+  `fs.linkSync` in temporary asset publication. Rerun those cases on a normal
+  Windows filesystem before treating the full suite as green.
 - Projects can register copied video, audio, and image assets. The manifest
   records probe metadata and source SHA-256. The original input remains
   unchanged. Audio/video stream start times, durations, and time bases are

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
 import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
+import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, extractTimelineRange, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
@@ -283,6 +283,47 @@ test('ripple-deletes one clip range across tracks and retimes linked media', () 
   assert.equal(timeline.tracks[1].clips[0].sourceIn, 0);
   assert.equal(validateTimeline(ripple), ripple);
   assert.deepEqual(editTimeline(timeline, { type: 'ripple-delete', trackId: 'video-main', clipId: 'clip-one' }), ripple);
+});
+
+test('extracts a non-destructive render range with timing, automation, captions, and markers', () => {
+  const timeline = structuredClone(valid);
+  timeline.markers = [{ id: 'chapter-two', timeSeconds: 2, label: 'Chapter 2' }, { id: 'outside', timeSeconds: 6, label: 'Outside' }];
+  timeline.tracks[1].volumeKeyframes = [{ time: 0, volume: 0.5 }, { time: 4, volume: 1 }, { time: 8, volume: 0.25 }];
+  timeline.tracks[2].clips = [{
+    id: 'timed-title', text: 'First second third', timelineStart: 1, durationSeconds: 4,
+    wordTimings: [{ text: 'First', start: 0.2, end: 0.6 }, { text: 'second', start: 1.2, end: 1.8 }, { text: 'third', start: 2.4, end: 3.2 }],
+    wordHighlightColor: '#ff0000',
+  }];
+  const range = extractTimelineRange(timeline, 1, 4);
+  assert.equal(range.project.durationSeconds, 3);
+  assert.deepEqual(range.tracks[0].clips.map(({ sourceIn, sourceOut, timelineStart, durationSeconds }) => ({ sourceIn, sourceOut, timelineStart, durationSeconds })), [
+    { sourceIn: 1, sourceOut: 3, timelineStart: 0, durationSeconds: 2 },
+    { sourceIn: 5, sourceOut: 6, timelineStart: 2, durationSeconds: 1 },
+  ]);
+  assert.deepEqual(range.tracks[1].volumeKeyframes, [
+    { time: 0, volume: 0.625 }, { time: 3, volume: 1 },
+  ]);
+  const caption = range.tracks[2].clips.find((clip) => clip.id === 'timed-title');
+  assert.equal(caption.text, 'First second third');
+  assert.deepEqual(caption.wordTimings, [
+    { text: 'First', start: 0.2, end: 0.6 },
+    { text: 'second', start: 1.2, end: 1.8 },
+    { text: 'third', start: 2.4, end: 3 },
+  ]);
+  assert.deepEqual(range.markers, [{ id: 'chapter-two', timeSeconds: 1, label: 'Chapter 2' }]);
+  assert.equal(timeline.project.durationSeconds, 8);
+  assert.equal(timeline.tracks[0].clips[0].sourceIn, 0);
+  assert.equal(validateTimeline(range), range);
+});
+
+test('rejects render ranges that cut through a clip fade or edge transition', () => {
+  const timeline = structuredClone(valid);
+  timeline.tracks[0].clips[0].fadeInSeconds = 1;
+  assert.throws(() => extractTimelineRange(timeline, 0.5, 2), /cuts through clip clip-one's fade-in/);
+  timeline.tracks[0].clips[0].fadeInSeconds = undefined;
+  timeline.tracks[0].clips[0].transitionOut = { schemaVersion: 1, type: 'fade', durationSeconds: 1 };
+  assert.throws(() => extractTimelineRange(timeline, 0, 2.5), /cuts through clip clip-one's outgoing transition/);
+  assert.throws(() => extractTimelineRange(timeline, 8, 9), /within the project duration/);
 });
 
 test('ripple deletion splits straddling clips and clips word-timed overlays at the removed range', () => {

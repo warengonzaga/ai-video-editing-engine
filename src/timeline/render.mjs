@@ -26,16 +26,18 @@ import { createTimelineRenderControl } from '../render/timeline-control.mjs';
 import { runProcess } from '../render/process.mjs';
 
 const escapeAttr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const RENDER_TIMELINE_RANGE = Symbol('renderTimelineRange');
 
 export function renderTimeline(projectPath, timeline, outputPath, quality = 'draft', options = {}) {
-  if (options.signal !== undefined || options.timeoutSeconds !== undefined) {
+  const { [RENDER_TIMELINE_RANGE]: isRangeRender = false, ...renderOptions } = options;
+  if (renderOptions.signal !== undefined || renderOptions.timeoutSeconds !== undefined) {
     throw new TypeError('Cancellation and render timeouts require renderTimelineAsync.');
   }
-  return renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProject);
+  return renderTimelineWith(projectPath, timeline, outputPath, quality, renderOptions, renderProject, undefined, undefined, isRangeRender);
 }
 
 export async function renderTimelineAsync(projectPath, timeline, outputPath, quality = 'draft', options = {}) {
-  const { timeoutSeconds, signal, ...renderOptions } = options;
+  const { timeoutSeconds, signal, [RENDER_TIMELINE_RANGE]: isRangeRender = false, ...renderOptions } = options;
   const renderControl = createTimelineRenderControl(signal, timeoutSeconds);
   let prepared;
   try {
@@ -51,7 +53,7 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
     if (audioMastering && ['gif', 'png-sequence'].includes(outputFormat)) throw new TypeError(`Timeline audioMastering cannot be used with ${outputFormat} output.`);
     if (['gif', 'png-sequence'].includes(outputFormat) && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0)) throw new TypeError(`${outputFormat} output cannot include audio clips.`);
     prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl);
-    return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, signal: renderControl.signal }, renderProjectAsync, renderControl, prepared);
+    return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, signal: renderControl.signal }, renderProjectAsync, renderControl, prepared, isRangeRender);
   } finally {
     if (prepared) cleanupTemporaryAssets(prepared.temporaryAssets);
     renderControl.dispose();
@@ -60,15 +62,15 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
 
 /** Render a selected project-time window without changing the source timeline. */
 export function renderTimelineRange(projectPath, timeline, startSeconds, endSeconds, outputPath, quality = 'draft', options = {}) {
-  return renderTimeline(projectPath, extractTimelineRange(timeline, startSeconds, endSeconds), outputPath, quality, options);
+  return renderTimeline(projectPath, extractTimelineRange(timeline, startSeconds, endSeconds), outputPath, quality, { ...options, [RENDER_TIMELINE_RANGE]: true });
 }
 
 /** Async, cancellable counterpart to renderTimelineRange. */
 export function renderTimelineRangeAsync(projectPath, timeline, startSeconds, endSeconds, outputPath, quality = 'draft', options = {}) {
-  return renderTimelineAsync(projectPath, extractTimelineRange(timeline, startSeconds, endSeconds), outputPath, quality, options);
+  return renderTimelineAsync(projectPath, extractTimelineRange(timeline, startSeconds, endSeconds), outputPath, quality, { ...options, [RENDER_TIMELINE_RANGE]: true });
 }
 
-function renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectFunction, renderControl, prepared) {
+function renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectFunction, renderControl, prepared, isRangeRender = false) {
   const root = resolve(projectPath);
   if (options.useProxies !== undefined && typeof options.useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
   const { useProxies, ...renderOptions } = options;
@@ -82,8 +84,9 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   for (const field of ['width', 'height']) if (Math.abs(meta[field] - timeline.project[field]) > 1e-6) throw new TypeError(`Timeline project ${field} must match the Engine project.`);
   if (Math.abs(frameRateNumber(meta.fps) - frameRateNumber(timeline.project.fps)) > 1e-9) throw new TypeError('Timeline project fps must match the Engine project.');
   const updateDuration = Math.abs(meta.durationSeconds - timeline.project.durationSeconds) > 1e-6;
+  const temporaryMeta = updateDuration ? `${JSON.stringify({ ...meta, durationSeconds: timeline.project.durationSeconds }, null, 2)}\n` : undefined;
   const restoreProjectMeta = () => {
-    if (updateDuration) writeFileAtomically(metaPath, originalMeta);
+    if (temporaryMeta) writeFileAtomically(metaPath, originalMeta);
   };
   const format = resolveRenderFormat(outputPath, options.format);
   if (!prepared) preflightOutputCapabilities(format, renderOptions);
@@ -189,14 +192,20 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   const recordExists = existsSync(recordPath);
   const indexExisted = existsSync(indexPath);
   const originalHtml = indexExisted ? readFileSync(indexPath) : undefined;
+  const restoreProjectHtml = () => {
+    if (originalHtml) writeFileAtomically(indexPath, originalHtml);
+    else if (existsSync(indexPath)) unlinkSync(indexPath);
+  };
   let renderedOutput;
-  if (recordExists) {
-    if (readFileSync(recordPath, 'utf8') !== serializedTimeline) throw new Error('Project already has a different timeline.json; use a new project to preserve prior edits.');
-  } else {
-    writeNewFileAtomically(recordPath, serializedTimeline);
+  if (!isRangeRender) {
+    if (recordExists) {
+      if (readFileSync(recordPath, 'utf8') !== serializedTimeline) throw new Error('Project already has a different timeline.json; use a new project to preserve prior edits.');
+    } else {
+      writeNewFileAtomically(recordPath, serializedTimeline);
+    }
   }
   try {
-    if (updateDuration) writeFileAtomically(metaPath, `${JSON.stringify({ ...meta, durationSeconds: timeline.project.durationSeconds }, null, 2)}\n`);
+    if (temporaryMeta) writeFileAtomically(metaPath, temporaryMeta);
     writeFileAtomically(indexPath, html);
     const finishResultSync = (result) => {
       renderedOutput = result.output;
@@ -232,12 +241,14 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
     if (rendered && typeof rendered.then === 'function') {
       deferTemporaryCleanup = true;
       return rendered.then((result) => {
-        return finishResultAsync(result).finally(restoreProjectMeta);
+        return finishResultAsync(result).finally(() => {
+          if (isRangeRender) restoreProjectHtml();
+          restoreProjectMeta();
+        });
       }).catch((error) => {
         if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
-        if (!recordExists && existsSync(recordPath)) unlinkSync(recordPath);
-        if (originalHtml) writeFileAtomically(indexPath, originalHtml);
-        else if (existsSync(indexPath)) unlinkSync(indexPath);
+        if (!isRangeRender && !recordExists && existsSync(recordPath)) unlinkSync(recordPath);
+        restoreProjectHtml();
         restoreProjectMeta();
         throw error;
       }).finally(cleanupTemporaryAssets);
@@ -245,15 +256,15 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
     return finishResultSync(rendered);
   } catch (error) {
     if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
-    if (!recordExists && existsSync(recordPath)) unlinkSync(recordPath);
-    if (originalHtml) writeFileAtomically(indexPath, originalHtml);
-    else if (existsSync(indexPath)) unlinkSync(indexPath);
+    if (!isRangeRender && !recordExists && existsSync(recordPath)) unlinkSync(recordPath);
+    restoreProjectHtml();
     restoreProjectMeta();
     throw error;
   }
   } finally {
     if (!deferTemporaryCleanup) {
       cleanupTemporaryAssets();
+      if (isRangeRender) restoreProjectHtml();
       restoreProjectMeta();
     }
   }

@@ -52,7 +52,7 @@ test('maps Rhubarb mouth shapes to a consumer sprite pack and allows overrides',
     { start: 0.2, end: 0.4, value: 'A' },
     { start: 0.4, end: 0.6, value: 'F' },
   ] }, 0.6);
-  assert.deepEqual(mapRhubarbCuesToSpriteStates(track).cues.map((cue) => cue.state), ['rest', 'closed', 'small']);
+  assert.deepEqual(mapRhubarbCuesToSpriteStates(track).cues.map((cue) => cue.state), ['default', 'a', 'f']);
   assert.deepEqual(mapRhubarbCuesToSpriteStates(track, { x: 'neutral', a: 'shut', f: 'round' }).cues.map((cue) => cue.state), ['neutral', 'shut', 'round']);
   assert.throws(() => mapRhubarbCuesToSpriteStates(track, { x: 'rest' }), /No sprite state is mapped/);
   assert.throws(() => mapRhubarbCuesToSpriteStates(track, { x: '' }), /non-empty state names/);
