@@ -277,6 +277,7 @@ try {
   const captionProjectPath = createVideoProject(root, 'word-highlight-smoke', { width: 320, height: 180, fps: 24, durationSeconds: 2 });
   const captionOutputPath = join(captionProjectPath, 'renders', 'word-highlight.mp4');
   const captionProject = JSON.parse(readFileSync(join(captionProjectPath, 'meta.json'), 'utf8'));
+  const captionBackground = registerMediaAsset(captionProjectPath, sourceVideoPath, { id: 'caption-background' });
   const captionTrack = createCaptionTrack({
     schemaVersion: 1,
     durationSeconds: 2,
@@ -292,7 +293,15 @@ try {
     paddingPixels: 0,
     layoutPreset: 'subtitle',
   });
-  const captionTimeline = { schemaVersion: 1, project: captionProject, assets: [], tracks: [{ ...captionTrack, order: 0 }] };
+  const captionTimeline = {
+    schemaVersion: 1,
+    project: captionProject,
+    assets: [captionBackground],
+    tracks: [
+      { id: 'caption-background-track', kind: 'video', order: 0, clips: [{ id: 'caption-background-clip', assetId: captionBackground.id, sourceIn: 0, sourceOut: 2, timelineStart: 0, durationSeconds: 2 }] },
+      { ...captionTrack, order: 1 },
+    ],
+  };
   const captionRender = await renderTimelineAsync(captionProjectPath, captionTimeline, captionOutputPath, 'draft', { timeoutSeconds: 180 });
   const captionMedia = probeMedia(captionRender.output);
   assert.equal(captionMedia.hasAudio, false);
