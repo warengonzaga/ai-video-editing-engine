@@ -1249,3 +1249,8 @@ smoke render alone.
   that did not describe the committed bytes. It now probes and fingerprints a
   staged copy before linking the asset into the project. Syntax and whitespace
   checks only; no test suite or media probe was run.
+- Initial `timeline.json` creation during timeline render now stages the
+  serialized record and publishes it with an exclusive hard link. A failed or
+  interrupted write cannot leave a partial timeline at the final path, and a
+  concurrent creator cannot be overwritten. Syntax and whitespace checks only;
+  no render or test suite was run.

@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
+import { existsSync, linkSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { renderProject, renderProjectAsync } from '../render/hyperframes.mjs';
@@ -182,7 +182,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   if (recordExists) {
     if (readFileSync(recordPath, 'utf8') !== serializedTimeline) throw new Error('Project already has a different timeline.json; use a new project to preserve prior edits.');
   } else {
-    writeFileSync(recordPath, serializedTimeline, { flag: 'wx' });
+    writeNewFileAtomically(recordPath, serializedTimeline);
   }
   try {
     if (updateDuration) writeFileSync(metaPath, `${JSON.stringify({ ...meta, durationSeconds: timeline.project.durationSeconds }, null, 2)}\n`);
@@ -273,6 +273,16 @@ async function prepareTimelineRenderAsync(projectPath, timeline, options, render
 
 function cleanupTemporaryAssets(temporaryAssets) {
   for (const asset of temporaryAssets) rmSync(asset, { force: true });
+}
+
+function writeNewFileAtomically(path, content) {
+  const temporaryPath = join(dirname(path), `.timeline-render-${randomUUID()}.tmp`);
+  try {
+    writeFileSync(temporaryPath, content, { flag: 'wx' });
+    linkSync(temporaryPath, path);
+  } finally {
+    rmSync(temporaryPath, { force: true });
+  }
 }
 
 async function alignOffsetAudioAssetsAsync(root, timeline, temporaryAssets, renderControl) {
