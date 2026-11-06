@@ -244,7 +244,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   Rhubarb integration or consume externally generated cue tracks; the Engine
   does not bundle avatar assets or Rhubarb. Sprite states within one layer must
   share PNG canvas dimensions so blink, mouth, and pose changes do not resize
-  the layer or shift parent-anchored features.
+  the layer or shift parent-anchored features. Before copying, avatar composition
+  preflights all generated sprite destinations and refuses same-named files with
+  different content.
 - [x] Enforce a complete phonetic mouth pack when `avatar-compose` generates
   Rhubarb lip-sync: each speaking mouth layer must provide distinct A-H viseme
   states and an X rest state. Default cue generation enables GHX. Consumers can

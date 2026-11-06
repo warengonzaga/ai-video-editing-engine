@@ -98,7 +98,7 @@ export function createAvatarComposition(projectPath, specification) {
       } }
       : layer);
   }
-  mkdirSync(assetDir, { recursive: true });
+  const spriteCopies = [];
   const safeLayers = layers.map((layer) => {
     const source = resolve(layer.image ?? '');
     const cues = validateAnimationCues(layer.track);
@@ -106,12 +106,20 @@ export function createAvatarComposition(projectPath, specification) {
     for (const [state, image] of Object.entries(states)) {
       const stateSource = resolve(image);
       const target = join(assetDir, `${layer.name}-${state}-${basename(stateSource)}`);
-      if (!existsSync(target)) copyFileSync(stateSource, target);
+      if (existsSync(target)) {
+        if (!readFileSync(target).equals(readFileSync(stateSource))) {
+          throw new Error(`Avatar sprite output already exists with different content: ${target}. Refusing to reuse a stale sprite.`);
+        }
+      } else {
+        spriteCopies.push({ source: stateSource, target });
+      }
       states[state] = `assets/avatar/${basename(target)}`;
     }
     const layout = layouts.get(layer.name);
     return { name: layer.name, role: layer.role, image: states.default, states, ...layout, cues };
   });
+  mkdirSync(assetDir, { recursive: true });
+  for (const { source, target } of spriteCopies) copyFileSync(source, target);
   const id = 'avatar-scene';
   const timeline = safeLayers.map((layer) => ({ name: layer.name, states: layer.states, cues: layer.cues })).map(({name,states,cues}) => ({name,states,cues:cues.cues}));
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><script src="assets/gsap.min.js"></script><style>*{box-sizing:border-box}html,body,#${id}{margin:0;width:${meta.width}px;height:${meta.height}px;overflow:hidden}#${id}{position:relative;background:transparent}.sprite{position:absolute;left:calc(var(--x)*100%);top:calc(var(--y)*100%);width:calc(var(--w)*100%);height:auto;transform:translate(-50%,-50%)}</style></head><body><div id="${id}" data-composition-id="${id}" data-start="0" data-duration="${durationSeconds}" data-width="${meta.width}" data-height="${meta.height}">${safeLayers.map((layer, index) => `<img id="avatar-${layer.name}" class="clip sprite" data-track-index="${index}" data-start="0" data-duration="${durationSeconds}" src="${layer.image}" style="--x:${layer.x};--y:${layer.y};--w:${layer.width}">`).join('')}</div><script>const tracks=${JSON.stringify(timeline)};const tl=gsap.timeline({paused:true});for(let i=0;i<tracks.length;i++){const t=tracks[i],el=document.querySelector('.sprite[data-track-index="'+i+'"]');for(const c of t.cues){const src=t.states[c.state];if(!src)throw new Error('Missing sprite for '+t.name+': '+c.state);tl.set(el,{attr:{src}},c.start);tl.set(el,{attr:{src:t.states.default}},c.end)}}window.__timelines=window.__timelines||{};window.__timelines['${id}']=tl;</script></body></html>`;

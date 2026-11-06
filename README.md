@@ -242,8 +242,10 @@ earlier layer with `relativeTo`, `anchor: [x, y]`, and a `width` fraction of the
 parent sprite. This keeps face features aligned when the avatar is resized or
 moved. Every state in a layer must use the same PNG canvas dimensions, which
 prevents blink, mouth, and pose changes from shifting the layer bounds. The
-Engine does not bundle avatar artwork or claim
-phoneme-accurate lip sync.
+Engine preflights generated sprite destinations and refuses to reuse a
+same-named project sprite if its image content differs from the requested
+source. The Engine does not bundle avatar artwork or claim phoneme-accurate lip
+sync.
 
 ## Create a project
 

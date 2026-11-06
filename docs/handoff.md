@@ -690,6 +690,11 @@ smoke render alone.
   `video-projects/`. `npm pack --dry-run` includes the CLI, validator, shared
   PNG helper, README, and architecture docs (68 files, 168,743 packed bytes).
   No tarball was published, and no test suite or GitHub Actions run was started.
+- `avatar-compose` now preflights all generated sprite destinations before
+  copying. It reuses an existing output only when its bytes match the requested
+  source; otherwise it fails before copying any new sprite, preventing silent
+  reuse of stale artwork after an interrupted or edited project setup. No test
+  suite or avatar render was run for this change.
 
 - Added `insertTimelineGap` / `editTimeline({ type: 'insert-gap', ... })` as a
   generic synchronized timeline operation. It shifts clips after the insertion
