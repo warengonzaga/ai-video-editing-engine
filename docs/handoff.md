@@ -663,3 +663,11 @@ smoke render alone.
   optional OpenTimelineIO skips, 0 failed. `npm audit --omit=dev --offline`
   reported 0 vulnerabilities. Hosted CI run 42168696652 passed the full test,
   render-smoke, and dependency-audit jobs on Linux, Windows, and macOS.
+- Reviewed the ignored Engine artifact
+  `video-projects/avatar-engine-user-review-2026-11-06-v4/renders/waren-talking-review.mp4`
+  through a contact sheet sampled at one-second intervals. The 11.133-second,
+  1280×720/30 fps H.264/AAC render shows stable full-body framing, no obvious
+  clipping, and changing mouth/blink states. ffprobe confirms 48 kHz stereo
+  AAC audio. This is a visual spot-check only; phoneme alignment and human
+  listening review remain open. The contact sheet and source media remain
+  local and ignored.
