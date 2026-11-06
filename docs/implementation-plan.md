@@ -138,8 +138,8 @@ codec coverage still need user-media and cross-platform validation.
 - [x] Preserve container and per-stream start times and time bases from media
   probing through timeline construction; normalize materially offset linked
   audio streams and non-zero standalone audio starts during render while
-  leaving original assets untouched. A generated MP3 offset test and the
-  supplied Voice 015.mp3 render confirm the Windows path.
+  leaving original assets untouched. A generated offset-audio fixture and a
+  supplied narration render confirm the Windows path.
 - [x] Verify a 30/15 fps VFR source renders correctly to a 30 fps output with
   the expected duration, frame count, and source content at sampled times.
 - [x] Define and test behavior for overlapping words and partial-word cuts.
@@ -273,11 +273,10 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   sprites. Rhubarb can now generate mapped mouth cues directly from an
   `avatar-compose` specification, while retaining the standalone `lip-sync`
   command for reusable cue files. A separate Windows Engine render combines
-  consumer-provided body, mouth, and blink sprites with Voice 015. Representative
-  frames verify mouth placement and full-body framing. A new local 1920x1080,
-  30 fps Voice 015 render uses A-H visemes plus X rest and fixed-canvas blink
-  assets. The v4 render generated 59 cues, including one G cue; H was present in
-  the validated pack but not selected for this recording. A sampled G frame
+  consumer-provided body, mouth, and blink sprites with Taglish narration.
+  Representative frames verify mouth placement and full-body framing. A local
+  1920×1080, 30 fps render uses A-H visemes plus X rest and fixed-canvas blink
+  assets. A sampled G frame
   confirms the new sprite appears at the existing mouth anchor. The v4 render
   was regenerated after moving mouth-file and dimension preflight ahead of the
   Rhubarb call. The earlier v2 render remains available for comparison. Human
@@ -317,9 +316,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   review with real source footage remains open.
 - [ ] Review actual preview and final output for transitions, captions, visual
   defects, and audio. Automated checks do not replace audiovisual review.
-  A frame-by-frame contact sheet from the 11.133-second Voice 015/Waren Engine
-  render shows stable full-body framing, no obvious clipping, and changing
-  mouth/blink states; speech alignment and human audio review remain open.
+  A frame-by-frame contact sheet from a supplied narration/avatar render shows
+  stable full-body framing, no obvious clipping, and changing mouth/blink
+  states; speech alignment and human audio review remain open.
 - [ ] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows
   synthetic-suite baseline and three settings profiles on an 11-second
@@ -491,10 +490,9 @@ neutral Engine capabilities.
 
 Latest avatar implementation requires distinct A-H viseme states plus X/rest,
 defaults Rhubarb extended cues to GHX, and checks mouth PNG files and shared
-canvas dimensions before phonetic analysis. The fresh Voice 015 v4 composition
-was generated and rendered successfully at 1920×1080/30 fps; it contains 59
-mouth cues including one G and no H cue. Human Taglish audio-alignment review
-remains open.
+canvas dimensions before phonetic analysis. A fresh avatar composition was
+generated and rendered at 1920×1080/30 fps with the complete A-H/X pack. Human
+Taglish audio-alignment review remains open.
 
 Latest local profiling rendered both the avatar composition and the generic
 video-plus-narration timeline. The generic timeline's one-worker low-memory

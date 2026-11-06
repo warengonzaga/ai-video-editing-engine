@@ -116,10 +116,9 @@ Last updated: 2026-11-07
   coverage exercises synchronized gap insertion and source-preserving slip edits.
 - Registered standalone audio with a non-zero FFprobe start time is normalized
   to timeline zero through a temporary WAV proxy; the original stays unchanged.
-  A generated offset-MP3 test confirms the proxy PTS starts at zero. The
-  provided Voice 015.mp3 (11.115 seconds, 23 ms start offset) also rendered in
-  an isolated 320×180, 30 fps project; the resulting 11.133-second MP4 retained
-  its audio stream and passed output checks. Human listening remains open.
+  A generated offset-MP3 fixture confirms the proxy PTS starts at zero. A
+  separate supplied narration sample also rendered with its audio stream
+  preserved. Human listening remains open.
 - Canvas presets and arbitrary dimensions are available. The renderer passes
   integer or rational frame rates to HyperFrames and verifies rendered canvas,
   duration, and frame rate against project metadata. MP4, WebM, MOV, and GIF
@@ -146,21 +145,14 @@ Last updated: 2026-11-07
   changes and timed blinks, but has not had human audiovisual review.
 - The optional Rhubarb 1.14.0 adapter converts audio to mono WAV, requests JSON
   mouth cues with the phonetic recognizer by default, and normalizes shape labels
-  to the Engine's lowercase cue contract. On the supplied 11.114667-second
-  `Voice 015.mp3`, it produced 60 phonetic cues across shapes A, B, C, E, F, and
-  X. Mapping these to Waren's available mouth sprites produced 61 continuous
-  cues (including the final rest frame), using closed, small, open, and rest
-  sprites. The mapping is consumer-owned and configurable.
-- A separate Rhubarb-backed Windows render was produced at
-  `video-projects/waren-avatar-phonetic-review/renders/voice-015-waren-avatar-phonetic-review-light.mp4`.
-  It is 1920x1080, 30 fps, 11.133 seconds, with AAC narration, blink cues, and
-  phonetic sprite changes. The existing amplitude-driven comparison remains at
-  `video-projects/waren-avatar-speech-review/renders/voice-015-waren-avatar-review-20261106.mp4`.
-  Representative frames were inspected for background, framing, and mouth
-  placement. Rhubarb 1.14.0 is available only in the ignored local validation
-  tooling directory; it is optional, external, and not bundled with the Engine.
-  Automatic phonetic recognition can misread Taglish, so cue timing and visual
-  quality still require listening and human review before Studio integration.
+  to the Engine's lowercase cue contract. An ignored local Windows validation
+  render combined consumer-provided mouth and blink sprites with a supplied
+  Taglish narration sample. Representative frames were inspected for framing
+  and mouth placement, but human speech and audio review remain outstanding.
+  Rhubarb 1.14.0 is available only in ignored local validation tooling; it is
+  optional, external, and not bundled with the Engine. Automatic phonetic
+  recognition can misread Taglish, so cue timing and visual quality still need
+  review before Studio integration.
 - `mapRhubarbCuesToSpriteStates` adapts Rhubarb labels to consumer-defined sprite
   states. Its default mapping preserves all six basic visemes as distinct
   lowercase states, maps G/H to matching lowercase states, and maps X to the
@@ -198,31 +190,13 @@ Last updated: 2026-11-07
   Existing assertions in `test/animation-cues.test.mjs` still expect the former
   five-state adapter default; update those assertions when the deferred test
   work resumes. Tests remain unrun per user direction.
-- Created an ignored, local-only fixture at
-  `video-projects/waren-avatar-viseme-v2/` using the existing Waren body and
-  Voice 015. The fixture has seven distinct A-F/X mouth images on identical
-  280x171 transparent canvases; generated B/E/F shapes were aligned to the
-  existing A/C/D/X art. The prior blink image was resampled to the body's
-  420x620 canvas so the blink no longer changes the body box. `avatar-compose`
-  accepted the complete pack and generated 59 Rhubarb cues; the 11.133-second
-  1920x1080/30 fps MP4 is
-  `video-projects/waren-avatar-viseme-v2/renders/waren-voice015-viseme-v2.mp4`.
-  FFprobe confirms H.264 video and 48 kHz stereo AAC narration.
-  Frame spot-checks at B, C, E+blink, F, X, and A confirm a stable mouth anchor,
-  centered rounded/pursed variants, and no body-size blink flicker. A v3 fixture
-  adds distinct G (F/V) and H (L) sprites on 280x171 transparent canvases,
-  enables GHX cues, and passes avatar composition. Rhubarb produced 59 cues from
-  Voice 015: 20 B, 15 C, 6 E, 5 F, 7 A, 5 X, and 1 G; this recording did not
-  produce an H cue. The 1920x1080/30 fps render is
-  `video-projects/waren-avatar-viseme-v4/renders/waren-voice015-viseme-v4.mp4`.
-  FFprobe confirms H.264, 48 kHz stereo AAC, and 11.133333 seconds. One extracted
-  G-state frame confirms the F/V sprite appears in the rendered composition.
-  A fresh v4 project also re-renders successfully after sprite PNG signatures
-  and shared dimensions were moved ahead of the Rhubarb call; this render took
-  19.2 seconds. The original v2 render remains untouched. The v2 contact sheet is
-  `video-projects/waren-avatar-viseme-v2/renders/avatar-viseme-contact-sheet.png`.
-  This is a visual spot-check only: the recording was not listened through for
-  Taglish phoneme accuracy, and D was not selected by this recording's cues.
+- Created ignored local-only avatar fixtures with complete A-H/X mouth-state
+  packs on shared transparent canvases and a fixed-canvas blink layer.
+  `avatar-compose` accepted the packs and produced H.264/AAC previews. Frame
+  spot-checks confirm a stable mouth anchor and no body-size blink flicker.
+  A sampled G-state frame confirms the F/V sprite appears in the composition.
+  These are visual spot-checks only; Taglish phoneme accuracy and listening
+  quality still require human review.
 - The standard fixture render completed in 18.8s (setup 5.2s, browser capture
   12.2s, encode 0.1s) on Windows 10.0.26300, AMD Ryzen 7 7840HS, 16 logical
   cores, and 29.8 GiB RAM, using hardware-GPU browser capture. This is one
@@ -243,7 +217,7 @@ Last updated: 2026-11-07
   non-blocking asset-load 404 warnings during some smoke renders.
 - `npm audit --omit=dev --offline` found zero production dependency
   vulnerabilities using the local npm audit cache.
-- Human review of the current Voice 015 avatar render is pending. Do not treat
+- Human review of the current phonetic avatar render is pending. Do not treat
   amplitude-driven timing as phonetic lip sync or start Studio integration
   until the review and the Rhubarb-backed render are complete.
 
@@ -354,15 +328,10 @@ Last updated: 2026-11-07
 - A red-to-blue 0.5-second video crossfade rendered as a purple midpoint frame.
   After assigning overlapping clips separate renderer lanes, HyperFrames no
   longer reported its same-track overlap lint warning.
-- `Voice 015.mp3` was probed and registered as an audio asset, then analyzed
-  with acoustic silence detection; the 11.115-second file produced no cut
-  suggestions. Its SHA-256 matches the narration in the preserved
-  `avatar-engine-review` demo.
-- A separate project, `video-projects/voice-015-engine-validation`, strips the
-  old demo audio, attaches the supplied recording as a distinct Engine audio
-  track, and renders `renders/engine-avatar-with-voice.mp4`. ffprobe reports
-  1920×1080 H.264 video, AAC stereo audio, and 11.133 seconds. Render time was
-  17.8 seconds on the local AMD Ryzen 7 7840HS system.
+- A supplied narration sample was registered and analyzed with acoustic
+  silence detection; it produced no cut suggestions. A separate ignored
+  project attached narration as an Engine audio track and rendered H.264/AAC.
+  This demonstrates A/V assembly, not talking-avatar quality.
 - Visual inspection at 1, 5, and 9 seconds shows the avatar mouth stays closed
   throughout. This output verifies Engine A/V assembly, not talking-avatar
   quality; lip sync fails review and Studio integration remains gated. Audio
@@ -402,8 +371,8 @@ Last updated: 2026-11-07
   12-second composition; the measurement is a local synthetic baseline, not a
   single-render estimate or a real-footage performance claim. Cross-platform
   and representative-project profiling remain open.
-- Profiled three 1920×1080/30 fps draft renders of the existing 11.133-second
-  Voice 015/avatar project on the AMD Ryzen 7 7840HS/29.8 GB Windows host:
+- Profiled three 1920×1080/30 fps draft renders of an 11-second avatar project
+  on the AMD Ryzen 7 7840HS/29.8 GB Windows host:
 
   | Render settings | Wall time | Peak process-tree working set | Processes |
   | --- | ---: | ---: | ---: |
@@ -419,12 +388,11 @@ Last updated: 2026-11-07
   a universal performance promise or a reason to change defaults without more
   representative projects. A sampled frame at 5s confirms the source's title
   remains obscured and the avatar mouth stays closed. This measures Engine
-  rendering on user-supplied media, not talking-animation quality. Audio was
-  not auditioned. The original comparison demo remains intact; the default
-  output is `video-projects/voice-015-engine-validation/renders/engine-avatar-profile-20261106.mp4`.
+  rendering on supplied media, not talking-animation quality. Audio was not
+  auditioned. The comparison demo remains intact in the ignored local workspace.
 - On 2026-11-07, profiled two fresh 1920×1080/30 fps draft renders with a
   250 ms process-tree sampling interval on the same Windows host. The first is
-  the full-body avatar composition plus Voice 015; the second runs the generic
+  a full-body avatar composition plus narration; the second runs the generic
   multi-track timeline renderer on the existing avatar video clip and separate
   narration track:
 
@@ -639,12 +607,9 @@ passed against the real OTIO adapter. The package is not installed globally.
 
 ### Consumer integration and delivery
 
-- Obtain a human audiovisual review of the current A-H Voice 015 avatar render:
-  `video-projects/waren-avatar-viseme-v4/renders/waren-voice015-viseme-v4.mp4`.
-  A 2 fps mouth/face contact sheet is at
-  `video-projects/waren-avatar-viseme-v4/renders/viseme-v4-mouth-inspection.png`.
-  Its audio stream was technically verified, but has not received a human
-  listening review.
+- Obtain a human audiovisual review of the current A-H avatar render and its
+  local contact sheet. Its audio stream was technically verified, but has not
+  received a human listening review.
 - Decide a distribution model. The private package exposes an installable CLI
   binary for local/Git dependency use; public npm installation is not enabled.
 - Recheck current hosted Linux/macOS/Windows CI state and validate setup on a
@@ -670,7 +635,7 @@ smoke render alone.
   The temporary consumer and tarball live under ignored `video-projects/`;
   nothing was published to npm. Installation initially hit the sandbox's npm
   registry DNS restriction, then completed after the authorized network retry.
-- Reviewed the current Voice 015 A-H render contact sheet and Rhubarb's official
+- Reviewed an A-H render contact sheet and Rhubarb's official
   shape guidance. Rhubarb 1.x uses replacement animation; its C and E shapes
   also act as in-betweens, so the artwork and cue timing must make adjacent
   changes read smoothly. The Engine cannot synthesize convincing intermediate
@@ -685,7 +650,7 @@ smoke render alone.
   the specification file, and the result reports the A-H/X state mapping and
   shared canvas dimensions without creating a project. Capability discovery
   now advertises the canvas and image-content invariants. Ran the CLI against
-  the current Voice 015 A-H/X sprite pack; it reported valid and a shared
+  a consumer-provided A-H/X sprite pack; it reported valid and a shared
   280×171 canvas. The generated mouth-pack JSON is ignored under
   `video-projects/`. `npm pack --dry-run` includes the CLI, validator, shared
   PNG helper, README, and architecture docs (68 files, 168,743 packed bytes).
@@ -764,12 +729,12 @@ smoke render alone.
   both audio tracks while a sidechain rule references them. The output center
   pixel remained black (luma 0), no audio stream was present, and the rule was
   omitted from render state. The saved edit timeline remains intact.
-- The first Voice 015 voice-attachment render used an avatar video with no mouth
+- The first narration-attachment render used an avatar video with no mouth
   and held one `rest` sprite; it did not validate speech-driven animation.
 - Built a separate ignored comparison render at
   `video-projects/avatar-engine-talking-review-v2/renders/talking-avatar-review-v3.mp4`
-  with the existing Voice 015 media and five available mouth sprites. It is
-  11.13 seconds at 1280×720/30 fps with AAC audio and 334 audio-level cues.
+  with the supplied narration media and five available mouth sprites. It is a
+  short 1280×720/30 fps AAC preview driven by audio-level cues.
   Inspected frames at 1, 3, 5, 7, and 9 seconds: the mouth stays centered below
   the glasses and changes among the supplied states. This prototype uses
   amplitude thresholds, so it does not prove phoneme-accurate lip sync, blinking,
@@ -827,9 +792,9 @@ smoke render alone.
 - Improved `createAvatarComposition`: sparse animation cues now restore the
   layer's default sprite at cue end, and the generated project starter title is
   removed when mounting the avatar scene. A local review render with the
-  consumer-provided Waren sprites and Voice 015 produced an 11.133-second,
-  1280×720/30 fps H.264/AAC MP4 with 334 audio-level mouth cues and four timed
-  blink cues. Frame inspection at 1.75s (blink), 1.9s and 2.4s (eyes restored),
+  consumer-provided sprites and narration produced a 1280×720/30 fps H.264/AAC
+  MP4 with audio-level mouth cues and timed blink cues. Frame inspection at
+  1.75s (blink), 1.9s and 2.4s (eyes restored),
   and 4.4s (blink) confirms stable full-body sizing, default-state reset, and
   centered mouth placement; no starter title appears. This verifies sprite
   switching and composition only, not phoneme accuracy, natural timing, or
@@ -847,9 +812,8 @@ smoke render alone.
   optional OpenTimelineIO skips, 0 failed. `npm audit --omit=dev --offline`
   reported 0 vulnerabilities. Hosted CI run 42168696652 passed the full test,
   render-smoke, and dependency-audit jobs on Linux, Windows, and macOS.
-- Reviewed the ignored Engine artifact
-  `video-projects/avatar-engine-user-review-2026-11-06-v4/renders/waren-talking-review.mp4`
-  through a contact sheet sampled at one-second intervals. The 11.133-second,
+- Reviewed an ignored Engine artifact through a contact sheet sampled at
+  one-second intervals. The 11.133-second,
   1280×720/30 fps H.264/AAC render shows stable full-body framing, no obvious
   clipping, and changing mouth/blink states. ffprobe confirms 48 kHz stereo
   AAC audio. This is a visual spot-check only; phoneme alignment and human
@@ -990,32 +954,28 @@ smoke render alone.
   workflow was started. Real-footage HDR review, cross-platform hosted runs,
   representative-project profiling, and human audio/visual approval remain
   open.
-- The prior Voice 015 profile used a precomposed avatar video with narration,
+- The prior avatar profile used a precomposed avatar video with narration,
   so the Engine sprite compositor was not driving its mouth. Added parent-relative
   sprite placement to `createAvatarComposition` and fixed its aspect-ratio math;
   mouth layers now anchor to normalized coordinates on an earlier body layer.
   The compositor also removes the starter title's orphaned GSAP animation when
   it removes that title. The new ignored review project
-  `video-projects/waren-avatar-speech-review` uses the supplied Waren body,
-  mouth, and blink sprites plus the existing Voice 015 recording. Its 11.133s
-  output is 1920×1080 H.264/AAC at 30 fps. Frame inspection at 1s, 1.9s, 5s,
+  an ignored local review project uses consumer-supplied body, mouth, and blink
+  sprites plus narration. Its output is 1920×1080 H.264/AAC at 30 fps. Frame
+  inspection at 1s, 1.9s, 5s,
   and 9s confirms the mouth is on the face, changes between states, the blink
   closes the eyes without changing body size, and the idle mouth returns.
-  Mouth timing uses 168 audio-level cues at 15 Hz, not phoneme analysis. Render:
-  `video-projects/waren-avatar-speech-review/renders/voice-015-waren-avatar-review-20261106.mp4`;
-  contact sheet:
-  `video-projects/waren-avatar-speech-review/renders/avatar-review-contact-sheet.png`.
+  Mouth timing uses audio-level cues, not phoneme analysis. The artifacts remain
+  in the ignored local validation workspace.
   Current `node --test --test-concurrency=1` passes 128 tests and skips 3
   optional OTIO tests because `requirements-otio.txt` is not installed; no tests
   fail. The default parallel test run had one timing-sensitive sidechain-render
   failure; that test passes alone and the serial suite passes. User audio review,
   phoneme-level alignment, and the earlier demo comparison remain open.
-- Generated a separate Rhubarb-backed Voice 015 render using 61 mapped mouth
-  cues and the existing blink sprites. Representative frames confirm the
-  light review canvas, full-body framing, and mouth placement; the output is
-  `video-projects/waren-avatar-phonetic-review/renders/voice-015-waren-avatar-phonetic-review-light.mp4`.
-  The original amplitude-based render remains available unchanged at
-  `video-projects/waren-avatar-speech-review/renders/voice-015-waren-avatar-review-20261106.mp4`.
+- Generated a separate Rhubarb-backed render using mapped mouth cues and blink
+  sprites. Representative frames confirm the light review canvas, full-body
+  framing, and mouth placement. The original amplitude-based render remains
+  available unchanged in the ignored local validation workspace.
   ffprobe reports 1920x1080 H.264 video at 30 fps with 48 kHz stereo AAC audio
   and 11.133 seconds duration. Rhubarb 1.14.0 was downloaded into ignored local
   validation tooling; it is optional and is not bundled.
