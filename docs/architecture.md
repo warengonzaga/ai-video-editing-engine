@@ -360,9 +360,13 @@ doctor` checks Node.js, FFmpeg, ffprobe, HyperFrames, and GSAP, then runs
 HyperFrames' environment doctor for browser/render setup and optional local AI
 runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
 `ai-video-engine capabilities` CLI command to discover required tools, common
-FFmpeg encoders, output formats and detected codec/per-format color-profile support,
-predefined canvas presets, and optional render filters without relying on
-doctor output parsing. Format availability reflects the relevant local FFmpeg,
+FFmpeg demuxers and decoders for common input media, encoders, output formats,
+detected codec/per-format color-profile support, predefined canvas presets,
+and optional render filters without relying on doctor output parsing. Input
+`available` reports whether FFmpeg and ffprobe are installed; `inventoryChecked`
+reports whether the decoder and demuxer lists could be read. Container and
+decoder fields are independent checks; having both does not prove that every
+media stream combination will decode. Format availability reflects the relevant local FFmpeg,
 ffprobe, HyperFrames, encoder, and filter inventory. The browser runtime is
 reported as unchecked and must be verified with `npm run doctor`. The report
 marks a format available when its render runtime and at least one compatible

@@ -1272,3 +1272,8 @@ smoke render alone.
   unchecked and points consumers to `npm run doctor`, avoiding a false claim
   that package and encoder discovery fully proves render readiness. Syntax and
   CLI response inspection only; no test suite or render was run.
+- Added common FFmpeg input container and video/audio decoder availability to
+  the generic capabilities report and exported reusable FFmpeg list parsers.
+  Local syntax and CLI response checks confirm the current Windows build
+  advertises MP4/MOV/Matroska/WebM, H.264/HEVC/AV1/VP9/ProRes, and common audio
+  decoders. No test suite or media render was run.

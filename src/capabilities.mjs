@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
+import { listFfmpegDecoders, listFfmpegDemuxers, listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
 import { RHUBARB_SPRITE_CONTRACT } from './animation/rhubarb.mjs';
 import { CANVAS_PRESETS } from './project/presets.mjs';
 
@@ -28,14 +28,23 @@ export function getEngineCapabilities(options = {}) {
   const ffprobe = inspectCommand(ffprobeCommand);
   const rhubarb = inspectCommand(rhubarbCommand, ['--version']);
   let encoders = new Set();
+  let decoders = new Set();
+  let demuxers = new Set();
   let filters = new Set();
   let ffmpegInspectionError;
+  let inputInspectionError;
   if (ffmpeg.available) {
     try {
       encoders = listFfmpegEncoders(ffmpegCommand);
       filters = listFfmpegFilters(ffmpegCommand);
     } catch (error) {
       ffmpegInspectionError = error.message;
+    }
+    try {
+      decoders = listFfmpegDecoders(ffmpegCommand);
+      demuxers = listFfmpegDemuxers(ffmpegCommand);
+    } catch (error) {
+      inputInspectionError = error.message;
     }
   }
 
@@ -62,6 +71,19 @@ export function getEngineCapabilities(options = {}) {
         : Object.values(codecsByFormat[format] ?? {}).some(Boolean);
       return [id, profile.available && compatibleEncoderAvailable];
     }));
+  const inputContainers = {
+    mp4: ['mp4'],
+    mov: ['mov'],
+    avi: ['avi'],
+    matroska: ['matroska'],
+    webm: ['webm'],
+    mpegts: ['mpegts'],
+    mpeg: ['mpeg'],
+    mp3: ['mp3'],
+    ogg: ['ogg'],
+    wav: ['wav'],
+    image2: ['image2'],
+  };
   return {
     schemaVersion: 1,
     node: { version: nodeVersion, supported: nodeMajor >= 22 },
@@ -72,6 +94,19 @@ export function getEngineCapabilities(options = {}) {
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
       browserRuntime: { available: null, checked: false, checkCommand: 'npm run doctor' },
+    },
+    media: {
+      input: {
+        available: ffmpeg.available && ffprobe.available,
+        inventoryChecked: ffmpeg.available && ffprobe.available && !inputInspectionError,
+        ...(inputInspectionError ? { inspectionError: inputInspectionError } : {}),
+        containers: Object.fromEntries(Object.entries(inputContainers)
+          .map(([name, aliases]) => [name, aliases.some((alias) => demuxers.has(alias))])),
+        videoDecoders: Object.fromEntries(['h264', 'hevc', 'av1', 'vp8', 'vp9', 'prores', 'mpeg2video', 'mpeg4']
+          .map((name) => [name, decoders.has(name)])),
+        audioDecoders: Object.fromEntries(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le']
+          .map((name) => [name, decoders.has(name)])),
+      },
     },
     avatar: {
       phoneticLipSync: {

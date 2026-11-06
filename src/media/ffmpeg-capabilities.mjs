@@ -33,6 +33,22 @@ export function parseFfmpegEncoders(output) {
   }));
 }
 
+export function parseFfmpegDecoders(output) {
+  if (typeof output !== 'string') throw new TypeError('FFmpeg decoder output must be text.');
+  return new Set(output.split(/\r?\n/).flatMap((line) => {
+    const match = line.trim().match(/^[A-Z.]{6}\s+([a-z0-9_-]+)\s+/i);
+    return match ? [match[1]] : [];
+  }));
+}
+
+export function parseFfmpegDemuxers(output) {
+  if (typeof output !== 'string') throw new TypeError('FFmpeg demuxer output must be text.');
+  return new Set(output.split(/\r?\n/).flatMap((line) => {
+    const match = line.trim().match(/^D\s+([a-z0-9_,]+)\s+/i);
+    return match ? match[1].split(',').map((name) => name.trim()).filter(Boolean) : [];
+  }));
+}
+
 export function assertFfmpegEncoder(encoderName, availableEncoders) {
   if (typeof encoderName !== 'string' || !/^[a-z0-9_-]+$/i.test(encoderName)) throw new TypeError('FFmpeg encoder name is invalid.');
   if (!(availableEncoders instanceof Set)) throw new TypeError('Available FFmpeg encoders must be a Set.');
@@ -58,4 +74,28 @@ export function listFfmpegEncoders(ffmpeg = 'ffmpeg') {
     throw new Error(`Could not inspect FFmpeg encoders: ${result.error?.message ?? result.stderr.trim()}`);
   }
   return parseFfmpegEncoders(result.stdout);
+}
+
+export function listFfmpegDecoders(ffmpeg = 'ffmpeg') {
+  const result = spawnSync(ffmpeg, ['-hide_banner', '-decoders'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 4 * 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Could not inspect FFmpeg decoders: ${result.error?.message ?? result.stderr.trim()}`);
+  }
+  return parseFfmpegDecoders(result.stdout);
+}
+
+export function listFfmpegDemuxers(ffmpeg = 'ffmpeg') {
+  const result = spawnSync(ffmpeg, ['-hide_banner', '-demuxers'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 4 * 1024 * 1024,
+  });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Could not inspect FFmpeg demuxers: ${result.error?.message ?? result.stderr.trim()}`);
+  }
+  return parseFfmpegDemuxers(result.stdout);
 }

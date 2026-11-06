@@ -32,7 +32,7 @@ export { parseProbeOutput, probeMedia, probeMediaAsync } from './media/probe.mjs
 export { analyzeMediaWithProvider, normalizeMediaFindings } from './media/analysis-provider.mjs';
 export { generateAssetPreview } from './media/preview-assets.mjs';
 export { normalizeFrameRate, frameRateNumber } from './media/frame-rate.mjs';
-export { assertFfmpegEncoder, hasFfmpegEncoder, hasFfmpegFilter, listFfmpegEncoders, listFfmpegFilters, parseFfmpegEncoders, parseFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
+export { assertFfmpegEncoder, hasFfmpegEncoder, hasFfmpegFilter, listFfmpegDecoders, listFfmpegDemuxers, listFfmpegEncoders, listFfmpegFilters, parseFfmpegDecoders, parseFfmpegDemuxers, parseFfmpegEncoders, parseFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
 export { secondsToFrame, frameToSeconds, snapTimeToFrame } from './media/frame-time.mjs';
 export { createFilterGraph, getKeepRanges, renderCuts } from './media/render-cuts.mjs';
 export { createVideoProject } from './project/create.mjs';
