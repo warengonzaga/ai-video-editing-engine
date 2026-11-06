@@ -1234,11 +1234,12 @@ smoke render alone.
   characters from changing the generated element attributes. Syntax and
   whitespace checks only; no test suite or render was run.
 - Ran the read-only `doctor` and capabilities commands on Windows with Node.js
-  22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, and the required Engine
-  filters/encoders available. Rhubarb, Whisper, local TTS/BGM runtimes, and
-  Docker are optional and unavailable. Clarified the Engine doctor summary so
-  HyperFrames' optional-feature warnings do not read as missing core Engine
-  requirements. No test suite or render was run.
+  22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, the cached Chrome
+  Headless Shell, and required Engine filters/encoders available. Rhubarb,
+  Whisper, local TTS/BGM runtimes are unavailable. Docker is installed but not
+  running; these AI and container tools are optional. The Engine doctor summary
+  distinguishes those optional warnings from missing core requirements. No
+  test suite or render was run.
 - The existing read-only `timeline inspect` CLI returned a computed clip end as
   `0.8999999999999999` for a 0.2-second overlay starting at 0.7 seconds. Rounded
   computed summary end times to six decimal places; the source timeline remains
