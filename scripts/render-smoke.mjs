@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createAssetProxy, createCaptionTrack, createVideoProject, editTimeline, probeMedia, registerMediaAsset, renderTimelineAsync, speedRampDuration, timelineForRender } from '../src/index.mjs';
 
-const root = mkdtempSync(join(tmpdir(), 'aive-render-smoke-'));
+const root = mkdtempSync(join(process.env.RUNNER_TEMP ?? tmpdir(), 'aive-render-smoke-'));
 process.env.HYPERFRAMES_CACHE_DIR = join(root, '.hyperframes-cache');
 if (!process.env.HYPERFRAMES_BROWSER_PATH) {
   const browserCandidates = [
