@@ -203,15 +203,22 @@ def import_timeline(request):
         "tracks": [],
     }
 
-    def import_track(track, group_path, parent_enabled):
+    def import_track(track, group_path, parent_enabled, parent_range=None):
         if track.kind not in (otio.schema.TrackKind.Audio, otio.schema.TrackKind.Video):
             raise ValueError(f"Track {track.name!r} has unsupported kind {track.kind!r}.")
         if track.effects:
             effects = ", ".join(effect.effect_name or type(effect).__name__ for effect in track.effects)
             raise ValueError(f"Track {track.name!r} has effects ({effects}) that the OTIO interchange profile does not support.")
         track_range = track.source_range
-        range_start = 0.0 if track_range is None else track_range.start_time.to_seconds()
-        range_end = math.inf if track_range is None else track_range.end_time_exclusive().to_seconds()
+        if track_range is not None and parent_range is not None:
+            raise ValueError(f"Track {track.name!r} combines track and parent stack trims; combined trim ranges are not supported.")
+        if track_range is not None:
+            range_start = track_range.start_time.to_seconds()
+            range_end = track_range.end_time_exclusive().to_seconds()
+        elif parent_range is not None:
+            range_start, range_end = parent_range
+        else:
+            range_start, range_end = 0.0, math.inf
         if (
             not math.isfinite(range_start)
             or not math.isfinite(range_end)
@@ -327,13 +334,31 @@ def import_timeline(request):
                     )
                     imported["clips"].append(record)
             cursor += item_duration
-        visible_duration = cursor if track_range is None else track_range.duration.to_seconds()
+        visible_duration = cursor if track_range is None and parent_range is None else range_end - range_start
         payload["durationSeconds"] = max(payload["durationSeconds"], visible_duration)
         payload["tracks"].append(imported)
 
-    def import_stack(stack, group_path=(), include_self=True, parent_enabled=True):
-        if stack.source_range is not None:
-            raise ValueError(f"Stack {stack.name!r} uses a trimmed source range, which the OTIO interchange profile does not support.")
+    def import_stack(stack, group_path=(), include_self=True, parent_enabled=True, parent_range=None):
+        stack_range = stack.source_range
+        if stack_range is not None and parent_range is not None:
+            raise ValueError(f"Stack {stack.name!r} combines nested stack trims; combined trim ranges are not supported.")
+        if stack_range is not None:
+            range_start = stack_range.start_time.to_seconds()
+            range_end = stack_range.end_time_exclusive().to_seconds()
+            if (
+                not math.isfinite(range_start)
+                or not math.isfinite(range_end)
+                or range_start < 0
+                or range_end <= range_start
+            ):
+                raise ValueError(f"Stack {stack.name!r} has an invalid or negative trimmed source range.")
+            if any(isinstance(item, otio.schema.Stack) for item in stack):
+                raise ValueError(f"Stack {stack.name!r} trims nested stacks; nested stack trims are not supported.")
+            if any(isinstance(item, otio.schema.Track) and item.source_range is not None for item in stack):
+                raise ValueError(f"Stack {stack.name!r} combines stack and track trims; combined trim ranges are not supported.")
+            child_range = (range_start, range_end)
+        else:
+            child_range = parent_range
         if stack.effects:
             effects = ", ".join(effect.effect_name or type(effect).__name__ for effect in stack.effects)
             raise ValueError(f"Stack {stack.name!r} has effects ({effects}) that the OTIO interchange profile does not support.")
@@ -341,9 +366,9 @@ def import_timeline(request):
         next_group = (*group_path, stack.name) if include_self and stack.name else group_path
         for item in stack:
             if isinstance(item, otio.schema.Track):
-                import_track(item, next_group, stack_enabled)
+                import_track(item, next_group, stack_enabled, child_range)
             elif isinstance(item, otio.schema.Stack):
-                import_stack(item, next_group, parent_enabled=stack_enabled)
+                import_stack(item, next_group, parent_enabled=stack_enabled, parent_range=child_range)
             else:
                 raise ValueError(f"OTIO stack item {item.name!r} is not a track or nested stack.")
 

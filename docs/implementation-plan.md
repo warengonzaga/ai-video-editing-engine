@@ -429,9 +429,11 @@ in this order:
   opacity fades or audio crossfades; constant clip rates map through OTIO
   `LinearTimeWarp` using source-span divided by playback rate for Engine
   duration. Variable speed ramps, retimed crossfades, custom transitions,
-  other overlaps, trims that intersect transitions, trimmed stacks, effects,
-  disabled clips, and nested compositions inside tracks remain unsupported.
+  other overlaps, trims that intersect transitions, nested or combined stack
+  trims, effects, disabled clips, and nested compositions inside tracks remain
+  unsupported.
   Trimmed track source ranges are applied to clips and gaps during import.
+  Trimmed stacks apply their source range to direct tracks.
   OTIO's `LinearTimeWarp`
   changes media-time mapping without changing the item's stored duration, so
   parent timeline timing must be mapped explicitly. Export converts
