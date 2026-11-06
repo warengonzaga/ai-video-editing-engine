@@ -466,21 +466,32 @@ retime paths require an explicitly approved EDL before applying those cuts.
 
 ## Current starting point
 
-The current local branch is `feature/generic-video-engine`. It includes the
+The current local branch is `feature/generic-video-engine`, eight commits ahead
+of `origin/feature/generic-video-engine` as of 2026-11-07. It contains the
 generic timeline, media catalog and proxy support, edit operations, transcript
 and provider workflows, layered video/overlay composition, audio mixing and
 mastering, preview assets, export controls, and OpenTimelineIO interchange.
-Optional avatar composition and Rhubarb lip-sync workflows are consumer-neutral
-Engine capabilities; their generated Voice 015 outputs have not received human
-audio/visual approval, and this branch has not been validated after the latest
-implementation changes.
+Optional avatar composition and Rhubarb lip-sync workflows remain consumer-
+neutral Engine capabilities.
 
-The current implementation pass adds cancellable async probing to direct
-`renderProjectAsync` output checks, in addition to the timeline async pipeline,
-and checks timeline output encoders/color filters before creating temporary
-media. No tests or renders were run for these changes, per the user's
-implementation-first direction. Do not treat earlier test, render, or CI
-results as evidence for the current branch state. The next delivery gate is to
-finish the remaining Engine code work, then run the user-directed validation
-pass before requesting audiovisual review or starting Explainer Studio
-integration. Recheck current branch and remote state before publishing.
+Latest avatar implementation requires distinct A-H viseme states plus X/rest,
+defaults Rhubarb extended cues to GHX, and checks mouth PNG files and shared
+canvas dimensions before phonetic analysis. The fresh Voice 015 v4 composition
+was generated and rendered successfully at 1920×1080/30 fps; it contains 59
+mouth cues including one G and no H cue. Human Taglish audio-alignment review
+remains open.
+
+Latest local profiling rendered both the avatar composition and the generic
+video-plus-narration timeline. The generic timeline's one-worker low-memory
+output matches the default output's decoded video and audio hashes while using
+81.7% less sampled peak process-tree memory at 38.9% more wall time on this
+single avatar-source project. These profiles are not representative of varied
+camera footage, and the 250 ms sampler may miss short peaks.
+
+No automated test suite was run for the latest changes, per the user's
+implementation-first direction. The current Windows renders and `ffprobe`
+metadata are evidence for these specific local workflows; earlier test/CI runs
+do not verify the entire current branch. Remaining gates are human listening
+and visual review, representative footage and cross-platform validation, then
+review-gated Explainer Studio integration. The CI workflows remain manual-only.
+Recheck branch and remote state before publishing.
