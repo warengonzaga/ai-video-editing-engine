@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
 import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
+import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
@@ -183,6 +183,20 @@ test('moves clips between compatible tracks while preserving their edit data', (
   assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'music'), /Cannot move a video clip to a track of kind audio/);
   assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'missing', 'video-broll'), /Unknown clip/);
   assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'missing'), /Unknown timeline track/);
+});
+
+test('reorders visual and audio tracks without changing clips', () => {
+  const reordered = reorderTimelineTrack(valid, 'graphics', 0);
+  assert.deepEqual(reordered.tracks.map(({ id, order }) => ({ id, order })), [
+    { id: 'graphics', order: 0 },
+    { id: 'video-main', order: 1 },
+    { id: 'music', order: 2 },
+  ]);
+  assert.deepEqual(reordered.tracks[0].clips, valid.tracks[2].clips);
+  assert.equal(valid.tracks[2].order, 2);
+  assert.deepEqual(editTimeline(valid, { type: 'reorder-track', trackId: 'music', order: 0 }).tracks[0].id, 'music');
+  assert.throws(() => reorderTimelineTrack(valid, 'missing', 0), /Unknown timeline track/);
+  assert.throws(() => reorderTimelineTrack(valid, 'graphics', valid.tracks.length), /Track order/);
 });
 
 test('detaches a video clip audio range to a synchronized audio track', () => {

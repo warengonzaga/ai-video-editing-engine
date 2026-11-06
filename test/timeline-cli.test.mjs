@@ -105,6 +105,30 @@ test('timeline CLI moves a clip to another compatible layer', () => {
   }
 });
 
+test('timeline CLI reorders a track and preserves its clips', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
+  try {
+    const inputPath = join(root, 'timeline.json');
+    const operationPath = join(root, 'operation.json');
+    const outputPath = join(root, 'edited.json');
+    const inputTimeline = structuredClone(timeline);
+    inputTimeline.tracks.push({ id: 'overlay', kind: 'overlay', order: 1, clips: [
+      { id: 'title', text: 'Title', timelineStart: 0, durationSeconds: 2 },
+    ] });
+    writeFileSync(inputPath, JSON.stringify(inputTimeline));
+    writeFileSync(operationPath, JSON.stringify({ type: 'reorder-track', trackId: 'overlay', order: 0 }));
+
+    execFileSync(process.execPath, [cliPath, 'timeline', 'edit', inputPath, operationPath, outputPath], { encoding: 'utf8' });
+    const result = JSON.parse(readFileSync(outputPath, 'utf8'));
+    assert.equal(result.tracks[0].id, 'overlay');
+    assert.equal(result.tracks[0].order, 0);
+    assert.equal(result.tracks[0].clips[0].text, 'Title');
+    assert.equal(inputTimeline.tracks[1].order, 1);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('timeline CLI applies an edit plan as one atomic batch', () => {
   const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
   try {

@@ -77,6 +77,8 @@ audio policy, cross-platform and broader format coverage remain open.
 - [x] Move clips between compatible tracks while preserving clip metadata,
   applying normal overlap validation, and allowing an optional new timeline
   position.
+- [x] Reorder tracks as a reviewable operation while preserving all clip data
+  and renumbering the resulting track order deterministically.
 - [x] Slip media source ranges without moving or resizing timeline clips;
   validate registered asset boundaries and preserve speed ramps and keyframes.
 - [x] Probe and retain metadata for every audio stream; detach a selected video's
@@ -346,6 +348,8 @@ the dry run reports exact track and clip changes plus before/after project
 duration, and leaves the source timeline untouched.
 Clips can also move between compatible same-kind tracks without losing their
 source range, keyframes, effects, transitions, or other clip metadata.
+Track ordering can be changed through the same validated edit-plan interface;
+the complete track objects and their clips stay intact.
 Injected media-analysis findings can propose explicit source-range removals;
 the Engine emits a confidence-filtered review-required EDL, and render and
 retime paths require an explicitly approved EDL before applying those cuts.

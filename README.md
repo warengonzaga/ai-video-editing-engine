@@ -368,7 +368,7 @@ JavaScript API (`timelineFromEdl`, `editTimeline`, `editTimelineBatch`,
 `detachAudioFromTimelineClip`, `createTimelineHistory`, `createCaptionTrack`,
 and `renderTimeline`).
 
-Generic edit operations can add/remove tracks and clips, detach clip audio,
+Generic edit operations can add/remove/reorder tracks and add/remove clips, detach clip audio,
 move clips within and between compatible tracks, trim/slip/split clips,
 insert a synchronized gap or ripple-delete a time range across every track,
 apply crossfades or clip-edge transitions, and preserve timeline validation at

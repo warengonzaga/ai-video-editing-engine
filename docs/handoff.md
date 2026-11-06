@@ -94,6 +94,8 @@ Last updated: 2026-11-06
 - `moveTimelineClipToTrack` and the `move-track` edit operation move a clip to a
   different track of the same kind, preserve its full edit metadata, optionally
   change its timeline position, and validate target-track overlaps.
+- `reorderTimelineTrack` and the `reorder-track` operation adjust visual/audio
+  track order and preserve every clip while renumbering tracks deterministically.
 - The `detach-audio` timeline edit creates or uses an audio track for a selected
   video clip, preserving its asset, source range, timeline placement, and
   constant or ramped playback timing. `audioStreamIndex` selects a zero-based
