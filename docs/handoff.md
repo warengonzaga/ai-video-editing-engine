@@ -1285,3 +1285,7 @@ smoke render alone.
   and decoders before ingest. Probe results now retain the input format aliases
   and video stream codec metadata. Syntax and CLI checks only; no full decode,
   test suite, or render was run.
+- Asset registration and relinking now retain container aliases and all probed
+  video stream records, alongside the existing audio stream metadata. This
+  keeps the new probe detail in both the manifest and timeline asset catalog.
+  Syntax and whitespace checks only; no test suite or ingest render was run.

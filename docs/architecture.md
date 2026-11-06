@@ -110,10 +110,11 @@ will be checked into docs only after the validator and CLI/API land.
 - `project`: stable id, width, height, frame rate, and duration in seconds.
 - `assets`: stable ids and project-relative media paths; probe metadata is
   derived and records streams, duration, dimensions, average and nominal frame
-  rates, per-stream timing, and codecs. When the container duration is absent,
-  probing falls back to the longest valid stream duration, deriving seconds
-  from `duration_ts × time_base` when needed; media with no usable duration
-  remains invalid. Asset verification compares SHA-256
+  rates, per-stream timing, and codecs. A/V records preserve container aliases,
+  metadata for every video stream, and metadata for every audio stream. When
+  the container duration is absent, probing falls back to the longest valid
+  stream duration, deriving seconds from `duration_ts × time_base` when needed;
+  media with no usable duration remains invalid. Asset verification compares SHA-256
   identities, while relinking replaces media under the same stable id/path and
   refreshes its probe record without modifying the replacement source.
   Optional video-only H.264 proxies retain their own dimensions, stream timing,

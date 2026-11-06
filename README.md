@@ -499,8 +499,9 @@ and preserves the configured history limit because asset metadata changes form
 a new undo baseline.
 
 Use `asset list` to inspect all registered media, including assets that are not
-yet referenced by a timeline. It returns the versioned manifest metadata as
-JSON without touching media files:
+yet referenced by a timeline. Video/audio records include container aliases
+and metadata for every video and audio stream. The command returns versioned
+manifest metadata as JSON without touching media files:
 
 ```sh
 node src/cli.mjs asset list video-projects/my-edit
