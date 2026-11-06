@@ -105,11 +105,13 @@ audio policy, cross-platform and broader format coverage remain open.
 - [x] Apply ordered AI edit plans atomically through the JavaScript API and CLI;
   represent a successful batch as one undo/redo history action.
 - [x] Support explicit track visibility for video/overlay layers and mute/solo
-  for audio tracks; remove excluded ducking/sidechain rules from render state.
-  Expose validated visible/muted/solo/volume changes through `set-track-state`
+  for audio tracks plus reversible track locks; remove excluded
+  ducking/sidechain rules from render state.
+  Expose validated visible/muted/solo/locked/volume changes through `set-track-state`
   for batch and dry-run AI edits. An encoded smoke verifies hidden layers render
   black and muted tracks emit no audio stream without mutating the saved edit.
-  Solo render state retains only selected unmuted audio tracks.
+  Solo render state retains only selected unmuted audio tracks. Locked tracks
+  reject clip/settings edits and synchronized timing edits that would move them.
 - [x] Validate timelines and edit decisions before rendering; preserve source
   media and refuse to overwrite existing render or edit artifacts.
 - [x] Provide a deterministic, read-only timeline overview through the API and

@@ -92,6 +92,7 @@ def export_timeline(request):
             track.enabled = track.enabled and source_track.get("solo") is True
         track.metadata[ENGINE_KEY] = {
             "trackId": source_track["id"],
+            **({"locked": source_track["locked"]} if source_track.get("locked") is not None else {}),
             **({"solo": source_track.get("solo", False), "muted": source_track.get("muted", False)} if source_track["kind"] == "audio" else {}),
         }
         cursor = 0.0
@@ -298,6 +299,7 @@ def import_timeline(request):
             "order": len(payload["tracks"]),
             "enabled": bool(track.enabled and parent_enabled),
             "engineTrackId": track.metadata.get(ENGINE_KEY, {}).get("trackId"),
+            **({"locked": track.metadata[ENGINE_KEY]["locked"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("locked"), bool) else {}),
             **({"solo": track.metadata[ENGINE_KEY]["solo"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("solo"), bool) else {}),
             **({"muted": track.metadata[ENGINE_KEY]["muted"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("muted"), bool) else {}),
             "clips": [],

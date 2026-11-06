@@ -18,6 +18,7 @@ export function removeTimelineTrack(timeline, trackId) {
   const next = structuredClone(timeline);
   const index = next.tracks.findIndex((candidate) => candidate.id === trackId);
   if (index < 0) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  assertTrackEditable(next.tracks[index]);
   next.tracks.splice(index, 1);
   return validateTimeline(next);
 }
@@ -57,6 +58,12 @@ export function reorderTimelineTrack(timeline, trackId, order) {
   const [track] = orderedTracks.splice(currentIndex, 1);
   orderedTracks.splice(order, 0, track);
   orderedTracks.forEach((candidate, index) => { candidate.order = index; });
+  const previousOrders = new Map(timeline.tracks.map((candidate) => [candidate.id, candidate.order]));
+  for (const candidate of orderedTracks) {
+    if (candidate.locked === true && candidate.order !== previousOrders.get(candidate.id)) {
+      throw new TypeError(`Track ${candidate.id} is locked and cannot be reordered.`);
+    }
+  }
   next.tracks = orderedTracks;
   return validateTimeline(next);
 }
@@ -66,6 +73,7 @@ export function addTimelineClip(timeline, trackId, clip) {
   const next = structuredClone(timeline);
   const track = next.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  assertTrackEditable(track);
   if (track.clips.some((candidate) => candidate.id === clip.id)) throw new TypeError(`Timeline clip already exists on track ${trackId}: ${clip.id}`);
   track.clips.push(structuredClone(clip));
   next.project.durationSeconds = Math.max(next.project.durationSeconds, clip.timelineStart + clip.durationSeconds);
@@ -90,6 +98,7 @@ export function detachAudioFromTimelineClip(timeline, videoTrackId, videoClipId,
   const next = structuredClone(timeline);
   const videoTrack = next.tracks.find((track) => track.id === videoTrackId);
   if (!videoTrack || videoTrack.kind !== 'video') throw new TypeError(`Unknown video track: ${videoTrackId}`);
+  assertTrackEditable(videoTrack);
   const videoClip = videoTrack.clips.find((clip) => clip.id === videoClipId);
   if (!videoClip) throw new TypeError(`Unknown clip ${videoClipId} on track ${videoTrackId}.`);
   const asset = next.assets.find((item) => item.id === videoClip.assetId);
@@ -99,6 +108,7 @@ export function detachAudioFromTimelineClip(timeline, videoTrackId, videoClipId,
 
   let audioTrack = next.tracks.find((track) => track.id === audioTrackId);
   if (audioTrack && audioTrack.kind !== 'audio') throw new TypeError(`Track ${audioTrackId} is not an audio track.`);
+  if (audioTrack) assertTrackEditable(audioTrack);
   if (!audioTrack) {
     if (next.tracks.some((track) => track.id === audioTrackId)) throw new TypeError(`Timeline track already exists: ${audioTrackId}`);
     const order = next.tracks.reduce((maximum, track) => Math.max(maximum, track.order), -1) + 1;
@@ -129,6 +139,7 @@ export function removeTimelineClip(timeline, trackId, clipId) {
   const next = structuredClone(timeline);
   const track = next.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  assertTrackEditable(track);
   const index = track.clips.findIndex((candidate) => candidate.id === clipId);
   if (index < 0) throw new TypeError(`Unknown clip ${clipId} on track ${trackId}.`);
   track.clips.splice(index, 1);
@@ -139,11 +150,18 @@ export function rippleDeleteTimelineClip(timeline, trackId, clipId) {
   validateTimeline(timeline);
   const targetTrack = timeline.tracks.find((candidate) => candidate.id === trackId);
   if (!targetTrack) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  assertTrackEditable(targetTrack);
   const target = targetTrack.clips.find((clip) => clip.id === clipId);
   if (!target) throw new TypeError(`Unknown clip ${clipId} on track ${trackId}.`);
   const cutStart = target.timelineStart;
   const cutEnd = cutStart + target.durationSeconds;
   const cutDuration = target.durationSeconds;
+  for (const track of timeline.tracks) {
+    if (track.locked === true && (track.clips.some((clip) => clip.timelineStart + clip.durationSeconds > cutStart)
+        || track.volumeKeyframes !== undefined)) {
+      throw new TypeError(`Ripple delete would change locked track ${track.id}. Unlock it before making a synchronized ripple edit.`);
+    }
+  }
   const next = structuredClone(timeline);
   const usedIds = new Set(next.tracks.flatMap((track) => track.clips.map((clip) => clip.id)));
 
@@ -194,6 +212,12 @@ export function insertTimelineGap(timeline, timelineStart, durationSeconds) {
   }
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     throw new TypeError('durationSeconds must be a positive number.');
+  }
+  for (const track of timeline.tracks) {
+    if (track.locked === true && (track.clips.some((clip) => clip.timelineStart + clip.durationSeconds > timelineStart)
+        || track.volumeKeyframes !== undefined)) {
+      throw new TypeError(`Gap insertion would change locked track ${track.id}. Unlock it before making a synchronized timeline edit.`);
+    }
   }
 
   const next = structuredClone(timeline);
@@ -282,6 +306,7 @@ export function moveTimelineClipToTrack(timeline, trackId, clipId, targetTrackId
   const { track: sourceTrack, clip, index } = findClipEntry(next, trackId, clipId);
   const targetTrack = next.tracks.find((candidate) => candidate.id === targetTrackId);
   if (!targetTrack) throw new TypeError(`Unknown timeline track: ${targetTrackId}`);
+  assertTrackEditable(targetTrack);
   if (sourceTrack.kind !== targetTrack.kind) {
     throw new TypeError(`Cannot move a ${sourceTrack.kind} clip to a track of kind ${targetTrack.kind}.`);
   }
@@ -475,6 +500,7 @@ export function crossfadeTimelineClips(timeline, trackId, outgoingClipId, incomi
   const next = structuredClone(timeline);
   const track = next.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  assertTrackEditable(track);
   const outgoing = track.clips.find((clip) => clip.id === outgoingClipId);
   const incoming = track.clips.find((clip) => clip.id === incomingClipId);
   if (!outgoing || !incoming) throw new TypeError(`Crossfade clips must both belong to track ${trackId}.`);
@@ -597,12 +623,16 @@ export function setTimelineTrackState(timeline, trackId, state) {
   validateTimeline(next);
   const track = next.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
-  const allowed = track.kind === 'audio' ? ['muted', 'solo', 'volume', 'volumeKeyframes', 'audioEffects'] : ['visible'];
+  const allowed = track.kind === 'audio' ? ['muted', 'solo', 'volume', 'volumeKeyframes', 'audioEffects', 'locked'] : ['visible', 'locked'];
   const fields = Object.keys(state);
   if (fields.length === 0 || fields.some((field) => !allowed.includes(field))) {
     throw new TypeError(`Track ${trackId} state must set one or more of: ${allowed.join(', ')}.`);
   }
   if (fields.some((field) => state[field] === undefined)) throw new TypeError('Track state values must not be undefined; use null to clear an override.');
+  if (fields.includes('locked') && fields.length !== 1) throw new TypeError('Set or clear track lock state in a separate operation.');
+  if (track.locked === true && fields.some((field) => field !== 'locked')) {
+    throw new TypeError(`Track ${trackId} is locked. Unlock it before editing track state.`);
+  }
   for (const field of fields) {
     if (state[field] === null) delete track[field];
     else track[field] = state[field];
@@ -629,6 +659,7 @@ export function setTimelineTrackAudioEffects(timeline, trackId, effects) {
   const track = next.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
   if (track.kind !== 'audio') throw new TypeError(`Track audio effects are supported on audio tracks, not ${track.kind}.`);
+  assertTrackEditable(track);
   if (effects === null || effects.length === 0) delete track.audioEffects;
   else track.audioEffects = structuredClone(effects);
   return validateTimeline(next);
@@ -855,7 +886,12 @@ function findClipEntry(timeline, trackId, clipId) {
   validateTimeline(timeline);
   const track = timeline.tracks.find((candidate) => candidate.id === trackId);
   if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  assertTrackEditable(track);
   const index = track.clips.findIndex((candidate) => candidate.id === clipId);
   if (index < 0) throw new TypeError(`Unknown clip ${clipId} on track ${trackId}.`);
   return { track, clip: track.clips[index], index };
+}
+
+function assertTrackEditable(track) {
+  if (track.locked === true) throw new TypeError(`Track ${track.id} is locked. Unlock it before editing its clips or track settings.`);
 }

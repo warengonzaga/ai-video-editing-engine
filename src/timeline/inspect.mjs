@@ -19,6 +19,7 @@ export function inspectTimeline(timeline) {
         ...(track.visible === undefined ? {} : { visible: track.visible }),
         ...(track.muted === undefined ? {} : { muted: track.muted }),
         ...(track.solo === undefined ? {} : { solo: track.solo }),
+        ...(track.locked === undefined ? {} : { locked: track.locked }),
         ...(track.volume === undefined ? {} : { volume: track.volume }),
         ...(track.volumeKeyframes === undefined ? {} : { volumeKeyframes: structuredClone(track.volumeKeyframes) }),
         ...(track.audioEffects === undefined ? {} : { audioEffects: structuredClone(track.audioEffects) }),

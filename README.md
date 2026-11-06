@@ -649,7 +649,8 @@ different video layer, use `move-track` in an operation file:
 ```
 
 Use `set-track-state` to show or hide video/overlay tracks, mute or solo audio
-tracks, or adjust audio-track volume through the same reviewable operation workflow.
+tracks, lock either track kind, or adjust audio-track volume through the same
+reviewable operation workflow.
 Partial state updates preserve other settings, and `null` clears an override:
 
 ```json
@@ -707,7 +708,20 @@ track level:
 ```
 
 Visual tracks accept `visible`; audio tracks accept `muted`, `solo`, `volume`, and
-project-time `volumeKeyframes` through `set-track-state`. Use the dedicated
+project-time `volumeKeyframes` through `set-track-state`. Both track kinds accept
+`locked`. Lock or unlock it with a standalone operation:
+
+```json
+{ "type": "set-track-state", "trackId": "approved-footage", "state": { "locked": true } }
+```
+
+A locked track rejects clip edits and track-setting changes. Synchronized gap
+insertion and ripple deletion are refused when they would change locked track
+content. Unlock the track with `{"locked": false}` before editing it. Lock state
+is preserved in Engine OpenTimelineIO metadata; OTIO itself has no portable
+track-lock behavior.
+
+Use the dedicated
 `set-track-audio-effects` operation to replace or clear a track effect chain.
 Its JavaScript API is
 `setTimelineTrackAudioEffects(timeline, trackId, effects)`; pass `null` or an
@@ -1260,9 +1274,10 @@ node src/cli.mjs timeline import-otio video-projects/my-edit edit.otio imported-
 The bridge uses the maintained OpenTimelineIO Python library; the Node.js API
 and other Engine features work without it. OTIO files reference media by path
 and do not embed media. The profile supports video/audio tracks, nested track
-stacks flattened into ordered Engine tracks, cuts, gaps, root-stack markers, standard
-`SMPTE_Dissolve` transitions on import, track enabled state, and project duration
-including trailing gaps. Imported dissolves become overlapping clips with
+stacks flattened into ordered Engine tracks, cuts, gaps, root-stack markers,
+standard `SMPTE_Dissolve` transitions on import, track enabled state, and project duration
+including trailing gaps. Engine track lock and solo state are stored in the
+namespaced metadata; OTIO has no portable track-lock state. Imported dissolves become overlapping clips with
 video opacity fades or audio crossfades. Constant-rate retiming uses OTIO's
 `LinearTimeWarp`; imported clip duration is calculated from the source span and
 playback rate. Variable speed ramps and retimed crossfades remain unsupported.

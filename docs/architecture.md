@@ -125,8 +125,8 @@ will be checked into docs only after the validator and CLI/API land.
   select those variants; audio and default final renders continue using source
   assets.
 - `tracks`: ordered tracks with stable ids and kinds (`video`, `audio`,
-  `overlay`), plus explicit z-order, optional video/overlay visibility, and
-  audio mute/solo state.
+  `overlay`), plus explicit z-order, optional video/overlay visibility, audio
+  mute/solo state, and a lock that prevents edits to track contents/settings.
 - `clips`: stable id, asset reference, source in/out, timeline start, and
   optional placement/fit, constant `playbackRate`, source-relative `speedRamp`,
   or reverse playback on video and audio clips,
@@ -219,10 +219,11 @@ compositing order. Existing schemaVersion 1 transcript and EDL contracts stay
 supported and can be compiled into the timeline model.
 
 Consumers use the same operations through CLI and JavaScript exports. Timeline
-operations include validation, EDL assembly, track/clip add and remove, trim,
+operations include validation, EDL assembly, track/clip add and remove, track
+locks, trim,
 slip, split, move, synchronized gap insertion and ripple deletion, crossfade,
 registered-asset replacement, reviewable speed changes, versioned fade/wipe transitions, reviewable visual framing and keyframe changes,
-track visibility/mute/volume changes, caption generation, and rendering.
+track visibility/mute/solo/lock/volume changes, caption generation, and rendering.
 Reviewable audio clip gain/fade/stream selection, video stream selection, and
 overlay content/style changes join this operation surface. Video stream
 selection uses a zero-based video ordinal and compiles to a temporary clip

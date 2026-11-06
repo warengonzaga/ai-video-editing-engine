@@ -1206,6 +1206,10 @@ smoke render alone.
   timelines retain only unmuted solo tracks and remove sidechain/ducking rules
   whose tracks are excluded. OTIO stores solo/mute state in Engine metadata;
   syntax checks only, with no tests or renders run.
+- Added validated track locks. Direct clip-edit API functions, track-state and
+  effect updates, removals, reorders, and cross-track moves reject locked tracks;
+  synchronized gap/ripple edits refuse to shift locked content. Lock state is
+  preserved in Engine OTIO metadata. No tests or renders were run.
 - Ran the read-only `doctor` and capabilities commands on Windows with Node.js
   22.22.2, FFmpeg 8.0.1, ffprobe, HyperFrames, GSAP, the cached Chrome
   Headless Shell, and required Engine filters/encoders available. Rhubarb,

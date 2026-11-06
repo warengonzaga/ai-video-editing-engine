@@ -67,6 +67,7 @@ export function validateTimeline(timeline) {
     if (trackOrders.has(track.order)) throw new TypeError(`Timeline track order ${track.order} is used more than once.`);
     if (track.muted !== undefined && (track.kind !== 'audio' || typeof track.muted !== 'boolean')) throw new TypeError(`Track ${track.id} muted must be a boolean on an audio track.`);
     if (track.solo !== undefined && (track.kind !== 'audio' || typeof track.solo !== 'boolean')) throw new TypeError(`Track ${track.id} solo must be a boolean on an audio track.`);
+    if (track.locked !== undefined && typeof track.locked !== 'boolean') throw new TypeError(`Track ${track.id} locked must be a boolean.`);
     if (track.visible !== undefined && ((track.kind !== 'video' && track.kind !== 'overlay') || typeof track.visible !== 'boolean')) throw new TypeError(`Track ${track.id} visible must be a boolean on a video or overlay track.`);
     if (track.allowOverlap !== undefined && typeof track.allowOverlap !== 'boolean') throw new TypeError(`Track ${track.id} allowOverlap must be a boolean.`);
     if (track.volume !== undefined && (track.kind !== 'audio' || !Number.isFinite(track.volume) || track.volume < 0 || track.volume > 1)) throw new TypeError(`Track ${track.id} volume must be between 0 and 1 on an audio track.`);

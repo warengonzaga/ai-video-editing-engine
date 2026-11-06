@@ -66,8 +66,12 @@ export function importTimelineFromOtio(projectPath, otioPath) {
           ? { muted: sourceTrack.muted }
           : sourceTrack.enabled === false && sourceTrack.solo !== true ? { muted: true } : engineTrack?.muted === true ? { muted: false } : {}),
         ...(sourceTrack.solo === undefined ? {} : { solo: sourceTrack.solo }),
+        ...(sourceTrack.locked === undefined ? {} : { locked: sourceTrack.locked }),
       }
-      : (sourceTrack.enabled === false ? { visible: false } : engineTrack?.visible === false ? { visible: true } : {});
+      : {
+        ...(sourceTrack.enabled === false ? { visible: false } : engineTrack?.visible === false ? { visible: true } : {}),
+        ...(sourceTrack.locked === undefined ? {} : { locked: sourceTrack.locked }),
+      };
     for (const sourceClip of sourceTrack.clips) {
       if (!existsSync(sourceClip.path)) throw new Error(`OTIO clip media is missing: ${sourceClip.path}`);
       const engineAsset = original?.assets.find((asset) => asset.id === sourceClip.engineAssetId);
