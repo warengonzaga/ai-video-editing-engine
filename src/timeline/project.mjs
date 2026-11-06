@@ -1,7 +1,6 @@
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { listProjectAssets } from '../project/assets.mjs';
-import { normalizeVideoStreamMetadata } from '../media/probe.mjs';
 import { validateTimeline } from './validate.mjs';
 
 export function createProjectTimeline(projectPath, options = {}) {
@@ -36,7 +35,7 @@ export function createProjectTimeline(projectPath, options = {}) {
       ...(asset.frameRate === undefined ? {} : { frameRate: asset.frameRate }),
       ...(asset.nominalFrameRate === undefined ? {} : { nominalFrameRate: asset.nominalFrameRate }),
       ...(asset.hasAudio === undefined ? {} : { hasAudio: asset.hasAudio }),
-      ...(asset.videoStreams === undefined ? {} : { videoStreams: normalizeVideoStreamMetadata(asset.videoStreams) }),
+      ...(asset.videoStreams === undefined ? {} : { videoStreams: structuredClone(asset.videoStreams) }),
       ...(asset.audioStreams === undefined ? {} : { audioStreams: structuredClone(asset.audioStreams) }),
       ...(asset.streamTiming === undefined ? {} : { streamTiming: structuredClone(asset.streamTiming) }),
       sha256: asset.sha256,
