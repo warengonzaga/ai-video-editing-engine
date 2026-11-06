@@ -117,8 +117,8 @@ audio policy, cross-platform and broader format coverage remain open.
 - [x] Add project-time review and chapter markers with validated, undoable
   `set-marker` / `remove-marker` operations. Include them in timeline inspection
   and preserve their positions across synchronized gap insertion and ripple
-  deletion. Markers remain non-rendering Engine metadata; external interchange
-  may not preserve them. Static checks only; tests remain deferred.
+  deletion. Markers remain non-rendering; OpenTimelineIO maps them to root-stack
+  markers. Static checks only; tests remain deferred.
 - [x] Expose reviewable project-state edits for timeline duration and project
   source fitting; keep canvas width, height, and frame rate pinned to project
   metadata and reject duration changes that invalidate existing clips.

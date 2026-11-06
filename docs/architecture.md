@@ -50,8 +50,8 @@ code and keeps Python/OpenTimelineIO optional for consumers that do not use
 interchange. The pinned optional dependency is in `requirements-otio.txt`.
 
 The interchange profile maps external media references, video/audio tracks,
-nested track stacks (flattened into ordered Engine tracks), clips, gaps, track
-enabled state, clip enabled state, and project duration including trailing
+nested track stacks (flattened into ordered Engine tracks), clips, gaps,
+root-stack review markers, track enabled state, clip enabled state, and project duration including trailing
 gaps. Import expands standard `SMPTE_Dissolve` transitions into overlapping
 Engine clips with video opacity fades or audio crossfades. It supports
 constant-rate `LinearTimeWarp` retiming and trimmed track/stack ranges when
@@ -185,8 +185,8 @@ will be checked into docs only after the validator and CLI/API land.
   field.
 - `markers`: optional project-time review/chapter points with stable ids,
   labels, and optional display colors. Markers are non-rendering and are retimed
-  by synchronized gap insertion and ripple deletion. External interchange may
-  drop them unless the destination supports the Engine metadata namespace.
+  by synchronized gap insertion and ripple deletion. OpenTimelineIO interchange
+  maps them to root-stack markers; other formats may drop them.
 - `lineage`: optional transcript/EDL references and source identities so
   transcript edits can compile into the same timeline.
 

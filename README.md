@@ -689,8 +689,8 @@ Use `remove-marker` with the marker id to delete it. The JavaScript API exposes
 these operations as `setTimelineMarker(timeline, marker)` and
 `removeTimelineMarker(timeline, markerId)`. Markers use stable kebab-case ids,
 non-empty labels of at most 200 characters, optional six-digit hex colors, and
-times within the project duration. They are Engine metadata; external
-interchange adapters may not preserve or display them.
+times within the project duration. OpenTimelineIO maps them to root-stack
+markers; other interchange adapters may not preserve or display them.
 
 To process every clip on a music track with the same chain, set its effects at
 track level:
@@ -1255,7 +1255,7 @@ node src/cli.mjs timeline import-otio video-projects/my-edit edit.otio imported-
 The bridge uses the maintained OpenTimelineIO Python library; the Node.js API
 and other Engine features work without it. OTIO files reference media by path
 and do not embed media. The profile supports video/audio tracks, nested track
-stacks flattened into ordered Engine tracks, cuts, gaps, standard
+stacks flattened into ordered Engine tracks, cuts, gaps, root-stack markers, standard
 `SMPTE_Dissolve` transitions on import, track enabled state, and project duration
 including trailing gaps. Imported dissolves become overlapping clips with
 video opacity fades or audio crossfades. Constant-rate retiming uses OTIO's

@@ -127,6 +127,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
     project: { ...(original?.project ?? projectMeta), durationSeconds },
     assets,
     tracks,
+    markers: imported.markers,
   };
   validateTimeline(timeline);
   return timeline;

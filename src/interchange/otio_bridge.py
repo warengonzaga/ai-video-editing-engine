@@ -13,6 +13,19 @@ import opentimelineio as otio
 
 
 ENGINE_KEY = "ai-video-editing-engine"
+MARKER_COLOR_HEX = {
+    "BLACK": "#000000",
+    "BLUE": "#0000ff",
+    "CYAN": "#00ffff",
+    "GREEN": "#00ff00",
+    "MAGENTA": "#ff00ff",
+    "ORANGE": "#ff8000",
+    "PINK": "#ff69b4",
+    "PURPLE": "#800080",
+    "RED": "#ff0000",
+    "WHITE": "#ffffff",
+    "YELLOW": "#ffff00",
+}
 
 
 def plain_json(value):
@@ -30,12 +43,36 @@ def time_range(start_seconds, duration_seconds):
     )
 
 
+def marker_color(color_hex):
+    if not color_hex:
+        return otio.schema.Marker.Color.ORANGE
+    target = tuple(int(color_hex[index:index + 2], 16) for index in (1, 3, 5))
+    return min(
+        MARKER_COLOR_HEX,
+        key=lambda color: sum(
+            (target[channel] - int(MARKER_COLOR_HEX[color][index:index + 2], 16)) ** 2
+            for channel, index in enumerate((1, 3, 5))
+        ),
+    )
+
+
 def export_timeline(request):
     engine_timeline = request["timeline"]
     project_root = Path(request["projectRoot"]).resolve()
     timeline = otio.schema.Timeline(name=engine_timeline["project"]["id"])
     timeline.metadata[ENGINE_KEY] = {"timeline": engine_timeline}
     tracks = timeline.tracks
+    for marker in engine_timeline.get("markers", []):
+        exported_marker = otio.schema.Marker(
+            name=marker["label"],
+            marked_range=time_range(marker["timeSeconds"], 0),
+            color=marker_color(marker.get("color")),
+        )
+        exported_marker.metadata[ENGINE_KEY] = {
+            "markerId": marker["id"],
+            **({"colorHex": marker["color"]} if marker.get("color") else {}),
+        }
+        tracks.markers.append(exported_marker)
 
     for source_track in sorted(engine_timeline["tracks"], key=lambda item: item["order"]):
         if source_track["kind"] == "overlay":
@@ -201,8 +238,25 @@ def import_timeline(request):
         "name": timeline.name,
         "durationSeconds": 0.0,
         "engineTimeline": plain_json(timeline.metadata.get(ENGINE_KEY, {}).get("timeline")),
+        "markers": [],
         "tracks": [],
     }
+    marker_ids = set()
+    for marker in timeline.tracks.markers:
+        metadata = marker.metadata.get(ENGINE_KEY, {})
+        marker_id = metadata.get("markerId")
+        if not isinstance(marker_id, str) or not marker_id:
+            marker_id = safe_id(marker.name, f"marker-{len(payload['markers']) + 1}")
+        marker_id = unique_id(marker_id, marker_ids)
+        marker_record = {
+            "id": marker_id,
+            "timeSeconds": marker.marked_range.start_time.to_seconds(),
+            "label": marker.name or marker.comment or marker_id,
+        }
+        color = metadata.get("colorHex") or MARKER_COLOR_HEX.get(str(marker.color).upper())
+        if color:
+            marker_record["color"] = color
+        payload["markers"].append(marker_record)
 
     def import_track(track, group_path, parent_enabled, parent_range=None):
         if track.kind not in (otio.schema.TrackKind.Audio, otio.schema.TrackKind.Video):
