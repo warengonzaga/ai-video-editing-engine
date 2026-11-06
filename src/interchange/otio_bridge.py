@@ -284,9 +284,10 @@ def import_timeline(request):
             range_start, range_end = parent_range
         else:
             range_start, range_end = 0.0, math.inf
+        bounded_range = track_range is not None or parent_range is not None
         if (
             not math.isfinite(range_start)
-            or not math.isfinite(range_end)
+            or (bounded_range and not math.isfinite(range_end))
             or range_start < 0
             or range_end <= range_start
         ):

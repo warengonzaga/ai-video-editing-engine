@@ -1348,3 +1348,13 @@ smoke render alone.
   debug directory was also cleaned up. No hosted workflow was started. Human
   review of the Voice 015 avatar's phoneme timing and visual
   quality, real-footage coverage, and cross-platform runs remain open.
+- Installed the pinned OpenTimelineIO 0.18.1 dependency in a temporary venv
+  after the default Python environment correctly skipped its optional tests.
+  The enabled tests exposed two import defects: untrimmed OTIO tracks use an
+  unbounded source range, and Engine round-trips were adding absent default
+  fields (`enabled: true` and an empty `markers` array). The bridge now permits
+  the unbounded range only when no trim is present and preserves optional-field
+  defaults on round-trip. All 3 OTIO tests pass, followed by the complete
+  serial suite: 134 passed, 0 failed, 0 skipped. The temporary venv was removed;
+  no repository dependency changed and no hosted workflow was started. OTIO
+  cross-platform behavior remains unverified.

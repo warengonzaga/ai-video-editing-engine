@@ -94,7 +94,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
       delete priorClip.playbackRate;
       delete priorClip.speedRamp;
       delete priorClip.reverse;
-      clips.push({
+      const clip = {
         ...priorClip,
         id: uniqueId(priorClip.id ?? safeId(sourceClip.name, `${sourceTrack.kind}-clip-${clips.length + 1}`), usedClipIds),
         assetId: asset.id,
@@ -102,11 +102,12 @@ export function importTimelineFromOtio(projectPath, otioPath) {
         sourceOut: sourceClip.sourceOut,
         timelineStart: sourceClip.timelineStart,
         durationSeconds: sourceClip.durationSeconds,
-        enabled: sourceClip.enabled,
+        ...(sourceClip.enabled === false || Object.hasOwn(priorClip, 'enabled') ? { enabled: sourceClip.enabled } : {}),
         ...(sourceClip.playbackRate !== undefined ? { playbackRate: sourceClip.playbackRate } : {}),
         ...(sourceClip.crossfade?.role === 'incoming' ? { fadeInSeconds: sourceClip.crossfade.durationSeconds } : {}),
         ...(sourceClip.crossfade?.role === 'outgoing' && sourceTrack.kind === 'audio' ? { fadeOutSeconds: sourceClip.crossfade.durationSeconds } : {}),
-      });
+      };
+      clips.push(clip);
     }
     tracks.push({
       ...(engineTrack ?? {}),
@@ -136,7 +137,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
     project: { ...(original?.project ?? projectMeta), durationSeconds },
     assets,
     tracks,
-    markers: imported.markers,
+    ...(imported.markers.length || Object.hasOwn(original ?? {}, 'markers') ? { markers: imported.markers } : {}),
   };
   validateTimeline(timeline);
   return timeline;

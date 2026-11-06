@@ -456,8 +456,9 @@ in this order:
   parent timeline timing must be mapped explicitly. Export converts
   explicitly faded two-clip overlaps into `SMPTE_Dissolve` transitions and
   rejects unmarked/chained overlaps, standalone fades, clip-edge transitions,
-  and variable speed ramps. Tests remain deferred until the user resumes
-  manual validation.
+  and variable speed ramps. The three OTIO interchange tests pass on Windows
+  with the pinned optional dependency installed in an isolated temporary
+  environment; cross-platform OTIO execution remains unverified.
 5. **Workflow quality:** visual preview/review artifacts, richer caption
    layout templates, undoable and dry-run reviewable edit operations, injected transcription and
    media-analysis provider APIs, and CLI-loaded analysis provider modules are
