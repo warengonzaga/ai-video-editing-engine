@@ -753,3 +753,14 @@ smoke render alone.
   platform's FFmpeg output showed. It now requires a 20% RMS increase in the
   same recovery window; two local isolated runs and the full suite pass. A new
   hosted run is needed to confirm the cross-platform test adjustment.
+- On commit `2910f16`, `npm test` passes with 127 tests passed and 2 optional
+  OpenTimelineIO skips; `npm audit --omit=dev --offline` reports zero
+  vulnerabilities. The full Windows `npm run test:render-smoke` also passes,
+  including timeline edits, audio routing/mixing, multilayer composition,
+  caption rendering, MP4/WebM/MOV/GIF/PNG sequence output, and 12-second A/V
+  sync with both cues 0.000021 seconds late. These render assets are synthetic;
+  real-footage and human audiovisual review remain open.
+- PR runs `42182909719` and `42182916763` for `2910f16` terminate before any
+  matrix step starts. GitHub reports failed recent account payments or a
+  spending limit as the reason; this is an Actions account blocker, not a test
+  result. Retry the hosted matrix after billing is restored.
