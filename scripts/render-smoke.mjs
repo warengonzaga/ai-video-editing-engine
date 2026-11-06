@@ -455,14 +455,26 @@ try {
   const musicBeforeVoiceAmplitude = measureToneAmplitude(mixedOutputSamples, 220, 0.2, 0.4);
   const musicDuringVoiceAmplitude = measureToneAmplitude(mixedOutputSamples, 220, 0.55, 0.65);
   const musicAfterVoiceAmplitude = measureToneAmplitude(mixedOutputSamples, 220, 0.8, 0.85);
+  const musicRecoveryAmplitudes = [0.8, 0.9, 1, 1.1].map((start) => ({
+    startSeconds: start,
+    amplitude: measureToneAmplitude(mixedOutputSamples, 220, start, start + 0.1),
+  }));
   const expectedVoiceAmplitude = measureToneAmplitude(voiceSourceSamples, 1000, 0.55, 0.65) * 0.35;
   const renderedVoiceAmplitude = measureToneAmplitude(mixedOutputSamples, 1000, 0.55, 0.65);
+  console.log(JSON.stringify({
+    audioOnlyRecoveryDiagnostics: {
+      audioDurationSeconds: audioOnlyMedia.audioDurationSeconds,
+      musicBeforeVoiceAmplitude,
+      musicDuringVoiceAmplitude,
+      musicRecoveryAmplitudes,
+    },
+  }));
   assert.ok(musicBeforeVoiceAmplitude > expectedMusicChannelAmplitude * 0.8 && musicBeforeVoiceAmplitude < expectedMusicChannelAmplitude * 1.2,
     `Un-ducked music should retain its source level after mono-to-stereo center mapping: source=${sourceMusicAmplitude}, expected channel=${expectedMusicChannelAmplitude}, render=${musicBeforeVoiceAmplitude}`);
   assert.ok(musicDuringVoiceAmplitude < musicBeforeVoiceAmplitude * 0.65,
     `Music should duck while voice is active: before=${musicBeforeVoiceAmplitude}, during=${musicDuringVoiceAmplitude}`);
   assert.ok(musicAfterVoiceAmplitude > musicBeforeVoiceAmplitude * 0.75,
-    `Music should recover after the voice cue: before=${musicBeforeVoiceAmplitude}, after=${musicAfterVoiceAmplitude}`);
+    `Music should recover after the voice cue: before=${musicBeforeVoiceAmplitude}, after=${musicAfterVoiceAmplitude}, windows=${JSON.stringify(musicRecoveryAmplitudes)}`);
   assert.ok(renderedVoiceAmplitude > expectedVoiceAmplitude * 0.65 && renderedVoiceAmplitude < expectedVoiceAmplitude * 1.35,
     `Voice track should follow its source samples and 0.35 track gain: expected=${expectedVoiceAmplitude}, render=${renderedVoiceAmplitude}`);
   const longSyncProjectPath = createVideoProject(root, 'long-sync-smoke', { width: 320, height: 180, fps: 24, durationSeconds: 12 });

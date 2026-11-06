@@ -70,12 +70,12 @@ jobs:
       - name: Render Engine integration smoke
         run: npm run test:render-smoke
 
-      - name: Upload failed caption render for diagnosis
+      - name: Upload failed render smoke workspace for diagnosis
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: render-smoke-caption-${{ runner.os }}
-          path: ${{ runner.temp }}/aive-render-smoke-*/video-projects/word-highlight-smoke
+          name: render-smoke-debug-${{ runner.os }}
+          path: ${{ runner.temp }}/aive-render-smoke-*/video-projects
           if-no-files-found: ignore
           retention-days: 3
 
