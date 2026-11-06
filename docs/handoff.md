@@ -677,3 +677,12 @@ smoke render alone.
   `scale` or `pop` explicitly; invalid or untimed options are rejected. The
   Windows full render smoke passed with its timed red-pixel checks using the
   new preset. `npm test`: 117 passed, 2 optional OpenTimelineIO skips, 0 failed.
+- The render smoke now retains the complete generated workspace on failure and
+  logs audio-only stream duration plus music amplitude before, during, and
+  after the voice cue. Hosted run 42174734803 passed tests, render smoke, and
+  production dependency audit on Linux, Windows, and macOS. Each OS verified a
+  2-second audio stream, music amplitude 0.1767 before voice, 0.0372 during
+  voice, and 0.1765 immediately after; four recovery windows through 1.2
+  seconds also measured about 0.1766. The first Linux-only failure at this
+  assertion did not reproduce on the following two full matrix runs. This is
+  synthetic audio evidence; real narration/music review remains open.
