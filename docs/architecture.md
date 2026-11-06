@@ -215,8 +215,10 @@ operations include validation, EDL assembly, track/clip add and remove, trim,
 slip, split, move, synchronized gap insertion and ripple deletion, crossfade,
 registered-asset replacement, reviewable speed changes, versioned fade/wipe transitions, reviewable visual framing and keyframe changes,
 track visibility/mute/volume changes, caption generation, and rendering.
-Reviewable audio clip gain/fade/stream selection and overlay content/style
-changes join this operation surface. `set-audio-mix` and
+Reviewable audio clip gain/fade/stream selection, video stream selection, and
+overlay content/style changes join this operation surface. Video stream
+selection uses a zero-based video ordinal and compiles to a temporary clip
+proxy, preserving the original asset. `set-audio-mix` and
 `set-audio-mastering` expose validated reviewable changes for timeline-level
 mix rules and final-mix settings. `set-project-state` can change timeline
 duration and project-wide source fitting while keeping width, height, and frame

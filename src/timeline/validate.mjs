@@ -28,6 +28,7 @@ export function validateTimeline(timeline) {
     if (typeof asset.path !== 'string' || !asset.path.trim() || asset.path.startsWith('/') || /^[a-z]:[\\/]/i.test(asset.path) || asset.path.split(/[\\/]/).includes('..')) throw new TypeError(`Asset ${asset.id} needs a project-relative path without traversal.`);
     if (asset.type !== undefined && !['video', 'audio', 'image'].includes(asset.type)) throw new TypeError(`Asset ${asset.id} has an unsupported media type.`);
     if (asset.hasAudio !== undefined && typeof asset.hasAudio !== 'boolean') throw new TypeError(`Asset ${asset.id} has invalid audio metadata.`);
+    if (asset.videoStreams !== undefined) validateVideoStreams(asset.videoStreams, asset.id);
     if (asset.audioStreams !== undefined) validateAudioStreams(asset.audioStreams, asset.id);
     if (asset.durationSeconds !== undefined && (!Number.isFinite(asset.durationSeconds) || asset.durationSeconds <= 0)) throw new TypeError(`Asset ${asset.id} durationSeconds must be positive.`);
     if (asset.streamTiming !== undefined) validateStreamTiming(asset.streamTiming, asset.id);
@@ -85,6 +86,17 @@ export function validateTimeline(timeline) {
         }
         if (!assetRecord?.audioStreams && clip.audioStreamIndex > 0) {
           throw new TypeError(`Asset ${assetRecord?.id ?? clip.assetId} has no probed audio stream metadata for index ${clip.audioStreamIndex}.`);
+        }
+      }
+      if (clip.videoStreamIndex !== undefined) {
+        if (track.kind !== 'video' || assetRecord?.type === 'image' || !Number.isSafeInteger(clip.videoStreamIndex) || clip.videoStreamIndex < 0) {
+          throw new TypeError(`Clip ${clip.id} videoStreamIndex must be a non-negative integer on a video track.`);
+        }
+        if (assetRecord?.videoStreams && clip.videoStreamIndex >= assetRecord.videoStreams.length) {
+          throw new TypeError(`Clip ${clip.id} videoStreamIndex exceeds the video streams in asset ${assetRecord.id}.`);
+        }
+        if (!assetRecord?.videoStreams && clip.videoStreamIndex > 0) {
+          throw new TypeError(`Asset ${assetRecord?.id ?? clip.assetId} has no probed video stream metadata for index ${clip.videoStreamIndex}.`);
         }
       }
       if (clip.fit !== undefined && track.kind !== 'video') throw new TypeError(`Clip ${clip.id} can set fit only on a video track.`);
@@ -187,6 +199,24 @@ function validateAudioStreams(streams, assetId) {
         || (stream.language !== null && stream.language !== undefined && typeof stream.language !== 'string')
         || (stream.title !== null && stream.title !== undefined && typeof stream.title !== 'string')) {
       throw new TypeError(`Asset ${assetId} audio stream ${index} has invalid metadata.`);
+    }
+  }
+}
+
+function validateVideoStreams(streams, assetId) {
+  if (!Array.isArray(streams)) throw new TypeError(`Asset ${assetId} videoStreams must be an array.`);
+  for (const stream of streams) {
+    if (!stream || typeof stream !== 'object' || Array.isArray(stream)
+        || (stream.index !== null && stream.index !== undefined && (!Number.isSafeInteger(stream.index) || stream.index < 0))
+        || (stream.streamIndex !== null && stream.streamIndex !== undefined && (!Number.isSafeInteger(stream.streamIndex) || stream.streamIndex < 0))
+        || (stream.codec !== null && stream.codec !== undefined && typeof stream.codec !== 'string')
+        || (stream.width !== null && stream.width !== undefined && (!Number.isSafeInteger(stream.width) || stream.width < 1))
+        || (stream.height !== null && stream.height !== undefined && (!Number.isSafeInteger(stream.height) || stream.height < 1))
+        || (stream.frameRate !== null && stream.frameRate !== undefined && (!Number.isFinite(stream.frameRate) || stream.frameRate <= 0))
+        || (stream.startSeconds !== null && stream.startSeconds !== undefined && !Number.isFinite(stream.startSeconds))
+        || (stream.durationSeconds !== null && stream.durationSeconds !== undefined && (!Number.isFinite(stream.durationSeconds) || stream.durationSeconds <= 0))
+        || (stream.timeBase !== null && stream.timeBase !== undefined && typeof stream.timeBase !== 'string')) {
+      throw new TypeError(`Asset ${assetId} video stream has invalid metadata.`);
     }
   }
 }

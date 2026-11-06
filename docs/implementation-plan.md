@@ -196,6 +196,11 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   narration tracks. Gain, fades, and ducking compile to one volume envelope.
   `set-audio-state` reviewably updates clip gain, fades, and source stream choice;
   `set-track-state` supports project-time volume automation on audio tracks.
+- [x] Select a video stream per video clip using a zero-based ordinal. Timeline
+  validation checks registered stream metadata, `set-video-state` and asset
+  replacement expose reviewable changes, and rendering builds a temporary
+  selected-stream proxy without modifying the source. Runtime render validation
+  remains deferred with the other audiovisual checks.
 - [x] Support optional signal-aware sidechain compression between audio
   tracks. A synthetic 3-second music/narration sample confirms compression
   engages during the voice signal and recovers after it; generated detector and

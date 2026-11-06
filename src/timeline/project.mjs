@@ -35,6 +35,7 @@ export function createProjectTimeline(projectPath, options = {}) {
       ...(asset.frameRate === undefined ? {} : { frameRate: asset.frameRate }),
       ...(asset.nominalFrameRate === undefined ? {} : { nominalFrameRate: asset.nominalFrameRate }),
       ...(asset.hasAudio === undefined ? {} : { hasAudio: asset.hasAudio }),
+      ...(asset.videoStreams === undefined ? {} : { videoStreams: normalizeVideoStreams(asset.videoStreams) }),
       ...(asset.audioStreams === undefined ? {} : { audioStreams: structuredClone(asset.audioStreams) }),
       ...(asset.streamTiming === undefined ? {} : { streamTiming: structuredClone(asset.streamTiming) }),
       sha256: asset.sha256,
@@ -46,4 +47,13 @@ export function createProjectTimeline(projectPath, options = {}) {
     ],
   };
   return validateTimeline(timeline);
+}
+
+function normalizeVideoStreams(streams) {
+  if (!Array.isArray(streams)) return streams;
+  return streams.map((stream, index) => ({
+    ...stream,
+    index,
+    streamIndex: stream.streamIndex ?? stream.index ?? index,
+  }));
 }

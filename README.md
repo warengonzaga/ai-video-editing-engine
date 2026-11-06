@@ -1026,6 +1026,25 @@ The JavaScript API is
 `setTimelineClipAudioState(timeline, trackId, clipId, state)`. Timeline
 validation checks the selected stream and clip-bound fade durations.
 
+Video clips can select a zero-based video-stream ordinal with
+`videoStreamIndex`. Registered assets expose stream ordinals and their FFmpeg
+stream indexes in `videoStreams`. Use `set-video-state` to reviewably change or
+clear the selection; rendering creates a temporary clip proxy for the chosen
+stream and leaves the source media unchanged:
+
+```json
+{
+  "type": "set-video-state",
+  "trackId": "video-main",
+  "clipId": "interview-shot",
+  "state": { "videoStreamIndex": 1 }
+}
+```
+
+The JavaScript API is
+`setTimelineClipVideoState(timeline, trackId, clipId, state)`. The same
+selection can be supplied when replacing a clip asset with `videoStreamIndex`.
+
 For changing clip gain over time, use `volumeKeyframes`. Times are relative to
 the audio clip, begin at 0, and interpolate linearly between points. The last
 value holds through the clip end. Trim, split, gap insertion, and ripple delete

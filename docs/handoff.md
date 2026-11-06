@@ -1289,3 +1289,7 @@ smoke render alone.
   video stream records, alongside the existing audio stream metadata. This
   keeps the new probe detail in both the manifest and timeline asset catalog.
   Syntax and whitespace checks only; no test suite or ingest render was run.
+- Added per-video-clip stream selection by zero-based video ordinal, including
+  validation against registered stream metadata, the `set-video-state` CLI/API
+  edit, and temporary FFmpeg proxies that also compose with playback-rate and
+  speed-ramp processing. No render, test suite, or audiovisual review was run.

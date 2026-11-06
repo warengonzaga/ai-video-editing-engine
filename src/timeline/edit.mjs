@@ -266,7 +266,7 @@ export function moveTimelineClipToTrack(timeline, trackId, clipId, targetTrackId
 export function replaceTimelineClipAsset(timeline, trackId, clipId, assetId, options = {}) {
   validateTimeline(timeline);
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Replacement media options must be an object.');
-  const allowed = new Set(['sourceIn', 'sourceOut', 'audioStreamIndex', 'playbackRate', 'reverse', 'speedRamp']);
+  const allowed = new Set(['sourceIn', 'sourceOut', 'audioStreamIndex', 'videoStreamIndex', 'playbackRate', 'reverse', 'speedRamp']);
   for (const field of Object.keys(options)) {
     if (!allowed.has(field)) throw new TypeError(`Unsupported replacement media option: ${field}.`);
     if (options[field] === undefined) throw new TypeError('Replacement media options must not be undefined.');
@@ -281,6 +281,8 @@ export function replaceTimelineClipAsset(timeline, trackId, clipId, assetId, opt
   if (options.sourceOut !== undefined) clip.sourceOut = options.sourceOut;
   if (options.audioStreamIndex === null) delete clip.audioStreamIndex;
   else if (options.audioStreamIndex !== undefined) clip.audioStreamIndex = options.audioStreamIndex;
+  if (options.videoStreamIndex === null) delete clip.videoStreamIndex;
+  else if (options.videoStreamIndex !== undefined) clip.videoStreamIndex = options.videoStreamIndex;
   if (options.playbackRate === null) delete clip.playbackRate;
   else if (options.playbackRate !== undefined) clip.playbackRate = options.playbackRate;
   if (options.reverse !== undefined) clip.reverse = options.reverse;
@@ -514,6 +516,21 @@ export function setTimelineClipAudioState(timeline, trackId, clipId, state) {
   return validateTimeline(next);
 }
 
+export function setTimelineClipVideoState(timeline, trackId, clipId, state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('Video state must be an object.');
+  const fields = Object.keys(state);
+  if (fields.length !== 1 || fields[0] !== 'videoStreamIndex') {
+    throw new TypeError('Video state must set videoStreamIndex.');
+  }
+  if (state.videoStreamIndex === undefined) throw new TypeError('Video state values must not be undefined; use null to clear an override.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'video') throw new TypeError(`Video state is supported on video tracks, not ${track.kind}.`);
+  if (state.videoStreamIndex === null) delete clip.videoStreamIndex;
+  else clip.videoStreamIndex = state.videoStreamIndex;
+  return validateTimeline(next);
+}
+
 export function setTimelineClipKeyframes(timeline, trackId, clipId, keyframes) {
   if (keyframes !== null && !Array.isArray(keyframes)) throw new TypeError('keyframes must be an array or null.');
   const next = structuredClone(timeline);
@@ -645,6 +662,7 @@ export function editTimeline(timeline, operation) {
     ...(operation.sourceIn === undefined ? {} : { sourceIn: operation.sourceIn }),
     ...(operation.sourceOut === undefined ? {} : { sourceOut: operation.sourceOut }),
     ...(operation.audioStreamIndex === undefined ? {} : { audioStreamIndex: operation.audioStreamIndex }),
+    ...(operation.videoStreamIndex === undefined ? {} : { videoStreamIndex: operation.videoStreamIndex }),
     ...(operation.playbackRate === undefined ? {} : { playbackRate: operation.playbackRate }),
     ...(operation.reverse === undefined ? {} : { reverse: operation.reverse }),
     ...(operation.speedRamp === undefined ? {} : { speedRamp: operation.speedRamp }),
@@ -658,6 +676,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'set-audio-effects') return setTimelineClipAudioEffects(timeline, trackId, clipId, operation.audioEffects);
   if (type === 'set-volume-keyframes') return setTimelineClipVolumeKeyframes(timeline, trackId, clipId, operation.volumeKeyframes);
   if (type === 'set-audio-state') return setTimelineClipAudioState(timeline, trackId, clipId, operation.state);
+  if (type === 'set-video-state') return setTimelineClipVideoState(timeline, trackId, clipId, operation.state);
   if (type === 'set-keyframes') return setTimelineClipKeyframes(timeline, trackId, clipId, operation.keyframes);
   if (type === 'set-framing') return setTimelineClipFraming(timeline, trackId, clipId, operation.framing);
   if (type === 'set-track-state') return setTimelineTrackState(timeline, trackId, operation.state);
@@ -666,7 +685,7 @@ export function editTimeline(timeline, operation) {
   if (type === 'set-audio-mastering') return setTimelineAudioMastering(timeline, operation.audioMastering);
   if (type === 'set-project-state') return setTimelineProjectState(timeline, operation.state);
   if (type === 'set-overlay') return setTimelineOverlay(timeline, trackId, clipId, operation.properties);
-  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
+  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-video-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */

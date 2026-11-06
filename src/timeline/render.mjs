@@ -416,6 +416,7 @@ function applyPersistentVideoProxies(timeline, proxyRecords) {
   const aliases = new Map();
   for (const track of next.tracks.filter((item) => item.kind === 'video')) {
     for (const clip of track.clips) {
+      if (clip.videoStreamIndex !== undefined) continue;
       const proxy = proxyRecords.get(clip.assetId);
       if (!proxy) continue;
       let aliasId = aliases.get(clip.assetId);
@@ -465,11 +466,12 @@ function applyPlaybackRateProxies(root, timeline, temporaryAssets, renderControl
         const hasSpeedRamp = clip.speedRamp !== undefined;
         const reverse = clip.reverse === true;
         const isVideo = track.kind === 'video';
+        const videoStreamIndex = isVideo ? clip.videoStreamIndex : undefined;
         const effectFilters = isVideo ? [] : buildAudioClipEffectFilters(clip.audioEffects);
-        if (!hasSpeedRamp && rate === 1 && !reverse && effectFilters.length === 0) continue;
+        if (!hasSpeedRamp && rate === 1 && !reverse && effectFilters.length === 0 && videoStreamIndex === undefined) continue;
         renderControl?.assertActive();
         const source = next.assets.find((item) => item.id === clip.assetId);
-        const operation = hasSpeedRamp ? 'ramp' : reverse ? 'reverse' : effectFilters.length ? 'effects' : 'rate';
+        const operation = hasSpeedRamp ? 'ramp' : reverse ? 'reverse' : effectFilters.length ? 'effects' : videoStreamIndex !== undefined ? 'video-stream' : 'rate';
         const id = `${operation}-${track.id}-${clip.id}-${randomUUID().slice(0, 8)}`;
         if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved playback proxy asset id: ${id}`);
         const extension = isVideo ? '.mp4' : '.wav';
@@ -496,7 +498,7 @@ function applyPlaybackRateProxies(root, timeline, temporaryAssets, renderControl
         const extraction = spawnSync('ffmpeg', [
           '-nostdin', '-hide_banner', '-v', 'error', '-y',
           ...(isVideo ? ['-ss', String(clip.sourceIn)] : []), '-i', input,
-          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', '0:v:0'] : ['-map', `0:a:${clip.audioStreamIndex ?? 0}`]),
+          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', `0:v:${videoStreamIndex ?? 0}`] : ['-map', `0:a:${clip.audioStreamIndex ?? 0}`]),
           ...filters, absolutePath,
         ], { encoding: 'utf8', windowsHide: true, cwd: root, ...(renderControl ? { timeout: renderControl.timeoutMs() } : {}) });
         renderControl?.assertActive();
@@ -511,6 +513,7 @@ function applyPlaybackRateProxies(root, timeline, temporaryAssets, renderControl
         delete clip.playbackRate;
         delete clip.speedRamp;
         delete clip.reverse;
+        delete clip.videoStreamIndex;
         delete clip.audioEffects;
       }
     }
@@ -533,11 +536,12 @@ async function applyPlaybackRateProxiesAsync(root, timeline, temporaryAssets, re
         const hasSpeedRamp = clip.speedRamp !== undefined;
         const reverse = clip.reverse === true;
         const isVideo = track.kind === 'video';
+        const videoStreamIndex = isVideo ? clip.videoStreamIndex : undefined;
         const effectFilters = isVideo ? [] : buildAudioClipEffectFilters(clip.audioEffects);
-        if (!hasSpeedRamp && rate === 1 && !reverse && effectFilters.length === 0) continue;
+        if (!hasSpeedRamp && rate === 1 && !reverse && effectFilters.length === 0 && videoStreamIndex === undefined) continue;
         renderControl.assertActive();
         const source = next.assets.find((item) => item.id === clip.assetId);
-        const operation = hasSpeedRamp ? 'ramp' : reverse ? 'reverse' : effectFilters.length ? 'effects' : 'rate';
+        const operation = hasSpeedRamp ? 'ramp' : reverse ? 'reverse' : effectFilters.length ? 'effects' : videoStreamIndex !== undefined ? 'video-stream' : 'rate';
         const id = `${operation}-${track.id}-${clip.id}-${randomUUID().slice(0, 8)}`;
         if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved playback proxy asset id: ${id}`);
         const extension = isVideo ? '.mp4' : '.wav';
@@ -562,7 +566,7 @@ async function applyPlaybackRateProxiesAsync(root, timeline, temporaryAssets, re
         }
         const args = [
           ...(isVideo ? ['-ss', String(clip.sourceIn)] : []), '-i', input,
-          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', '0:v:0'] : ['-map', `0:a:${clip.audioStreamIndex ?? 0}`]),
+          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', `0:v:${videoStreamIndex ?? 0}`] : ['-map', `0:a:${clip.audioStreamIndex ?? 0}`]),
           ...filters, absolutePath,
         ];
         temporaryAssets.push(absolutePath);
@@ -574,6 +578,7 @@ async function applyPlaybackRateProxiesAsync(root, timeline, temporaryAssets, re
         delete clip.playbackRate;
         delete clip.speedRamp;
         delete clip.reverse;
+        delete clip.videoStreamIndex;
         delete clip.audioEffects;
       }
     }

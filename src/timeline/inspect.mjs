@@ -59,6 +59,7 @@ export function inspectTimeline(timeline) {
       ...(asset.height === undefined ? {} : { height: asset.height }),
       ...(asset.frameRate === undefined ? {} : { frameRate: asset.frameRate }),
       ...(asset.hasAudio === undefined ? {} : { hasAudio: asset.hasAudio }),
+      ...(asset.videoStreams === undefined ? {} : { videoStreams: structuredClone(asset.videoStreams) }),
       ...(asset.audioStreams === undefined ? {} : { audioStreams: structuredClone(asset.audioStreams) }),
       ...(asset.streamTiming === undefined ? {} : { streamTiming: structuredClone(asset.streamTiming) }),
       ...(asset.proxies === undefined ? {} : { proxies: structuredClone(asset.proxies) }),
@@ -85,6 +86,7 @@ function inspectClip(track, clip, asset) {
       ...(clip.playbackRate === undefined ? {} : { playbackRate: clip.playbackRate }),
       ...(clip.speedRamp === undefined ? {} : { speedRamp: clip.speedRamp }),
       ...(clip.reverse === undefined ? {} : { reverse: clip.reverse }),
+      ...(clip.videoStreamIndex === undefined ? {} : { videoStreamIndex: clip.videoStreamIndex }),
     };
   }
   for (const field of [

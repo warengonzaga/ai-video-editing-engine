@@ -48,8 +48,9 @@ export function parseProbeOutput(output, path = '', { requireVideo = true } = {}
   const durationSeconds = Number.isFinite(formatDuration) && formatDuration > 0
     ? formatDuration
     : streamDuration;
-  const videoStreams = streams.filter((stream) => stream.codec_type === 'video').map((stream) => ({
-    index: Number.isSafeInteger(stream.index) ? stream.index : null,
+  const videoStreams = streams.filter((stream) => stream.codec_type === 'video').map((stream, index) => ({
+    index,
+    streamIndex: Number.isSafeInteger(stream.index) ? stream.index : index,
     codec: stream.codec_name ?? null,
     width: Number(stream.width) || null,
     height: Number(stream.height) || null,
