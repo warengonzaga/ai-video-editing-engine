@@ -737,3 +737,13 @@ smoke render alone.
   123 passed, 2 optional OTIO skips, 0 failures; offline production dependency
   audit: 0 vulnerabilities. This makes AI proposals executable only after an
   explicit approval step; it does not evaluate proposal quality.
+- Track-order changes now have a `reorder-track` operation and
+  `reorderTimelineTrack` API. They preserve the complete clips and reassign
+  deterministic order indices; API and CLI tests cover ordering and source
+  immutability. Current full suite: 125 passed, 2 optional OTIO skips.
+- Hosted run 42181292620 on commit `e3b508a` passed macOS and Windows but failed
+  Ubuntu's synthetic sidechain recovery assertion: RMS was 0.0769 during voice
+  and 0.1022 after voice. The assertion expected a larger recovery than this
+  platform's FFmpeg output showed. It now requires a 20% RMS increase in the
+  same recovery window; two local isolated runs and the full suite pass. A new
+  hosted run is needed to confirm the cross-platform test adjustment.

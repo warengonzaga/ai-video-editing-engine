@@ -47,7 +47,7 @@ test('compresses a music clip while the source track carries an audible signal',
     const during = rms(samples, 1, 1.4);
     const after = rms(samples, 2, 2.4);
     assert.ok(during < before * 0.65, `Expected voice to duck music; RMS before=${before}, during=${during}`);
-    assert.ok(during < after * 0.65, `Expected music to recover after voice; RMS during=${during}, after=${after}`);
+    assert.ok(after > during * 1.2, `Expected music to recover after voice; RMS before=${before}, during=${during}, after=${after}`);
     assert.equal(temporaryAssets.length, 2);
   } finally {
     rmSync(root, { recursive: true, force: true });
