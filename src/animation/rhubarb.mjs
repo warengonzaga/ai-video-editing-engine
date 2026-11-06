@@ -6,6 +6,17 @@ import { probeMedia } from '../media/probe.mjs';
 import { validateAnimationCues } from './cues.mjs';
 
 const RHUBARB_SHAPES = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'X']);
+const DEFAULT_SPRITE_STATES = Object.freeze({
+  a: 'closed',
+  b: 'small',
+  c: 'open',
+  d: 'wide',
+  e: 'small',
+  f: 'small',
+  g: 'small',
+  h: 'open',
+  x: 'rest',
+});
 
 /** Generate provider-neutral mouth-shape cues with the optional Rhubarb CLI. */
 export function rhubarbLipSyncCues(inputPath, options = {}) {
@@ -37,7 +48,8 @@ export function rhubarbLipSyncCues(inputPath, options = {}) {
       throw new Error(`Rhubarb lip-sync generation failed: ${generated.error?.message ?? generated.stderr.trim()}`);
     }
     if (!existsSync(cuePath)) throw new Error('Rhubarb completed without creating its cue file.');
-    return normalizeRhubarbOutput(readFileSync(cuePath, 'utf8'), media.durationSeconds);
+    const track = normalizeRhubarbOutput(readFileSync(cuePath, 'utf8'), media.durationSeconds);
+    return settings.spriteStateMap ? mapRhubarbCuesToSpriteStates(track, settings.spriteStateMap) : track;
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
@@ -71,9 +83,33 @@ export function normalizeRhubarbOutput(input, durationSeconds) {
   return track;
 }
 
+/** Map Rhubarb mouth labels to the states available in a consumer's sprite pack. */
+export function mapRhubarbCuesToSpriteStates(track, mapping = DEFAULT_SPRITE_STATES) {
+  validateAnimationCues(track);
+  validateSpriteStateMapping(mapping);
+  const cues = track.cues.map((cue) => {
+    const shape = cue.state.toLowerCase();
+    if (!Object.hasOwn(mapping, shape)) throw new TypeError(`No sprite state is mapped for Rhubarb shape ${shape}.`);
+    return { ...cue, state: mapping[shape] };
+  });
+  return validateAnimationCues({ ...track, cues });
+}
+
+function validateSpriteStateMapping(mapping) {
+  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+    throw new TypeError('Rhubarb sprite-state mapping must be an object.');
+  }
+  for (const [shape, state] of Object.entries(mapping)) {
+    if (!RHUBARB_SHAPES.has(shape.toUpperCase()) || shape !== shape.toLowerCase()
+        || typeof state !== 'string' || !state.trim()) {
+      throw new TypeError('Rhubarb sprite-state mappings require lowercase supported labels and non-empty state names.');
+    }
+  }
+}
+
 function validateOptions(options) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Lip-sync options must be an object.');
-  const allowed = new Set(['rhubarb', 'ffmpeg', 'recognizer', 'extendedShapes', 'dialogFile', 'timeoutMs']);
+  const allowed = new Set(['rhubarb', 'ffmpeg', 'recognizer', 'extendedShapes', 'dialogFile', 'timeoutMs', 'spriteStateMap']);
   for (const key of Object.keys(options)) if (!allowed.has(key)) throw new TypeError(`Unsupported lip-sync option: ${key}.`);
   const recognizer = options.recognizer ?? 'phonetic';
   if (!['phonetic', 'pocketSphinx'].includes(recognizer)) throw new TypeError('Rhubarb recognizer must be phonetic or pocketSphinx.');
@@ -94,5 +130,8 @@ function validateOptions(options) {
     dialogFile = resolve(options.dialogFile);
     if (!existsSync(dialogFile)) throw new Error('Rhubarb dialog file does not exist.');
   }
-  return { rhubarb, ffmpeg, recognizer, extendedShapes, dialogFile, timeoutMs };
+  const spriteStateMap = options.spriteStateMap === undefined
+    ? undefined
+    : validateSpriteStateMapping(options.spriteStateMap);
+  return { rhubarb, ffmpeg, recognizer, extendedShapes, dialogFile, timeoutMs, spriteStateMap };
 }

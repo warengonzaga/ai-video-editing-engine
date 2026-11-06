@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { resolveCanvasPreset } from './presets.mjs';
 import { DEFAULT_SOURCE_FIT, validateSourceFit } from '../timeline/source-fit.mjs';
+import { createProjectTimeline } from '../timeline/project.mjs';
 import { normalizeFrameRate } from '../media/frame-rate.mjs';
 
 const require = createRequire(import.meta.url);
@@ -54,6 +55,7 @@ export function createVideoProject(root, slug, options = {}) {
       paths: { blocks: 'compositions', components: 'compositions/components', assets: 'assets' },
     }, null, 2)}\n`, { flag: 'wx' });
     writeFileSync(join(projectPath, 'index.html'), starterHtml(project), { flag: 'wx' });
+    writeFileSync(join(projectPath, 'timeline.json'), `${JSON.stringify(createProjectTimeline(projectPath), null, 2)}\n`, { flag: 'wx' });
   } catch (error) {
     rmSync(projectPath, { recursive: true, force: true });
     throw error;

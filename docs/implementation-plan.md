@@ -66,14 +66,26 @@ audio policy, cross-platform and broader format coverage remain open.
 ## 2. Media and timeline foundation
 
 - [x] Register/copy video, audio, and still image assets; record probed media
-  metadata and SHA-256 source identity. The media probe reports streams/codecs.
+  metadata and SHA-256 source identity, and synchronize newly registered asset
+  metadata into an existing timeline without creating a clip. The media probe reports streams/codecs.
+  `registerMediaAssetAsync` and the CLI add cancellation during staged copy,
+  hashing, and probing without exposing a partial asset.
+- [x] Expose the registered media catalog through a read-only API and CLI
+  command, including assets not yet referenced by the active timeline.
+- [x] Unregister unused media assets from the manifest and timeline catalog,
+  refusing assets still referenced by clips and preserving source/proxy files.
 - [x] Verify registered asset integrity and relink missing or modified media
   under the same asset ID and project-relative path; refresh the manifest and
-  preserve the replacement source.
+  preserve the replacement source. The API and CLI also support cancellable,
+  staged async relinking with metadata/timeline rollback on commit failure.
 - [x] Generate reusable bounded H.264 video proxies, verify their source and
-  output fingerprints, and opt into proxies for timeline draft renders.
+  output fingerprints, opt into proxies for timeline draft renders, and expose
+  cancellable async generation through the API and Ctrl+C-aware CLI.
 - [x] Model ordered tracks, clips, source ranges, trim, split, move, cuts,
   placement, and layer order with deterministic timing and source provenance.
+- [x] Replace clip source assets through a validated reviewable edit operation,
+  retaining compatible clip settings and requiring explicit source ranges when
+  the replacement does not fit.
 - [x] Move clips between compatible tracks while preserving clip metadata,
   applying normal overlap validation, and allowing an optional new timeline
   position.
@@ -94,10 +106,17 @@ audio policy, cross-platform and broader format coverage remain open.
   represent a successful batch as one undo/redo history action.
 - [x] Support explicit track visibility for video/overlay layers and mute for
   audio tracks; remove their excluded ducking/sidechain rules from render state.
-  An encoded smoke verifies hidden layers render black and muted tracks emit no
-  audio stream without mutating the saved edit.
+  Expose validated visible/muted/volume changes through `set-track-state` for
+  batch and dry-run AI edits. An encoded smoke verifies hidden layers render
+  black and muted tracks emit no audio stream without mutating the saved edit.
 - [x] Validate timelines and edit decisions before rendering; preserve source
   media and refuse to overwrite existing render or edit artifacts.
+- [x] Provide a deterministic, read-only timeline overview through the API and
+  CLI so editing agents can inspect project settings, assets, tracks, clip
+  timing, transitions, and audio properties before proposing edits.
+- [x] Expose reviewable project-state edits for timeline duration and project
+  source fitting; keep canvas width, height, and frame rate pinned to project
+  metadata and reject duration changes that invalidate existing clips.
 
 **Status:** synthetic A/V cut rendering and source immutability are covered by
 tests. A generic timeline can also contain multiple video/audio tracks and
@@ -148,27 +167,58 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   0.5s and visible near-white at 2.5s for circle, ellipse, and rectangle
   reveals. Trim and split operations slice easing curves
   per property; an encoded 10 fps sample confirms motion
-  remains continuous across a split.
+  remains continuous across a split. AI edit plans can set or clear these
+  keyframes through the validated, dry-run-capable `set-keyframes` operation,
+  and adjust static video fit/viewports through `set-framing`.
 - [x] Add allowlisted visual blend modes for video and overlay clips; encoded
   smoke samples confirm `screen` composites a blue still over white footage.
 - [x] Support constant video/audio playback rates from 0.1× to 5× and smooth
   source-relative speed ramps; generate temporary FFmpeg proxies and verify
   rendered video and audio timing. A Windows A/V render ramped from 1× to 2×,
   preserving 440 Hz and 880 Hz source sections at the expected output times.
+  The reviewable `set-speed` operation now updates rate curves and duration
+  while preserving normalized clip-local keyframe, word, and audio automation
+  timing; runtime checks remain deferred.
   Eased pitch-preserving audio tempo uses FFmpeg's optional `rubberband` filter,
   sampled at up to 50 ms source intervals and padded/trimmed to the exact clip
   duration. The Windows render smoke measured a cue at 0.492667s versus the
   expected 0.492426s. Cross-platform hosted and real-media validation remain open.
+- [x] Support video and audio reverse playback on selected source ranges,
+  including combination with a constant playback rate. Rendering builds a
+  temporary FFmpeg reverse proxy; reverse plus speed ramps and OTIO interchange are
+  rejected explicitly. A reviewable `set-reverse` timeline operation is
+  available through the CLI and API. Reverse-filter memory use scales with
+  clip duration and resolution. Trim, split, and ripple/gap edits retain the
+  reverse source direction. `doctor`, capability discovery, and render preflight
+  report/check the required FFmpeg filter; tests and audiovisual review remain
+  deferred.
 - [x] Support track/clip gain, fades, and configurable clip-timing ducking from
   narration tracks. Gain, fades, and ducking compile to one volume envelope.
+  `set-audio-state` reviewably updates clip gain, fades, and source stream choice;
+  `set-track-state` supports project-time volume automation on audio tracks.
 - [x] Support optional signal-aware sidechain compression between audio
   tracks. A synthetic 3-second music/narration sample confirms compression
   engages during the voice signal and recovers after it; generated detector and
-  target proxies are temporary. Settings are validated and documented.
+  target proxies are temporary. Settings are validated and documented, and the
+  reviewable `set-audio-mix` operation/API replaces or clears mix rules.
+- [x] Add ordered per-audio-clip equalizer, high-pass/low-pass, compression,
+  stereo balance, and optional FFmpeg `afftdn` noise-reduction processing.
+  Clip effects use temporary clip proxies; track effects process a temporary
+  mixed track stem. Neither changes source media. Provide reviewable CLI/API
+  edits (`set-audio-effects` and `set-track-audio-effects`) and report optional
+  filter availability. Render preflight checks all configured effect,
+  sidechain, and mastering filters before creating temporary media. Automated
+  and listening review are deferred until the
+  user resumes validation.
+- [x] Add clip-relative volume automation with linear keyframe interpolation;
+  preserve the curve during trim, split, ripple-delete, and gap insertion, and
+  expose it through reviewable CLI/API operations and timeline inspection.
+  Render and listening verification remain deferred.
 - [x] Add optional final-mix equalizer, limiter, loudness, true-peak, and
-  loudness-range controls;
-  validate the mastered output. A Windows render measured -16.01 LUFS against
-  a -16 LUFS target and confirmed temporary master files are removed.
+  loudness-range controls; validate the mastered output.
+  `set-audio-mastering` provides a reviewable operation/API to replace or clear
+  settings. A Windows render measured -16.01 LUFS against a -16 LUFS target and
+  confirmed temporary master files are removed.
 - [x] Validate mixed audio against source samples and document frame/sample
   alignment. The Windows integration smoke measures a 220 Hz music bed at
   0.2499 peak in the mono source and 0.1763 per channel after center mapping to
@@ -187,17 +237,23 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   implemented. Caption presets wrap text at word boundaries, including
   word-timed active-word highlighting. `socialPop` adds a short scale pop;
   `socialStack` adds deterministic multi-line captions with configurable words
-  per line and caption. Consumer-branded templates stay consumer-owned.
-- [x] Provide a generic layered composition API and optional experimental
-  avatar helpers; the latter are not yet a supported speech-animation feature.
+  per line and caption. `set-overlay` provides validated, reviewable caption and
+  composition edits after insertion. Consumer-branded templates stay consumer-owned.
+- [x] Provide a generic layered composition API and optional speech-avatar
+  helpers. `avatar-compose` can generate mouth-state cues through optional
+  Rhubarb integration or consume externally generated cue tracks; the Engine
+  does not bundle avatar assets or Rhubarb. Sprite states within one layer must
+  share PNG canvas dimensions so blink, mouth, and pose changes do not resize
+  the layer or shift parent-anchored features.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
-  sprites. The optional Rhubarb CLI adapter now produces normalized mouth-shape
-  cue tracks. Volume-driven cues remain amplitude estimates, not phoneme-accurate
-  lip sync. A Windows comparison render now combines consumer-provided body,
-  mouth, and blink sprites with Voice 015; sampled frames verify mouth changes,
-  blink reset, stable body sizing, and full-body framing. Human audiovisual
-  review and phoneme-level alignment remain outstanding.
+  sprites. Rhubarb can now generate mapped mouth cues directly from an
+  `avatar-compose` specification, while retaining the standalone `lip-sync`
+  command for reusable cue files. A separate Windows Engine render combines
+  consumer-provided body, mouth, and blink sprites with Voice 015. Representative
+  frames verify mouth placement and full-body framing. Human audiovisual review
+  and Taglish phoneme alignment remain outstanding; Rhubarb is an optional
+  external runtime and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
 optional talking-avatar scene; inspect animation and listen to the actual audio.
@@ -215,6 +271,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   output audio stream matches the timeline's audio clips.
 - [x] Generate cached, source-fingerprinted image/video thumbnails and streamed
   audio waveform samples for generic preview clients; verify cache integrity.
+  Preview generation supports abort signals across thumbnail extraction,
+  waveform decoding, and media probing; the CLI cancels those processes on
+  Ctrl+C.
 - [x] Render one layered integration scene combining VFR footage, proxy-backed
   B-roll, a still image, a nested composition, captions, and narration; sample
   encoded output pixels to verify that the visual layers appear at their timed
@@ -222,8 +281,11 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   first timestamp is one second still appears at the start of the timeline.
   Human review and real-footage coverage remain open.
 - [x] Convert SDR video output to named Rec.709 or Rec.2020 profiles with a
-  pixel colorspace transform and verify the encoded stream tags. HDR output is
-  not yet supported.
+  pixel colorspace transform and verify the encoded stream tags. Add an HDR10
+  SDR-to-HDR10 path for MP4/MOV using a 203-nit reference white, 10-bit
+  BT.2020/PQ conversion, HEVC Main 10, and mastering/content-light metadata.
+  A local synthetic render verifies the encoded stream and HDR metadata; visual
+  review with real source footage remains open.
 - [ ] Review actual preview and final output for transitions, captions, visual
   defects, and audio. Automated checks do not replace audiovisual review.
   A frame-by-frame contact sheet from the 11.133-second Voice 015/Waren Engine
@@ -315,21 +377,35 @@ in this order:
    the tested cue, while broader camera/media validation remains open.
 4. **Media and export controls:** configurable quality, codec, video bitrate,
    capture workers, low-memory mode, and PNG image-sequence export are
-   implemented. Bounded HyperFrames/final-encode timeouts and cancellable async
-  renders are implemented. Rec.709 and Rec.2020 SDR output profiles now perform
-  an FFmpeg colorspace transform and validate output stream tags. HDR conversion
-  remains unsupported. Async rendering now supports
+  implemented. `renderTimelineAsync` applies a bounded deadline and shared
+  cancellation across asynchronous preprocessing, HyperFrames, final encoding,
+  probing, and audio mastering. Rec.709 and
+  Rec.2020 SDR output profiles perform an
+  FFmpeg colorspace transform; HDR10 output converts SDR renders to 10-bit
+  BT.2020/PQ with HEVC Main 10 and HDR metadata. Runtime and visual validation
+  remain open. Async rendering now supports
   bounded, expiring, content-verified capture checkpoints to retry final-stage
   failures; browser-capture interruption still restarts that stage.
   **Project interchange is implemented:** the
   optional OpenTimelineIO bridge uses the maintained Python library and native
-  JSON adapter; its initial profile imports/exports external-media cuts and
-  gaps, with explicit rejection for unsupported constructs. API/CLI round-trip
-  coverage runs in CI on Windows and Linux.
+  JSON adapter; the profile imports/exports external-media cuts, gaps, nested
+  track stacks (flattened into ordered tracks), track enabled state, and
+  timeline duration. Import expands `SMPTE_Dissolve` transitions into video
+  opacity fades or audio crossfades; custom transitions, other overlaps,
+  retiming, trimmed tracks/stacks, effects, disabled clips, and nested
+  compositions inside tracks are explicitly rejected. Export converts
+  explicitly faded two-clip overlaps into `SMPTE_Dissolve` transitions and
+  rejects unmarked/chained overlaps, standalone fades, clip-edge transitions,
+  and retiming. Tests remain deferred until the user resumes manual validation.
 5. **Workflow quality:** visual preview/review artifacts, richer caption
    layout templates, undoable and dry-run reviewable edit operations, injected transcription and
    media-analysis provider APIs, and CLI-loaded analysis provider modules are
-   implemented.
+   implemented. Persistent CLI timeline history now carries undo/redo snapshots
+   across process invocations, serializes concurrent updates, and recovers an
+   interrupted atomic timeline write;
+   behavior tests remain deferred per the user's direction. `project create`
+   now seeds a validated blank timeline from the project metadata and media
+   catalog, and `timeline create` initializes one for existing projects.
 6. **Real-world acceptance:** render varied footage and audio on Windows,
    macOS, and Linux, inspect output frames, listen to audio, and measure memory
    and render time before claiming broad editor-grade support.
@@ -369,9 +445,21 @@ retime paths require an explicitly approved EDL before applying those cuts.
 
 ## Current starting point
 
-The engine already includes media probing, transcript normalization, edit
-decision validation and retiming, cut rendering, and HyperFrames wrappers.
-Experimental avatar composition and audio-level cues exist as local work; they
-are not a validated replacement for Studio rendering. The Studio migration and
-speech-driven lip sync remain incomplete. Recheck the current branch, tests,
-and remote state before using this snapshot.
+The current local branch is `feature/generic-video-engine`. It includes the
+generic timeline, media catalog and proxy support, edit operations, transcript
+and provider workflows, layered video/overlay composition, audio mixing and
+mastering, preview assets, export controls, and OpenTimelineIO interchange.
+Optional avatar composition and Rhubarb lip-sync workflows are consumer-neutral
+Engine capabilities; their generated Voice 015 outputs have not received human
+audio/visual approval, and this branch has not been validated after the latest
+implementation changes.
+
+The current implementation pass adds cancellable async probing to direct
+`renderProjectAsync` output checks, in addition to the timeline async pipeline,
+and checks timeline output encoders/color filters before creating temporary
+media. No tests or renders were run for these changes, per the user's
+implementation-first direction. Do not treat earlier test, render, or CI
+results as evidence for the current branch state. The next delivery gate is to
+finish the remaining Engine code work, then run the user-directed validation
+pass before requesting audiovisual review or starting Explainer Studio
+integration. Recheck current branch and remote state before publishing.

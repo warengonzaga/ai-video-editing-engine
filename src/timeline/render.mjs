@@ -3,22 +3,26 @@ import { join, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { renderProject, renderProjectAsync } from '../render/hyperframes.mjs';
-import { probeMedia } from '../media/probe.mjs';
+import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { validateTimeline } from './validate.mjs';
 import { resolveSourceFit } from './source-fit.mjs';
 import { buildAudioVolumeAutomation } from './audio-mix.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
-import { resolveRenderFormat } from '../render/formats.mjs';
+import { resolveColorProfile, resolveEncoderArgs, resolveProfileEncoder, resolveRenderControlArgs, resolveRenderFormat, resolveVideoEncoder } from '../render/formats.mjs';
+import { hasFfmpegEncoder, hasFfmpegFilter, listFfmpegFilters } from '../media/ffmpeg-capabilities.mjs';
 import { assignRenderTrackIndices } from './layers.mjs';
-import { masterAudioFile, validateAudioMastering } from './audio-mastering.mjs';
+import { masterAudioFile, masterAudioFileAsync, validateAudioMastering } from './audio-mastering.mjs';
 import { visualMaskClipPath } from './mask.mjs';
 import { transitionClipPath } from './transition.mjs';
 import { buildSpeedRampAudioAutomation, speedRampPtsExpression } from './speed-ramp.mjs';
-import { hasFfmpegFilter } from '../media/ffmpeg-capabilities.mjs';
-import { applySidechainDuckingProxies } from './sidechain-render.mjs';
+import { applySidechainDuckingProxies, applySidechainDuckingProxiesAsync } from './sidechain-render.mjs';
+import { applyAudioTrackEffectProxies, applyAudioTrackEffectProxiesAsync } from './audio-track-effects.mjs';
 import { resolveAssetProxies } from '../project/assets.mjs';
 import { blendModeStyle } from './blend-mode.mjs';
 import { timelineForRender } from './track-state.mjs';
+import { audioClipEffectRequirements, buildAudioClipEffectFilters } from './audio-effects.mjs';
+import { createTimelineRenderControl } from '../render/timeline-control.mjs';
+import { runProcess } from '../render/process.mjs';
 
 const escapeAttr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
@@ -29,11 +33,31 @@ export function renderTimeline(projectPath, timeline, outputPath, quality = 'dra
   return renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProject);
 }
 
-export function renderTimelineAsync(projectPath, timeline, outputPath, quality = 'draft', options = {}) {
-  return renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectAsync);
+export async function renderTimelineAsync(projectPath, timeline, outputPath, quality = 'draft', options = {}) {
+  const { timeoutSeconds, signal, ...renderOptions } = options;
+  const renderControl = createTimelineRenderControl(signal, timeoutSeconds);
+  let prepared;
+  try {
+    if (!['draft', 'standard', 'high'].includes(quality)) throw new TypeError('Quality must be draft, standard, or high.');
+    const { useProxies, ...formatOptions } = renderOptions;
+    if (useProxies !== undefined && typeof useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
+    resolveRenderControlArgs(formatOptions);
+    const outputFormat = resolveRenderFormat(outputPath, formatOptions.format);
+    validateTimeline(timeline);
+    preflightOutputCapabilities(outputFormat, formatOptions);
+    const renderTimeline = timelineForRender(timeline);
+    const audioMastering = validateAudioMastering(renderTimeline);
+    if (audioMastering && ['gif', 'png-sequence'].includes(outputFormat)) throw new TypeError(`Timeline audioMastering cannot be used with ${outputFormat} output.`);
+    if (['gif', 'png-sequence'].includes(outputFormat) && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0)) throw new TypeError(`${outputFormat} output cannot include audio clips.`);
+    prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl);
+    return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, signal: renderControl.signal }, renderProjectAsync, renderControl, prepared);
+  } finally {
+    if (prepared) cleanupTemporaryAssets(prepared.temporaryAssets);
+    renderControl.dispose();
+  }
 }
 
-function renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectFunction) {
+function renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectFunction, renderControl, prepared) {
   const root = resolve(projectPath);
   if (options.useProxies !== undefined && typeof options.useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
   const { useProxies, ...renderOptions } = options;
@@ -51,6 +75,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
     if (updateDuration) writeFileSync(metaPath, originalMeta);
   };
   const format = resolveRenderFormat(outputPath, options.format);
+  if (!prepared) preflightOutputCapabilities(format, renderOptions);
   const audioMastering = validateAudioMastering(renderTimeline);
   if (audioMastering && ['gif', 'png-sequence'].includes(format)) throw new TypeError(`Timeline audioMastering cannot be used with ${format} output.`);
   if (['gif', 'png-sequence'].includes(format) && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0)) throw new TypeError(`${format} output cannot include audio clips.`);
@@ -61,14 +86,21 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
     return relative.split(sep).join('/');
   };
   for (const asset of timeline.assets) assetPath(asset.path);
-  const temporaryAssets = [];
+  const temporaryAssets = prepared?.temporaryAssets ?? [];
   let deferTemporaryCleanup = false;
   const cleanupTemporaryAssets = () => {
     for (const asset of temporaryAssets) rmSync(asset, { force: true });
   };
   try {
-  const proxiedTimeline = applyPersistentVideoProxies(renderTimeline, proxyRecords);
-  const renderSpec = applySidechainDuckingProxies(root, applyPlaybackRateProxies(root, alignOffsetAudioAssets(root, proxiedTimeline, temporaryAssets), temporaryAssets), temporaryAssets);
+  renderControl?.assertActive();
+  let renderSpec = prepared?.renderSpec;
+  if (!renderSpec) {
+    validateTimelineFfmpegRequirements(renderTimeline);
+    const proxiedTimeline = applyPersistentVideoProxies(renderTimeline, proxyRecords);
+    const playbackTimeline = applyPlaybackRateProxies(root, alignOffsetAudioAssets(root, proxiedTimeline, temporaryAssets), temporaryAssets);
+    const effectedTimeline = applyAudioTrackEffectProxies(root, playbackTimeline, temporaryAssets);
+    renderSpec = applySidechainDuckingProxies(root, effectedTimeline, temporaryAssets);
+  }
   const renderTrackIndices = assignRenderTrackIndices(renderSpec);
   const clips = renderSpec.tracks.flatMap((track) => track.clips.map((clip) => ({ track, clip }))).sort((a, b) => a.track.order - b.track.order || a.clip.timelineStart - b.clip.timelineStart);
   const body = clips.map(({ track, clip }) => {
@@ -155,7 +187,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   try {
     if (updateDuration) writeFileSync(metaPath, `${JSON.stringify({ ...meta, durationSeconds: timeline.project.durationSeconds }, null, 2)}\n`);
     writeFileSync(indexPath, html);
-    const finishResult = (result) => {
+    const finishResultSync = (result) => {
       renderedOutput = result.output;
       const expectsAudio = format !== 'gif' && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0);
       if (format !== 'png-sequence') {
@@ -168,15 +200,28 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
       }
       return result;
     };
+    const finishResultAsync = async (result) => {
+      renderedOutput = result.output;
+      renderControl.assertActive();
+      const expectsAudio = format !== 'gif' && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0);
+      if (format !== 'png-sequence') {
+        const rendered = await probeMediaAsync(result.output, { signal: renderControl.signal });
+        renderControl.assertActive();
+        if (rendered.hasAudio !== expectsAudio) throw new Error(`Rendered audio stream ${rendered.hasAudio ? 'exists' : 'is missing'}, but the timeline ${expectsAudio ? 'contains' : 'has no'} audio clips.`);
+      }
+      if (audioMastering) {
+        const mastered = await masterAudioFileAsync(result.output, format, audioMastering, timeline.project.fps, renderControl.signal);
+        renderControl.assertActive();
+        return { ...result, durationSeconds: mastered.durationSeconds, audioMastering: { ...audioMastering, mode: mastered.loudnessMode } };
+      }
+      return result;
+    };
+    renderControl?.assertActive();
     const rendered = renderProjectFunction(root, outputPath, quality, renderOptions);
     if (rendered && typeof rendered.then === 'function') {
       deferTemporaryCleanup = true;
       return rendered.then((result) => {
-        try {
-          return finishResult(result);
-        } finally {
-          restoreProjectMeta();
-        }
+        return finishResultAsync(result).finally(restoreProjectMeta);
       }).catch((error) => {
         if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
         if (!recordExists && existsSync(recordPath)) unlinkSync(recordPath);
@@ -186,7 +231,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
         throw error;
       }).finally(cleanupTemporaryAssets);
     }
-    return finishResult(rendered);
+    return finishResultSync(rendered);
   } catch (error) {
     if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
     if (!recordExists && existsSync(recordPath)) unlinkSync(recordPath);
@@ -203,7 +248,89 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   }
 }
 
-export function alignOffsetAudioAssets(root, timeline, temporaryAssets) {
+async function prepareTimelineRenderAsync(projectPath, timeline, options, renderControl) {
+  const root = resolve(projectPath);
+  if (options.useProxies !== undefined && typeof options.useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
+  validateTimeline(timeline);
+  const renderTimeline = timelineForRender(timeline);
+  const proxyRecords = options.useProxies ? resolveAssetProxies(root, renderTimeline) : new Map();
+  const temporaryAssets = [];
+  try {
+    renderControl.assertActive();
+    validateTimelineFfmpegRequirements(renderTimeline);
+    const proxiedTimeline = applyPersistentVideoProxies(renderTimeline, proxyRecords);
+    const alignedTimeline = await alignOffsetAudioAssetsAsync(root, proxiedTimeline, temporaryAssets, renderControl);
+    const playbackTimeline = await applyPlaybackRateProxiesAsync(root, alignedTimeline, temporaryAssets, renderControl);
+    const effectedTimeline = await applyAudioTrackEffectProxiesAsync(root, playbackTimeline, temporaryAssets, renderControl);
+    const renderSpec = await applySidechainDuckingProxiesAsync(root, effectedTimeline, temporaryAssets, renderControl);
+    renderControl.assertActive();
+    return { renderSpec, temporaryAssets };
+  } catch (error) {
+    cleanupTemporaryAssets(temporaryAssets);
+    throw error;
+  }
+}
+
+function cleanupTemporaryAssets(temporaryAssets) {
+  for (const asset of temporaryAssets) rmSync(asset, { force: true });
+}
+
+async function alignOffsetAudioAssetsAsync(root, timeline, temporaryAssets, renderControl) {
+  const next = structuredClone(timeline);
+  const proxies = new Map();
+  const startIndex = temporaryAssets.length;
+  try {
+    for (const track of next.tracks.filter((item) => item.kind === 'audio')) {
+      for (const clip of track.clips) {
+        const asset = next.assets.find((item) => item.id === clip.assetId);
+        if (!['audio', 'video'].includes(asset?.type) || (asset.type === 'video' && !asset.hasAudio)) continue;
+        const streamIndex = clip.audioStreamIndex ?? 0;
+        const selectedStream = asset.audioStreams?.[streamIndex];
+        const streamTiming = asset.streamTiming ?? {};
+        const alignmentStart = asset.type === 'audio' ? 0 : (streamTiming.videoStartSeconds ?? 0);
+        const audioStartSeconds = selectedStream?.startSeconds ?? (streamIndex === 0 ? streamTiming.audioStartSeconds : undefined) ?? 0;
+        const videoDurationSeconds = streamTiming.videoDurationSeconds;
+        const audioDurationSeconds = selectedStream?.durationSeconds ?? (streamIndex === 0 ? streamTiming.audioDurationSeconds : undefined);
+        const startsMatch = Math.abs(alignmentStart - audioStartSeconds) <= 1e-6;
+        const durationTolerance = Math.max(0.05, 1 / frameRateNumber(timeline.project.fps));
+        const durationsMatch = asset.type === 'audio' || !Number.isFinite(videoDurationSeconds) || !Number.isFinite(audioDurationSeconds) || Math.abs(videoDurationSeconds - audioDurationSeconds) <= durationTolerance;
+        if (streamIndex === 0 && startsMatch && durationsMatch) {
+          delete clip.audioStreamIndex;
+          continue;
+        }
+        const proxyKey = `${asset.id}/${streamIndex}`;
+        let proxy = proxies.get(proxyKey);
+        if (!proxy) {
+          renderControl.assertActive();
+          const id = streamIndex === 0 ? `${asset.id}-aligned-audio` : `${asset.id}-audio-stream-${streamIndex}-aligned`;
+          if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved audio alignment asset id: ${id}`);
+          const relativePath = `assets/.${id}-${randomUUID()}.wav`;
+          const absolutePath = join(root, ...relativePath.split('/'));
+          const duration = asset.durationSeconds;
+          if (!Number.isFinite(duration) || duration <= 0) throw new TypeError(`Asset ${asset.id} needs a known duration to align its offset audio stream.`);
+          const filter = `asetpts=PTS-${alignmentStart}/TB,aresample=async=1:first_pts=0,apad=whole_dur=${duration},atrim=duration=${duration}`;
+          temporaryAssets.push(absolutePath);
+          await runTimelineFfmpeg(root, [
+            '-copyts', '-i', join(root, ...asset.path.split('/')), '-map', `0:a:${streamIndex}`,
+            '-vn', '-af', filter, '-c:a', 'pcm_s16le', absolutePath,
+          ], `Could not prepare audio stream ${streamIndex} for ${asset.id}`, renderControl);
+          proxy = { id, path: relativePath, type: 'audio', hasAudio: true, durationSeconds: duration };
+          proxies.set(proxyKey, proxy);
+          next.assets.push(proxy);
+        }
+        clip.assetId = proxy.id;
+        delete clip.audioStreamIndex;
+      }
+    }
+    validateTimeline(next);
+    return next;
+  } catch (error) {
+    for (const asset of temporaryAssets.splice(startIndex)) rmSync(asset, { force: true });
+    throw error;
+  }
+}
+
+export function alignOffsetAudioAssets(root, timeline, temporaryAssets, renderControl) {
   const next = structuredClone(timeline);
   const proxies = new Map();
   try {
@@ -228,6 +355,7 @@ export function alignOffsetAudioAssets(root, timeline, temporaryAssets) {
         const proxyKey = `${asset.id}/${streamIndex}`;
         let proxy = proxies.get(proxyKey);
         if (!proxy) {
+          renderControl?.assertActive();
           const id = streamIndex === 0 ? `${asset.id}-aligned-audio` : `${asset.id}-audio-stream-${streamIndex}-aligned`;
           if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved audio alignment asset id: ${id}`);
           const relativePath = `assets/.${id}-${randomUUID()}.wav`;
@@ -235,12 +363,16 @@ export function alignOffsetAudioAssets(root, timeline, temporaryAssets) {
           const duration = asset.durationSeconds;
           if (!Number.isFinite(duration) || duration <= 0) throw new TypeError(`Asset ${asset.id} needs a known duration to align its offset audio stream.`);
           const filter = `asetpts=PTS-${alignmentStart}/TB,aresample=async=1:first_pts=0,apad=whole_dur=${duration},atrim=duration=${duration}`;
+          temporaryAssets.push(absolutePath);
           const extraction = spawnSync('ffmpeg', [
             '-nostdin', '-hide_banner', '-v', 'error', '-y', '-copyts', '-i', join(root, ...asset.path.split('/')),
             '-map', `0:a:${streamIndex}`, '-vn', '-af', filter, '-c:a', 'pcm_s16le', absolutePath,
-          ], { encoding: 'utf8', windowsHide: true });
-          if (extraction.error || extraction.status !== 0) throw new Error(`Could not prepare audio stream ${streamIndex} for ${asset.id}: ${extraction.error?.message ?? extraction.stderr.trim()}`);
-          temporaryAssets.push(absolutePath);
+          ], { encoding: 'utf8', windowsHide: true, ...(renderControl ? { timeout: renderControl.timeoutMs() } : {}) });
+          renderControl?.assertActive();
+          if (extraction.error || extraction.status !== 0) {
+            const error = renderControl?.processError(extraction.error);
+            throw error ?? new Error(`Could not prepare audio stream ${streamIndex} for ${asset.id}: ${extraction.error?.message ?? extraction.stderr.trim()}`);
+          }
           proxy = { id, path: relativePath, type: 'audio', hasAudio: true, durationSeconds: duration };
           proxies.set(proxyKey, proxy);
           next.assets.push(proxy);
@@ -304,22 +436,22 @@ function applyPersistentVideoProxies(timeline, proxyRecords) {
   return next;
 }
 
-function applyPlaybackRateProxies(root, timeline, temporaryAssets) {
+function applyPlaybackRateProxies(root, timeline, temporaryAssets, renderControl) {
   const next = structuredClone(timeline);
   try {
-    const hasAudioSpeedRamp = next.tracks.some((track) => track.kind === 'audio' && track.clips.some((clip) => clip.speedRamp));
-    if (hasAudioSpeedRamp && !hasFfmpegFilter('rubberband')) {
-      throw new Error('Audio speed ramps require an FFmpeg build with the rubberband filter. Install FFmpeg with Rubber Band support and retry.');
-    }
     for (const track of next.tracks.filter((item) => item.kind === 'video' || item.kind === 'audio')) {
       for (const clip of track.clips) {
         const rate = clip.playbackRate ?? 1;
         const hasSpeedRamp = clip.speedRamp !== undefined;
-        if (!hasSpeedRamp && rate === 1) continue;
-        const source = next.assets.find((item) => item.id === clip.assetId);
-        const id = `${hasSpeedRamp ? 'ramp' : 'rate'}-${track.id}-${clip.id}-${randomUUID().slice(0, 8)}`;
-        if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved playback proxy asset id: ${id}`);
+        const reverse = clip.reverse === true;
         const isVideo = track.kind === 'video';
+        const effectFilters = isVideo ? [] : buildAudioClipEffectFilters(clip.audioEffects);
+        if (!hasSpeedRamp && rate === 1 && !reverse && effectFilters.length === 0) continue;
+        renderControl?.assertActive();
+        const source = next.assets.find((item) => item.id === clip.assetId);
+        const operation = hasSpeedRamp ? 'ramp' : reverse ? 'reverse' : effectFilters.length ? 'effects' : 'rate';
+        const id = `${operation}-${track.id}-${clip.id}-${randomUUID().slice(0, 8)}`;
+        if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved playback proxy asset id: ${id}`);
         const extension = isVideo ? '.mp4' : '.wav';
         const relativePath = `assets/.${id}-${randomUUID()}${extension}`;
         const absolutePath = join(root, ...relativePath.split('/'));
@@ -333,27 +465,33 @@ function applyPlaybackRateProxies(root, timeline, temporaryAssets) {
           const automation = buildSpeedRampAudioAutomation(clip.speedRamp, commandRelativePath);
           writeFileSync(commandAbsolutePath, automation.commandContents, { flag: 'wx' });
           temporaryAssets.push(commandAbsolutePath);
-          const audioFilter = `atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,${automation.filters},apad=whole_dur=${clip.durationSeconds},atrim=duration=${clip.durationSeconds}`;
+          const audioFilter = `atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,${automation.filters},aresample=48000${effectFilters.length ? `,${effectFilters.join(',')}` : ''},apad=whole_dur=${clip.durationSeconds},atrim=duration=${clip.durationSeconds}`;
           filters = ['-af', audioFilter, '-vn', '-c:a', 'pcm_s16le'];
         } else {
           filters = isVideo
-            ? ['-vf', `setpts=(PTS-STARTPTS)/${rate}`, '-an', '-fps_mode', 'vfr', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p']
-            : ['-af', `atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,${atempoFilter(rate)}`, '-vn', '-c:a', 'pcm_s16le'];
+            ? ['-vf', `${reverse ? 'reverse,' : ''}setpts=(PTS-STARTPTS)/${rate}`, '-an', '-fps_mode', 'vfr', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p']
+            : ['-af', `atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,${reverse ? 'areverse,' : ''}${atempoFilter(rate)},aresample=48000${effectFilters.length ? `,${effectFilters.join(',')}` : ''}`, '-vn', '-c:a', 'pcm_s16le'];
         }
+        temporaryAssets.push(absolutePath);
         const extraction = spawnSync('ffmpeg', [
           '-nostdin', '-hide_banner', '-v', 'error', '-y',
           ...(isVideo ? ['-ss', String(clip.sourceIn)] : []), '-i', input,
-          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', '0:v:0'] : ['-map', '0:a:0']),
+          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', '0:v:0'] : ['-map', `0:a:${clip.audioStreamIndex ?? 0}`]),
           ...filters, absolutePath,
-        ], { encoding: 'utf8', windowsHide: true, cwd: root });
-        if (extraction.error || extraction.status !== 0) throw new Error(`Could not create playback proxy for clip ${clip.id}: ${extraction.error?.message ?? extraction.stderr.trim()}`);
-        temporaryAssets.push(absolutePath);
+        ], { encoding: 'utf8', windowsHide: true, cwd: root, ...(renderControl ? { timeout: renderControl.timeoutMs() } : {}) });
+        renderControl?.assertActive();
+        if (extraction.error || extraction.status !== 0) {
+          const error = renderControl?.processError(extraction.error);
+          throw error ?? new Error(`Could not create playback proxy for clip ${clip.id}: ${extraction.error?.message ?? extraction.stderr.trim()}`);
+        }
         next.assets.push({ id, path: relativePath, type: isVideo ? 'video' : 'audio', hasAudio: !isVideo, durationSeconds: clip.durationSeconds });
         clip.assetId = id;
         clip.sourceIn = 0;
         clip.sourceOut = clip.durationSeconds;
         delete clip.playbackRate;
         delete clip.speedRamp;
+        delete clip.reverse;
+        delete clip.audioEffects;
       }
     }
     validateTimeline(next);
@@ -363,6 +501,137 @@ function applyPlaybackRateProxies(root, timeline, temporaryAssets) {
     temporaryAssets.length = 0;
     throw error;
   }
+}
+
+async function applyPlaybackRateProxiesAsync(root, timeline, temporaryAssets, renderControl) {
+  const next = structuredClone(timeline);
+  const startIndex = temporaryAssets.length;
+  try {
+    for (const track of next.tracks.filter((item) => item.kind === 'video' || item.kind === 'audio')) {
+      for (const clip of track.clips) {
+        const rate = clip.playbackRate ?? 1;
+        const hasSpeedRamp = clip.speedRamp !== undefined;
+        const reverse = clip.reverse === true;
+        const isVideo = track.kind === 'video';
+        const effectFilters = isVideo ? [] : buildAudioClipEffectFilters(clip.audioEffects);
+        if (!hasSpeedRamp && rate === 1 && !reverse && effectFilters.length === 0) continue;
+        renderControl.assertActive();
+        const source = next.assets.find((item) => item.id === clip.assetId);
+        const operation = hasSpeedRamp ? 'ramp' : reverse ? 'reverse' : effectFilters.length ? 'effects' : 'rate';
+        const id = `${operation}-${track.id}-${clip.id}-${randomUUID().slice(0, 8)}`;
+        if (next.assets.some((item) => item.id === id)) throw new TypeError(`Timeline already contains the reserved playback proxy asset id: ${id}`);
+        const extension = isVideo ? '.mp4' : '.wav';
+        const relativePath = `assets/.${id}-${randomUUID()}${extension}`;
+        const absolutePath = join(root, ...relativePath.split('/'));
+        const input = join(root, ...source.path.split('/'));
+        let filters;
+        if (hasSpeedRamp && isVideo) {
+          filters = ['-vf', speedRampPtsExpression(clip.speedRamp), '-an', '-fps_mode', 'vfr', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p'];
+        } else if (hasSpeedRamp) {
+          const commandRelativePath = `assets/.${id}-${randomUUID()}.txt`;
+          const commandAbsolutePath = join(root, ...commandRelativePath.split('/'));
+          const automation = buildSpeedRampAudioAutomation(clip.speedRamp, commandRelativePath);
+          writeFileSync(commandAbsolutePath, automation.commandContents, { flag: 'wx' });
+          temporaryAssets.push(commandAbsolutePath);
+          const audioFilter = `atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,${automation.filters},aresample=48000${effectFilters.length ? `,${effectFilters.join(',')}` : ''},apad=whole_dur=${clip.durationSeconds},atrim=duration=${clip.durationSeconds}`;
+          filters = ['-af', audioFilter, '-vn', '-c:a', 'pcm_s16le'];
+        } else {
+          filters = isVideo
+            ? ['-vf', `${reverse ? 'reverse,' : ''}setpts=(PTS-STARTPTS)/${rate}`, '-an', '-fps_mode', 'vfr', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p']
+            : ['-af', `atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,${reverse ? 'areverse,' : ''}${atempoFilter(rate)},aresample=48000${effectFilters.length ? `,${effectFilters.join(',')}` : ''}`, '-vn', '-c:a', 'pcm_s16le'];
+        }
+        const args = [
+          ...(isVideo ? ['-ss', String(clip.sourceIn)] : []), '-i', input,
+          ...(isVideo ? ['-t', String(clip.sourceOut - clip.sourceIn), '-map', '0:v:0'] : ['-map', `0:a:${clip.audioStreamIndex ?? 0}`]),
+          ...filters, absolutePath,
+        ];
+        temporaryAssets.push(absolutePath);
+        await runTimelineFfmpeg(root, args, `Could not create playback proxy for clip ${clip.id}`, renderControl);
+        next.assets.push({ id, path: relativePath, type: isVideo ? 'video' : 'audio', hasAudio: !isVideo, durationSeconds: clip.durationSeconds });
+        clip.assetId = id;
+        clip.sourceIn = 0;
+        clip.sourceOut = clip.durationSeconds;
+        delete clip.playbackRate;
+        delete clip.speedRamp;
+        delete clip.reverse;
+        delete clip.audioEffects;
+      }
+    }
+    validateTimeline(next);
+    return next;
+  } catch (error) {
+    for (const asset of temporaryAssets.splice(startIndex)) rmSync(asset, { force: true });
+    throw error;
+  }
+}
+
+async function runTimelineFfmpeg(root, args, message, renderControl) {
+  try {
+    renderControl.assertActive();
+    await runProcess('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-y', ...args], {
+      cwd: root,
+      signal: renderControl.signal,
+      stdio: 'capture',
+    });
+  } catch (error) {
+    if (renderControl.signal.aborted) throw renderControl.signal.reason ?? error;
+    throw new Error(`${message}: ${error.message}`, { cause: error });
+  }
+}
+
+function validateTimelineFfmpegRequirements(timeline) {
+  const requiredFilters = new Set();
+  if (timeline.audioMix?.sidechain?.length) requiredFilters.add('sidechaincompress');
+  if (timeline.audioMastering) {
+    requiredFilters.add('loudnorm');
+    if (timeline.audioMastering.equalizer?.length) requiredFilters.add('equalizer');
+    if (timeline.audioMastering.limiter) requiredFilters.add('alimiter');
+    if (timeline.audioMastering.channelLayout) requiredFilters.add('aresample');
+  }
+  for (const track of timeline.tracks) {
+    if (track.kind !== 'video' && track.kind !== 'audio') continue;
+    for (const clip of track.clips) {
+      if (clip.reverse === true) requiredFilters.add(track.kind === 'video' ? 'reverse' : 'areverse');
+      if (track.kind === 'audio') {
+        for (const filter of audioClipEffectRequirements([...(clip.audioEffects ?? []), ...(track.audioEffects ?? [])])) requiredFilters.add(filter);
+        if (clip.speedRamp) requiredFilters.add('rubberband');
+      }
+    }
+  }
+  if (requiredFilters.size === 0) return;
+  const availableFilters = listFfmpegFilters();
+  for (const filter of requiredFilters) {
+    if (!availableFilters.has(filter)) {
+      const feature = ({
+        rubberband: 'pitch-preserving audio speed ramps',
+        afftdn: 'audio denoise',
+        stereotools: 'audio stereo balance',
+        equalizer: 'audio equalization',
+        highpass: 'audio high-pass filtering',
+        lowpass: 'audio low-pass filtering',
+        acompressor: 'audio compression',
+        sidechaincompress: 'signal-aware sidechain compression',
+        loudnorm: 'audio loudness mastering',
+        alimiter: 'audio peak limiting',
+        aresample: 'audio output channel mapping',
+        reverse: 'video reverse playback',
+        areverse: 'audio reverse playback',
+      })[filter] ?? 'the requested audio/video effect';
+      throw new Error(`${feature} requires the FFmpeg ${filter} filter, but it is unavailable in the current build.`);
+    }
+  }
+}
+
+function preflightOutputCapabilities(format, options) {
+  const encoderSettings = options.encoder ?? {};
+  const videoEncoder = resolveVideoEncoder(format, encoderSettings);
+  const colorProfile = resolveColorProfile(options.colorProfile, format);
+  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder, colorProfile) : videoEncoder;
+  if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
+  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter)) {
+    throw new Error(`The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`);
+  }
+  resolveEncoderArgs(format, encoderSettings);
 }
 
 function atempoFilter(playbackRate) {

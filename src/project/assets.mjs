@@ -1,11 +1,16 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
+import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
+import { link, rename, unlink } from 'node:fs/promises';
+import { Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { probeMedia } from '../media/probe.mjs';
+import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { normalizeFrameRate } from '../media/frame-rate.mjs';
 import { validateTimeline } from '../timeline/validate.mjs';
+import { resetTimelineFileHistory } from '../timeline/history-store.mjs';
+import { runProcess } from '../render/process.mjs';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
@@ -19,7 +24,6 @@ export function registerMediaAsset(projectPath, sourcePath, options = {}) {
   const extension = extname(source).toLowerCase();
   const id = options.id ?? defaultAssetId(source);
   if (!/^[a-z][a-z0-9-]*$/.test(id)) throw new TypeError('Asset id must be a lowercase kebab-case identifier.');
-  const manifestPath = join(root, 'assets', 'manifest.json');
   const manifest = readAssetManifest(root);
   if (manifest.assets.some((asset) => asset.id === id)) throw new Error(`Asset already registered: ${id}`);
 
@@ -28,39 +32,174 @@ export function registerMediaAsset(projectPath, sourcePath, options = {}) {
   const relativePath = `assets/${id}${extension}`;
   const destination = join(root, relativePath);
   if (existsSync(destination)) throw new Error(`Asset destination already exists: ${relativePath}`);
-  copyFileSync(source, destination, fsConstants.COPYFILE_EXCL);
-  const asset = {
-    id,
-    path: relativePath,
-    type: image ? 'image' : probe.width === null ? 'audio' : 'video',
-    sizeBytes: statSync(source).size,
-    sha256: hashFile(destination),
-    ...(image ? { width: probe.width, height: probe.height, codec: probe.codec } : {
-      durationSeconds: probe.durationSeconds,
-      width: probe.width,
-      height: probe.height,
-      frameRate: probe.frameRate,
-      nominalFrameRate: probe.nominalFrameRate,
-      hasAudio: probe.hasAudio,
-      audioStreams: probe.audioStreams,
-      videoCodec: probe.videoCodec,
-      audioCodec: probe.audioCodec,
-      streamTiming: probe.streamTiming,
-    }),
-  };
-
-  const temporaryManifest = join(root, 'assets', `.manifest.${randomUUID()}.tmp`);
+  const manifestPath = join(root, 'assets', 'manifest.json');
+  const originalManifest = existsSync(manifestPath) ? readFileSync(manifestPath) : undefined;
+  let copied = false;
+  let timelineUpdate;
   try {
-    const next = { ...manifest, assets: [...manifest.assets, asset] };
-    writeFileSync(temporaryManifest, `${JSON.stringify(next, null, 2)}\n`, { flag: 'wx' });
-    writeFileSync(manifestPath, readFileSync(temporaryManifest), { flag: 'w' });
-    unlinkSync(temporaryManifest);
+    copyFileSync(source, destination, fsConstants.COPYFILE_EXCL);
+    copied = true;
+    const asset = {
+      id,
+      path: relativePath,
+      type: image ? 'image' : probe.width === null ? 'audio' : 'video',
+      sizeBytes: statSync(source).size,
+      sha256: hashFile(destination),
+      ...(image ? { width: probe.width, height: probe.height, codec: probe.codec } : {
+        durationSeconds: probe.durationSeconds,
+        width: probe.width,
+        height: probe.height,
+        frameRate: probe.frameRate,
+        nominalFrameRate: probe.nominalFrameRate,
+        hasAudio: probe.hasAudio,
+        audioStreams: probe.audioStreams,
+        videoCodec: probe.videoCodec,
+        audioCodec: probe.audioCodec,
+        streamTiming: probe.streamTiming,
+      }),
+    };
+    timelineUpdate = prepareTimelineAssetUpdate(root, asset);
+    const latestManifest = readAssetManifest(root);
+    if (latestManifest.assets.some((entry) => entry.id === id)) throw new Error(`Asset already registered: ${id}`);
+    writeAssetManifest(root, { ...latestManifest, assets: [...latestManifest.assets, asset] });
+    if (timelineUpdate.next) writeFileAtomically(timelineUpdate.path, `${JSON.stringify(timelineUpdate.next, null, 2)}\n`);
+    checkpointTimelineHistory(timelineUpdate);
   } catch (error) {
-    unlinkSync(destination);
-    if (existsSync(temporaryManifest)) unlinkSync(temporaryManifest);
+    if (copied) {
+      if (timelineUpdate) rollbackAssetRegistration(destination, manifestPath, originalManifest, timelineUpdate, error);
+      else rmSync(destination, { force: true });
+    }
     throw error;
   }
-  return asset;
+  return readAssetManifest(root).assets.find((asset) => asset.id === id);
+}
+
+export async function registerMediaAssetAsync(projectPath, sourcePath, options = {}) {
+  const { signal, ...registerOptions } = options;
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Asset registration signal must be an AbortSignal.');
+  }
+  for (const field of Object.keys(registerOptions)) if (field !== 'id') throw new TypeError(`Unsupported asset registration option: ${field}.`);
+  if (signal?.aborted) throw signal.reason ?? new DOMException('Asset registration was aborted.', 'AbortError');
+  const root = resolve(projectPath);
+  const source = resolve(sourcePath);
+  const metaPath = join(root, 'meta.json');
+  if (!existsSync(metaPath)) throw new Error(`Not an Engine project: ${root}`);
+  if (!existsSync(source) || !statSync(source).isFile()) throw new Error(`Media file not found: ${source}`);
+  const extension = extname(source).toLowerCase();
+  const id = registerOptions.id ?? defaultAssetId(source);
+  if (!/^[a-z][a-z0-9-]*$/.test(id)) throw new TypeError('Asset id must be a lowercase kebab-case identifier.');
+  const manifest = readAssetManifest(root);
+  if (manifest.assets.some((asset) => asset.id === id)) throw new Error(`Asset already registered: ${id}`);
+  const image = IMAGE_EXTENSIONS.has(extension);
+  const relativePath = `assets/${id}${extension}`;
+  const destination = join(root, relativePath);
+  if (existsSync(destination)) throw new Error(`Asset destination already exists: ${relativePath}`);
+  const assetDirectory = join(root, 'assets');
+  const stagedPath = join(assetDirectory, `.${id}.${randomUUID()}.register.tmp`);
+  let destinationLinked = false;
+  let registered = false;
+  try {
+    const sha256 = await copyFileAndHash(source, stagedPath, signal);
+    const probe = image ? await probeImageAsync(stagedPath, signal) : await probeMediaAsync(stagedPath, { requireVideo: false, signal });
+    signal?.throwIfAborted();
+    const asset = {
+      id,
+      path: relativePath,
+      type: image ? 'image' : probe.width === null ? 'audio' : 'video',
+      sizeBytes: statSync(stagedPath).size,
+      sha256,
+      ...(image ? { width: probe.width, height: probe.height, codec: probe.codec } : {
+        durationSeconds: probe.durationSeconds,
+        width: probe.width,
+        height: probe.height,
+        frameRate: probe.frameRate,
+        nominalFrameRate: probe.nominalFrameRate,
+        hasAudio: probe.hasAudio,
+        audioStreams: probe.audioStreams,
+        videoCodec: probe.videoCodec,
+        audioCodec: probe.audioCodec,
+        streamTiming: probe.streamTiming,
+      }),
+    };
+    await link(stagedPath, destination);
+    destinationLinked = true;
+    const latestManifest = readAssetManifest(root);
+    if (latestManifest.assets.some((entry) => entry.id === id)) throw new Error(`Asset already registered: ${id}`);
+    const manifestPath = join(root, 'assets', 'manifest.json');
+    const originalManifest = existsSync(manifestPath) ? readFileSync(manifestPath) : undefined;
+    const timelineUpdate = prepareTimelineAssetUpdate(root, asset);
+    try {
+      writeAssetManifest(root, { ...latestManifest, assets: [...latestManifest.assets, asset] });
+      if (timelineUpdate.next) writeFileAtomically(timelineUpdate.path, `${JSON.stringify(timelineUpdate.next, null, 2)}\n`);
+      checkpointTimelineHistory(timelineUpdate);
+    } catch (error) {
+      rollbackAssetRegistration(destination, manifestPath, originalManifest, timelineUpdate, error);
+      throw error;
+    }
+    registered = true;
+    return asset;
+  } catch (error) {
+    if (destinationLinked && !registered && existsSync(destination)) rmSync(destination, { force: true });
+    throw error;
+  } finally {
+    rmSync(stagedPath, { force: true });
+  }
+}
+
+/** Read the registered project media catalog without touching its files. */
+export function listProjectAssets(projectPath) {
+  const root = resolve(projectPath);
+  return structuredClone(readAssetManifest(root));
+}
+
+/** Remove an unused asset from project catalogs without deleting its media files. */
+export function unregisterProjectAsset(projectPath, assetId) {
+  const root = resolve(projectPath);
+  if (typeof assetId !== 'string' || !/^[a-z][a-z0-9-]*$/.test(assetId)) throw new TypeError('Asset id must be a lowercase kebab-case identifier.');
+  const manifest = readAssetManifest(root);
+  const manifestPath = join(root, 'assets', 'manifest.json');
+  const originalManifest = existsSync(manifestPath) ? readFileSync(manifestPath) : undefined;
+  const index = manifest.assets.findIndex((asset) => asset.id === assetId);
+  if (index < 0) throw new Error(`Asset is not registered: ${assetId}`);
+
+  const timelinePath = join(root, 'timeline.json');
+  if (existsSync(timelinePath) && lstatSync(timelinePath).isSymbolicLink()) throw new TypeError('Project timeline cannot be a symbolic link.');
+  const originalTimeline = existsSync(timelinePath) ? readFileSync(timelinePath) : undefined;
+  const originalHistory = readTimelineHistorySnapshot(timelinePath);
+  let nextTimeline;
+  let timelineChanged = false;
+  if (originalTimeline) {
+    nextTimeline = JSON.parse(originalTimeline.toString('utf8'));
+    validateTimeline(nextTimeline);
+    const references = nextTimeline.tracks.flatMap((track) => (track.clips ?? [])
+      .filter((clip) => clip.assetId === assetId)
+      .map((clip) => `${track.id}/${clip.id}`));
+    if (references.length > 0) throw new Error(`Asset ${assetId} is still used by timeline clips: ${references.join(', ')}.`);
+    if (nextTimeline.lineage?.assetId === assetId) throw new Error(`Asset ${assetId} is retained as timeline source lineage and cannot be unregistered.`);
+    const assets = nextTimeline.assets.filter((asset) => asset.id !== assetId);
+    timelineChanged = assets.length !== nextTimeline.assets.length;
+    if (timelineChanged) nextTimeline = validateTimeline({ ...nextTimeline, assets });
+  }
+
+  const updatedManifest = { ...manifest, assets: manifest.assets.filter((_, assetIndex) => assetIndex !== index) };
+  try {
+    writeAssetManifest(root, updatedManifest);
+    if (timelineChanged) writeFileAtomically(timelinePath, `${JSON.stringify(nextTimeline, null, 2)}\n`);
+    if (timelineChanged) checkpointTimelineHistory({ path: timelinePath, originalHistory });
+  } catch (error) {
+    const rollbackErrors = [];
+    try { restoreFile(manifestPath, originalManifest); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+    if (originalTimeline !== undefined) {
+      try { writeFileAtomically(timelinePath, originalTimeline); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+    }
+    try { restoreFile(getTimelineHistoryPath(timelinePath), originalHistory); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+    if (rollbackErrors.length > 0) {
+      throw new AggregateError([error, ...rollbackErrors], `Asset unregistration failed and rollback was incomplete. Preserve project files and inspect ${root}.`);
+    }
+    throw error;
+  }
+  return { asset: structuredClone(manifest.assets[index]), mediaFilesPreserved: true };
 }
 
 export function verifyProjectAssets(projectPath) {
@@ -127,7 +266,9 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
   const oldAssetExists = existsSync(destination);
   const originalManifest = readFileSync(manifestPath);
   const timelinePath = join(root, 'timeline.json');
+  if (existsSync(timelinePath) && lstatSync(timelinePath).isSymbolicLink()) throw new TypeError('Project timeline cannot be a symbolic link.');
   const originalTimeline = existsSync(timelinePath) ? readFileSync(timelinePath) : undefined;
+  const originalHistory = readTimelineHistorySnapshot(timelinePath);
 
   const replacementSha256 = hashFile(source);
   const updated = {
@@ -150,6 +291,7 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
   };
   const nextManifest = { ...manifest, assets: manifest.assets.map((asset, assetIndex) => assetIndex === index ? updated : asset) };
   let nextTimeline;
+  let timelineChanged = false;
   if (originalTimeline) {
     nextTimeline = JSON.parse(originalTimeline.toString('utf8'));
     const timelineAssetIndex = nextTimeline.assets.findIndex((asset) => asset.id === assetId);
@@ -157,6 +299,7 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
       nextTimeline.assets[timelineAssetIndex] = { ...nextTimeline.assets[timelineAssetIndex], ...updated };
       if (nextTimeline.lineage?.assetId === assetId) nextTimeline.lineage.sourceSha256 = updated.sha256;
       validateTimeline(nextTimeline);
+      timelineChanged = true;
     }
   }
   let installedNewAsset = false;
@@ -166,8 +309,9 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
     if (oldAssetExists) copyFileSync(destination, backupPath, fsConstants.COPYFILE_EXCL);
     installedNewAsset = true;
     copyFileSync(stagedPath, destination);
-    writeFileSync(manifestPath, `${JSON.stringify(nextManifest, null, 2)}\n`);
-    if (nextTimeline) writeFileSync(timelinePath, `${JSON.stringify(nextTimeline, null, 2)}\n`);
+    writeAssetManifest(root, nextManifest);
+    if (nextTimeline) writeFileAtomically(timelinePath, `${JSON.stringify(nextTimeline, null, 2)}\n`);
+    if (timelineChanged) checkpointTimelineHistory({ path: timelinePath, originalHistory });
     manifestCommitted = true;
   } catch (error) {
     if (!manifestCommitted) {
@@ -175,8 +319,9 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
         if (existsSync(backupPath)) copyFileSync(backupPath, destination);
         else rmSync(destination, { force: true });
       }
-      writeFileSync(manifestPath, originalManifest);
-      if (originalTimeline) writeFileSync(timelinePath, originalTimeline);
+      writeFileAtomically(manifestPath, originalManifest);
+      if (originalTimeline) writeFileAtomically(timelinePath, originalTimeline);
+      restoreFile(getTimelineHistoryPath(timelinePath), originalHistory);
     }
     throw new Error(`Could not relink asset ${assetId}: ${error.message}`);
   } finally {
@@ -189,7 +334,149 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
   return updated;
 }
 
+export async function relinkProjectAssetAsync(projectPath, assetId, sourcePath, options = {}) {
+  const { signal } = options;
+  if (Object.keys(options).some((field) => field !== 'signal')) throw new TypeError('Unsupported asset relink option.');
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Asset relink signal must be an AbortSignal.');
+  }
+  if (signal?.aborted) throw signal.reason ?? new DOMException('Asset relinking was aborted.', 'AbortError');
+  const root = resolve(projectPath);
+  const manifest = readAssetManifest(root);
+  const index = manifest.assets.findIndex((asset) => asset.id === assetId);
+  if (index < 0) throw new Error(`Asset is not registered: ${assetId}`);
+  const source = resolve(sourcePath);
+  if (!existsSync(source) || !statSync(source).isFile()) throw new Error(`Replacement media file not found: ${source}`);
+  const previous = manifest.assets[index];
+  if (extname(source).toLowerCase() !== extname(previous.path).toLowerCase()) throw new TypeError(`Replacement media must keep the registered ${extname(previous.path)} file extension.`);
+  const image = IMAGE_EXTENSIONS.has(extname(source).toLowerCase());
+  if ((previous.type === 'image') !== image) throw new TypeError(`Replacement media must be a ${previous.type} asset.`);
+
+  const destination = resolveProjectAsset(root, previous.path);
+  if (existsSync(destination) && lstatSync(destination).isSymbolicLink()) throw new TypeError('Registered asset paths cannot be symbolic links.');
+  const assetDirectory = dirname(destination);
+  mkdirSync(assetDirectory, { recursive: true });
+  const stagedPath = join(assetDirectory, `.${assetId}.${randomUUID()}.relink.tmp`);
+  const backupPath = join(assetDirectory, `.${assetId}.${randomUUID()}.backup.tmp`);
+  const manifestPath = join(root, 'assets', 'manifest.json');
+  const timelinePath = join(root, 'timeline.json');
+  const oldAssetExists = existsSync(destination);
+  if (existsSync(timelinePath) && lstatSync(timelinePath).isSymbolicLink()) throw new TypeError('Project timeline cannot be a symbolic link.');
+  const originalManifest = readFileSync(manifestPath);
+  const originalTimeline = existsSync(timelinePath) ? readFileSync(timelinePath) : undefined;
+  const originalHistory = readTimelineHistorySnapshot(timelinePath);
+  let movedOldAsset = false;
+  let installedNewAsset = false;
+  let commitStarted = false;
+  let committed = false;
+  try {
+    const replacementSha256 = await copyFileAndHash(source, stagedPath, signal);
+    const probe = image ? await probeImageAsync(stagedPath, signal) : await probeMediaAsync(stagedPath, { requireVideo: false, signal });
+    const type = image ? 'image' : probe.width === null ? 'audio' : 'video';
+    if (type !== previous.type) throw new TypeError(`Replacement media must be a ${previous.type} asset.`);
+    const updated = {
+      ...previous,
+      ...(image ? { width: probe.width, height: probe.height, codec: probe.codec } : {
+        durationSeconds: probe.durationSeconds,
+        width: probe.width,
+        height: probe.height,
+        frameRate: probe.frameRate,
+        nominalFrameRate: probe.nominalFrameRate,
+        hasAudio: probe.hasAudio,
+        audioStreams: probe.audioStreams,
+        videoCodec: probe.videoCodec,
+        audioCodec: probe.audioCodec,
+        streamTiming: probe.streamTiming,
+      }),
+      sizeBytes: statSync(stagedPath).size,
+      sha256: replacementSha256,
+      proxies: (previous.proxies ?? []).filter((proxy) => proxy.sourceSha256 === replacementSha256),
+    };
+    const nextManifest = { ...manifest, assets: manifest.assets.map((asset, assetIndex) => assetIndex === index ? updated : asset) };
+    let nextTimeline;
+    let timelineChanged = false;
+    if (originalTimeline) {
+      nextTimeline = JSON.parse(originalTimeline.toString('utf8'));
+      const timelineAssetIndex = nextTimeline.assets.findIndex((asset) => asset.id === assetId);
+      if (timelineAssetIndex >= 0) {
+        nextTimeline.assets[timelineAssetIndex] = { ...nextTimeline.assets[timelineAssetIndex], ...updated };
+        if (nextTimeline.lineage?.assetId === assetId) nextTimeline.lineage.sourceSha256 = updated.sha256;
+        validateTimeline(nextTimeline);
+        timelineChanged = true;
+      }
+    }
+    signal?.throwIfAborted();
+    commitStarted = true;
+    if (oldAssetExists) {
+      await rename(destination, backupPath);
+      movedOldAsset = true;
+    }
+    await rename(stagedPath, destination);
+    installedNewAsset = true;
+    writeAssetManifest(root, nextManifest);
+    if (nextTimeline) writeFileAtomically(timelinePath, `${JSON.stringify(nextTimeline, null, 2)}\n`);
+    if (timelineChanged) checkpointTimelineHistory({ path: timelinePath, originalHistory });
+    committed = true;
+    for (const proxy of previous.proxies ?? []) {
+      if (proxy.sourceSha256 !== updated.sha256) rmSync(resolveProjectProxy(root, proxy.path), { force: true });
+    }
+    return updated;
+  } catch (error) {
+    if (commitStarted && !committed) {
+      if (installedNewAsset) await unlink(destination).catch(() => {});
+      if (movedOldAsset && !existsSync(destination)) await rename(backupPath, destination).catch(() => {});
+      writeFileAtomically(manifestPath, originalManifest);
+      if (originalTimeline) writeFileAtomically(timelinePath, originalTimeline);
+      restoreFile(getTimelineHistoryPath(timelinePath), originalHistory);
+    }
+    const retainedBackup = movedOldAsset && existsSync(backupPath) ? ` Previous media backup retained at ${backupPath}.` : '';
+    throw new Error(`Could not relink asset ${assetId}: ${error.message}${retainedBackup}`, { cause: error });
+  } finally {
+    rmSync(stagedPath, { force: true });
+    if (committed || !movedOldAsset) rmSync(backupPath, { force: true });
+  }
+}
+
 export function createAssetProxy(projectPath, assetId, options = {}) {
+  const context = prepareAssetProxy(projectPath, assetId, options);
+  if (context.cached) return context.cached;
+  try {
+    const result = spawnSync('ffmpeg', context.args, { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+    if (result.error || result.status !== 0) throw new Error(`Could not generate video proxy: ${result.error?.message ?? result.stderr.trim()}`);
+    return storeAssetProxy(context, probeMedia(context.stagedPath));
+  } catch (error) {
+    rollbackAssetProxy(context);
+    throw error;
+  } finally {
+    cleanupAssetProxy(context);
+  }
+}
+
+export async function createAssetProxyAsync(projectPath, assetId, options = {}) {
+  const { signal, ...proxyOptions } = options;
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Proxy signal must be an AbortSignal.');
+  }
+  if (signal?.aborted) throw signal.reason ?? new DOMException('Proxy generation was aborted.', 'AbortError');
+  const context = prepareAssetProxy(projectPath, assetId, proxyOptions);
+  if (context.cached) {
+    signal?.throwIfAborted();
+    return context.cached;
+  }
+  try {
+    await runProcess('ffmpeg', context.args, { signal, stdio: 'capture' });
+    const probe = await probeMediaAsync(context.stagedPath, { signal });
+    signal?.throwIfAborted();
+    return storeAssetProxy(context, probe);
+  } catch (error) {
+    rollbackAssetProxy(context);
+    throw error;
+  } finally {
+    cleanupAssetProxy(context);
+  }
+}
+
+function prepareAssetProxy(projectPath, assetId, options) {
   const root = resolve(projectPath);
   const manifest = readAssetManifest(root);
   const assetIndex = manifest.assets.findIndex((asset) => asset.id === assetId);
@@ -201,7 +488,6 @@ export function createAssetProxy(projectPath, assetId, options = {}) {
   const targetFrameRate = options.frameRate === undefined ? undefined : String(normalizeFrameRate(options.frameRate));
   if (!Number.isSafeInteger(maxDimension) || maxDimension < 160 || maxDimension > 3840) throw new TypeError('Proxy maxDimension must be an integer from 160 to 3840.');
   if (!Number.isSafeInteger(crf) || crf < 18 || crf > 40) throw new TypeError('Proxy CRF must be an integer from 18 to 40.');
-
   const sourcePath = resolveProjectAsset(root, asset.path);
   if (!existsSync(sourcePath) || !statSync(sourcePath).isFile() || lstatSync(sourcePath).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or not a regular project file.`);
   const sourceHash = hashFile(sourcePath);
@@ -214,9 +500,8 @@ export function createAssetProxy(projectPath, assetId, options = {}) {
     && proxy.targetFrameRate === targetFrameRate && proxy.sourceSha256 === sourceHash);
   const destinationExists = existsSync(destination);
   if (destinationExists && lstatSync(destination).isSymbolicLink()) throw new TypeError('Proxy files cannot be symbolic links.');
-  if (existing && existing.path === relativePath && destinationExists && hashFile(destination) === existing.sha256) return existing;
+  if (existing && existing.path === relativePath && destinationExists && hashFile(destination) === existing.sha256) return { cached: existing };
   if (destinationExists && !existing) throw new Error(`Proxy file already exists and is not registered: ${relativePath}`);
-
   const proxyDirectory = dirname(destination);
   mkdirSync(proxyDirectory, { recursive: true });
   if (lstatSync(proxyDirectory).isSymbolicLink()) throw new TypeError('Proxy directory cannot be a symbolic link.');
@@ -233,52 +518,56 @@ export function createAssetProxy(projectPath, assetId, options = {}) {
     '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(crf), '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', stagedPath,
   ];
-  try {
-    const result = spawnSync('ffmpeg', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
-    if (result.error || result.status !== 0) throw new Error(`Could not generate video proxy: ${result.error?.message ?? result.stderr.trim()}`);
-    const probe = probeMedia(stagedPath);
-    const expectedRatio = asset.width / asset.height;
-    const actualRatio = probe.width / probe.height;
-    if (probe.width > maxDimension || probe.height > maxDimension || Math.abs(expectedRatio - actualRatio) > 0.01) {
-      throw new Error('Generated video proxy has invalid dimensions or aspect ratio.');
-    }
-    const frameDuration = 1 / (asset.frameRate ?? 30);
-    if (Math.abs(probe.durationSeconds - asset.durationSeconds) > Math.max(0.15, frameDuration * 2)) {
-      throw new Error(`Generated video proxy duration ${probe.durationSeconds.toFixed(3)}s does not match source duration ${asset.durationSeconds}s.`);
-    }
-    if (Math.abs((probe.streamTiming.videoStartSeconds ?? 0) - (asset.streamTiming?.videoStartSeconds ?? 0)) > Math.max(0.05, frameDuration)) {
-      throw new Error('Generated video proxy does not preserve the source video start time.');
-    }
-    const proxy = {
-      path: relativePath,
-      maxDimension,
-      crf,
-      ...(targetFrameRate !== undefined ? { targetFrameRate } : {}),
-      width: probe.width,
-      height: probe.height,
-      durationSeconds: probe.durationSeconds,
-      frameRate: probe.frameRate,
-      nominalFrameRate: probe.nominalFrameRate,
-      streamTiming: probe.streamTiming,
-      sizeBytes: statSync(stagedPath).size,
-      sha256: hashFile(stagedPath),
-      sourceSha256: sourceHash,
-    };
-    if (destinationExists) copyFileSync(destination, backupPath, fsConstants.COPYFILE_EXCL);
-    copyFileSync(stagedPath, destination, destinationExists ? 0 : fsConstants.COPYFILE_EXCL);
-    const nextAsset = { ...asset, proxies: [...(asset.proxies ?? []).filter((entry) => !(entry.maxDimension === maxDimension
-      && entry.crf === crf && entry.targetFrameRate === targetFrameRate)), proxy] };
-    const nextManifest = { ...manifest, assets: manifest.assets.map((entry, index) => index === assetIndex ? nextAsset : entry) };
-    writeAssetManifest(root, nextManifest);
-    return proxy;
-  } catch (error) {
-    if (destinationExists && existsSync(backupPath)) copyFileSync(backupPath, destination);
-    else if (!destinationExists) rmSync(destination, { force: true });
-    throw error;
-  } finally {
-    rmSync(stagedPath, { force: true });
-    rmSync(backupPath, { force: true });
+  return { root, manifest, assetIndex, asset, sourceHash, relativePath, destination, destinationExists, stagedPath, backupPath, maxDimension, crf, targetFrameRate, args };
+}
+
+function storeAssetProxy(context, probe) {
+  const { asset, assetIndex, root, manifest, stagedPath, destination, destinationExists, backupPath,
+    sourceHash, relativePath, maxDimension, crf, targetFrameRate } = context;
+  const expectedRatio = asset.width / asset.height;
+  const actualRatio = probe.width / probe.height;
+  if (probe.width > maxDimension || probe.height > maxDimension || Math.abs(expectedRatio - actualRatio) > 0.01) {
+    throw new Error('Generated video proxy has invalid dimensions or aspect ratio.');
   }
+  const frameDuration = 1 / (asset.frameRate ?? 30);
+  if (Math.abs(probe.durationSeconds - asset.durationSeconds) > Math.max(0.15, frameDuration * 2)) {
+    throw new Error(`Generated video proxy duration ${probe.durationSeconds.toFixed(3)}s does not match source duration ${asset.durationSeconds}s.`);
+  }
+  if (Math.abs((probe.streamTiming.videoStartSeconds ?? 0) - (asset.streamTiming?.videoStartSeconds ?? 0)) > Math.max(0.05, frameDuration)) {
+    throw new Error('Generated video proxy does not preserve the source video start time.');
+  }
+  const proxy = {
+    path: relativePath,
+    maxDimension,
+    crf,
+    ...(targetFrameRate !== undefined ? { targetFrameRate } : {}),
+    width: probe.width,
+    height: probe.height,
+    durationSeconds: probe.durationSeconds,
+    frameRate: probe.frameRate,
+    nominalFrameRate: probe.nominalFrameRate,
+    streamTiming: probe.streamTiming,
+    sizeBytes: statSync(stagedPath).size,
+    sha256: hashFile(stagedPath),
+    sourceSha256: sourceHash,
+  };
+  if (destinationExists) copyFileSync(destination, backupPath, fsConstants.COPYFILE_EXCL);
+  copyFileSync(stagedPath, destination, destinationExists ? 0 : fsConstants.COPYFILE_EXCL);
+  const nextAsset = { ...asset, proxies: [...(asset.proxies ?? []).filter((entry) => !(entry.maxDimension === maxDimension
+    && entry.crf === crf && entry.targetFrameRate === targetFrameRate)), proxy] };
+  const nextManifest = { ...manifest, assets: manifest.assets.map((entry, index) => index === assetIndex ? nextAsset : entry) };
+  writeAssetManifest(root, nextManifest);
+  return proxy;
+}
+
+function rollbackAssetProxy(context) {
+  if (context.destinationExists && existsSync(context.backupPath)) copyFileSync(context.backupPath, context.destination);
+  else if (!context.destinationExists) rmSync(context.destination, { force: true });
+}
+
+function cleanupAssetProxy(context) {
+  rmSync(context.stagedPath, { force: true });
+  rmSync(context.backupPath, { force: true });
 }
 
 export function resolveAssetProxies(projectPath, timeline) {
@@ -319,6 +608,7 @@ function readAssetManifest(root) {
   if (!existsSync(join(root, 'meta.json')) || !existsSync(assetsPath) || !statSync(assetsPath).isDirectory() || lstatSync(assetsPath).isSymbolicLink()) throw new Error(`Not an Engine project: ${root}`);
   const manifestPath = join(root, 'assets', 'manifest.json');
   if (!existsSync(manifestPath)) return { schemaVersion: 1, assets: [] };
+  if (lstatSync(manifestPath).isSymbolicLink()) throw new TypeError('Project asset manifest cannot be a symbolic link.');
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.assets)) throw new TypeError('Asset manifest must use schemaVersion 1 and an assets array.');
   const ids = new Set();
@@ -357,17 +647,63 @@ function resolveProjectProxy(root, relativePath) {
 
 function writeAssetManifest(root, manifest) {
   const manifestPath = join(root, 'assets', 'manifest.json');
-  const temporaryManifest = join(root, 'assets', `.manifest.${randomUUID()}.tmp`);
-  const originalManifest = existsSync(manifestPath) ? readFileSync(manifestPath) : undefined;
+  writeFileAtomically(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function prepareTimelineAssetUpdate(root, asset) {
+  const path = join(root, 'timeline.json');
+  if (!existsSync(path)) return { path };
+  if (lstatSync(path).isSymbolicLink()) throw new TypeError('Project timeline cannot be a symbolic link.');
+  const original = readFileSync(path);
+  const timeline = JSON.parse(original.toString('utf8'));
+  const index = timeline.assets.findIndex((entry) => entry.id === asset.id);
+  const assets = [...timeline.assets];
+  if (index < 0) assets.push(asset);
+  else assets[index] = asset;
+  const next = validateTimeline({ ...timeline, assets });
+  return { path, original, originalHistory: readTimelineHistorySnapshot(path), next };
+}
+
+function rollbackAssetRegistration(destination, manifestPath, originalManifest, timelineUpdate, cause) {
+  const rollbackErrors = [];
+  try { rmSync(destination, { force: true }); } catch (error) { rollbackErrors.push(error); }
+  try { restoreFile(manifestPath, originalManifest); } catch (error) { rollbackErrors.push(error); }
+  try { restoreFile(timelineUpdate.path, timelineUpdate.original); } catch (error) { rollbackErrors.push(error); }
+  try { restoreFile(getTimelineHistoryPath(timelineUpdate.path), timelineUpdate.originalHistory); } catch (error) { rollbackErrors.push(error); }
+  if (rollbackErrors.length > 0) {
+    throw new AggregateError([cause, ...rollbackErrors], `Asset registration failed and rollback was incomplete. Preserve project files and inspect ${destination}.`);
+  }
+}
+
+function checkpointTimelineHistory(timelineUpdate) {
+  if (timelineUpdate.originalHistory === undefined) return;
+  const history = JSON.parse(timelineUpdate.originalHistory.toString('utf8'));
+  resetTimelineFileHistory(timelineUpdate.path, { limit: history.limit });
+}
+
+function readTimelineHistorySnapshot(timelinePath) {
+  const historyPath = getTimelineHistoryPath(timelinePath);
+  if (!existsSync(historyPath)) return undefined;
+  if (lstatSync(historyPath).isSymbolicLink()) throw new TypeError('Timeline history file cannot be a symbolic link.');
+  return readFileSync(historyPath);
+}
+
+function getTimelineHistoryPath(timelinePath) {
+  return join(dirname(timelinePath), `.${basename(timelinePath)}.history.json`);
+}
+
+function restoreFile(path, original) {
+  if (original === undefined) rmSync(path, { force: true });
+  else writeFileAtomically(path, original);
+}
+
+function writeFileAtomically(path, content) {
+  const temporaryPath = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
   try {
-    writeFileSync(temporaryManifest, `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx' });
-    writeFileSync(manifestPath, readFileSync(temporaryManifest), { flag: 'w' });
-  } catch (error) {
-    if (originalManifest) writeFileSync(manifestPath, originalManifest);
-    else rmSync(manifestPath, { force: true });
-    throw error;
+    writeFileSync(temporaryPath, content, { flag: 'wx' });
+    renameSync(temporaryPath, path);
   } finally {
-    rmSync(temporaryManifest, { force: true });
+    rmSync(temporaryPath, { force: true });
   }
 }
 
@@ -387,6 +723,27 @@ function probeImage(path) {
   const stream = JSON.parse(result.stdout).streams?.[0];
   if (!Number.isSafeInteger(stream?.width) || stream.width <= 0 || !Number.isSafeInteger(stream?.height) || stream.height <= 0) throw new TypeError('Image must have readable positive dimensions.');
   return { width: stream.width, height: stream.height, codec: stream.codec_name ?? null };
+}
+
+async function probeImageAsync(path, signal) {
+  const result = await runProcess('ffprobe', [
+    '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name,width,height', '-of', 'json', path,
+  ], { signal, stdio: 'capture' });
+  const stream = JSON.parse(result.stdout).streams?.[0];
+  if (!Number.isSafeInteger(stream?.width) || stream.width <= 0 || !Number.isSafeInteger(stream?.height) || stream.height <= 0) throw new TypeError('Image must have readable positive dimensions.');
+  return { width: stream.width, height: stream.height, codec: stream.codec_name ?? null };
+}
+
+async function copyFileAndHash(source, destination, signal) {
+  const hash = createHash('sha256');
+  const hasher = new Transform({
+    transform(chunk, encoding, callback) {
+      hash.update(chunk);
+      callback(null, chunk);
+    },
+  });
+  await pipeline(createReadStream(source), hasher, createWriteStream(destination, { flags: 'wx' }), { signal });
+  return hash.digest('hex');
 }
 
 function hashFile(path) {

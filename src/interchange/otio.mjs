@@ -59,6 +59,10 @@ export function importTimelineFromOtio(projectPath, otioPath) {
     const trackId = uniqueId(engineTrack?.id ?? safeId(sourceTrack.name, `${sourceTrack.kind}-track-${sourceTrack.order + 1}`), usedTrackIds);
     const usedClipIds = new Set();
     const clips = [];
+    const hasCrossfades = sourceTrack.clips.some((clip) => clip.crossfade);
+    const trackState = sourceTrack.kind === 'audio'
+      ? (sourceTrack.enabled === false ? { muted: true } : engineTrack?.muted === true ? { muted: false } : {})
+      : (sourceTrack.enabled === false ? { visible: false } : engineTrack?.visible === false ? { visible: true } : {});
     for (const sourceClip of sourceTrack.clips) {
       if (!existsSync(sourceClip.path)) throw new Error(`OTIO clip media is missing: ${sourceClip.path}`);
       const engineAsset = original?.assets.find((asset) => asset.id === sourceClip.engineAssetId);
@@ -77,7 +81,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
           usedIds.add(asset.id);
         }
       }
-      const priorClip = engineTrack?.clips.find((clip) => clip.id === sourceClip.engineClipId) ?? {};
+      const priorClip = sourceClip.crossfade ? {} : engineTrack?.clips.find((clip) => clip.id === sourceClip.engineClipId) ?? {};
       clips.push({
         ...priorClip,
         id: uniqueId(priorClip.id ?? safeId(sourceClip.name, `${sourceTrack.kind}-clip-${clips.length + 1}`), usedClipIds),
@@ -86,6 +90,8 @@ export function importTimelineFromOtio(projectPath, otioPath) {
         sourceOut: sourceClip.sourceOut,
         timelineStart: sourceClip.timelineStart,
         durationSeconds: sourceClip.durationSeconds,
+        ...(sourceClip.crossfade?.role === 'incoming' ? { fadeInSeconds: sourceClip.crossfade.durationSeconds } : {}),
+        ...(sourceClip.crossfade?.role === 'outgoing' && sourceTrack.kind === 'audio' ? { fadeOutSeconds: sourceClip.crossfade.durationSeconds } : {}),
       });
     }
     tracks.push({
@@ -93,6 +99,8 @@ export function importTimelineFromOtio(projectPath, otioPath) {
       id: trackId,
       kind: sourceTrack.kind,
       order: sourceTrack.order,
+      ...(hasCrossfades ? { allowOverlap: true } : {}),
+      ...trackState,
       clips,
     });
   }
@@ -104,6 +112,7 @@ export function importTimelineFromOtio(projectPath, otioPath) {
   tracks.forEach((track, order) => { track.order = order; });
   const durationSeconds = Math.max(
     original?.project.durationSeconds ?? projectMeta.durationSeconds,
+    imported.durationSeconds ?? 0,
     ...tracks.flatMap((track) => track.clips.map((clip) => clip.timelineStart + clip.durationSeconds)),
     0.001,
   );

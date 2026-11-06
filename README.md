@@ -32,6 +32,8 @@ through its CLI or package interface.
 
 Run `npm install`, then `npm run doctor` to check the local toolchain. The doctor
 reports missing required tools and HyperFrames' optional local AI runtimes.
+Rhubarb Lip Sync is also detected as an optional external CLI; install it
+separately if you want phonetic mouth cues.
 Transcription requires a supported provider or local model/runtime; importing an
 existing SRT, VTT, or JSON transcript does not.
 Consumers can check the same environment programmatically with
@@ -92,7 +94,16 @@ node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json
   "rhubarb": "rhubarb",
   "recognizer": "phonetic",
   "extendedShapes": "X",
-  "dialogFile": "script.txt"
+  "dialogFile": "script.txt",
+  "spriteStateMap": {
+    "a": "closed",
+    "b": "small",
+    "c": "open",
+    "d": "wide",
+    "e": "small",
+    "f": "small",
+    "x": "rest"
+  }
 }
 ```
 
@@ -100,12 +111,82 @@ The JavaScript API exports `rhubarbLipSyncCues(audioPath, options)`. This
 produces timing and mouth labels; it does not generate avatar art or guarantee
 viseme recognition accuracy.
 
+Use `mapRhubarbCuesToSpriteStates(track, mapping)` to adapt Rhubarb labels to a
+sprite pack's available states. The default mapping targets a five-state pack
+(`rest`, `closed`, `small`, `open`, `wide`); consumers can provide their own
+lowercase Rhubarb-label-to-state mapping when their artwork uses different
+mouth shapes. The same `spriteStateMap` can go in the lip-sync options file to
+write mapped cues directly from the CLI.
+
 For sprite avatars, `createAvatarComposition(projectPath, spec)` accepts
 consumer-supplied image layers and state cue tracks. Each layer's default image
 is restored when a timed cue ends, so sparse blink or expression cues return to
 the default state. Use `audioLevelCues` for a rough audio-reactive mouth demo or
 map cues from a speech recognizer onto the sprite states your asset pack has.
-The Engine does not bundle avatar artwork or claim phoneme-accurate lip sync.
+To generate mouth cues as part of composition, set `lipSync` to an audio path,
+the name of a mouth layer, and optional Rhubarb options. The selected mouth
+layer must provide its sprite states and omit a precomputed `track`. The audio
+is also used as narration unless `narration` is set separately. Rhubarb must be
+installed by the consumer; this convenience does not bundle the optional tool.
+This lets a consumer create and render a speech-driven avatar from one
+`avatar-compose` specification instead of writing an intermediate cue file.
+For example, the spec can supply a body track and mouth sprites while asking
+the Engine to generate the mouth track:
+
+```json
+{
+  "durationSeconds": 11.133333,
+  "lipSync": {
+    "audioPath": "Voice.mp3",
+    "layer": "mouth",
+    "options": {
+      "rhubarb": "rhubarb",
+      "recognizer": "phonetic",
+      "spriteStateMap": {
+        "a": "closed",
+        "b": "small",
+        "c": "open",
+        "d": "wide",
+        "e": "small",
+        "f": "small",
+        "x": "rest"
+      }
+    }
+  },
+  "layers": [
+    {
+      "name": "body",
+      "role": "body",
+      "image": "assets/avatar/body.png",
+      "track": { "schemaVersion": 1, "durationSeconds": 11.133333, "cues": [] }
+    },
+    {
+      "name": "mouth",
+      "role": "mouth",
+      "image": "assets/avatar/mouth-rest.png",
+      "states": {
+        "rest": "assets/avatar/mouth-rest.png",
+        "closed": "assets/avatar/mouth-closed.png",
+        "small": "assets/avatar/mouth-small.png",
+        "open": "assets/avatar/mouth-open.png",
+        "wide": "assets/avatar/mouth-wide.png"
+      },
+      "x": 0.5,
+      "y": 0.4,
+      "width": 0.04
+    }
+  ]
+}
+```
+
+Run it with `node src/cli.mjs avatar-compose video-projects/my-video avatar.json`.
+Layers can use normalized canvas coordinates (`x`, `y`, `width`) or anchor to an
+earlier layer with `relativeTo`, `anchor: [x, y]`, and a `width` fraction of the
+parent sprite. This keeps face features aligned when the avatar is resized or
+moved. Every state in a layer must use the same PNG canvas dimensions, which
+prevents blink, mouth, and pose changes from shifting the layer bounds. The
+Engine does not bundle avatar artwork or claim
+phoneme-accurate lip sync.
 
 ## Create a project
 
@@ -126,7 +207,28 @@ and platform references. Source media uses `contain` by default to preserve the
 whole frame; select `cover` to crop overflow or `fill` to stretch. Set a
 project-wide policy with `--fit`, then override it for individual video clips
 with their `fit` field. Projects are created under `video-projects/` and
-existing project folders are never overwritten.
+existing project folders are never overwritten. Each project starts with a
+valid `timeline.json` containing ordered video, audio, and overlay tracks plus
+all currently registered project assets. For an existing project missing that
+file, initialize one from its metadata and media catalog with:
+
+```sh
+node src/cli.mjs timeline create video-projects/my-video
+```
+
+Use the reviewable `set-project-state` operation to change timeline duration or
+the project-wide `sourceFit`; validation refuses a duration that would clip
+any existing timeline item. `sourceFit: null` clears the project override.
+Canvas width, height, and frame rate remain tied to project metadata and are
+not editable through a timeline-only operation.
+
+```json
+{ "type": "set-project-state", "state": { "sourceFit": "cover", "durationSeconds": 30 } }
+```
+
+The optional output path can create a separate timeline. Pass a duration as the
+second argument to keep the default output path, or as the final argument after
+an output path to override the project default.
 
 Frame rates accept integers and rational values such as `30000/1001` for
 NTSC-style 29.97 fps. Rendering passes the project frame rate to HyperFrames
@@ -149,24 +251,30 @@ H.264/H.265, MOV supports H.264/H.265/ProRes, and WebM supports VP9. ProRes
 uses its HQ profile and does not accept CRF or bitrate overrides. The codec
 override runs as a verified FFmpeg final encode. With an explicit codec and no
 CRF/bitrate override, FFmpeg's codec default is used. Add `"timeoutSeconds": 900`
-to bound the HyperFrames render plus any final FFmpeg encode (1–86400 seconds).
-Timed-out renders terminate their process tree and remove temporary output.
-The JavaScript async APIs `renderProjectAsync`, `renderTimelineAsync`, and
-`renderEditedProjectAsync` also accept an `AbortSignal` as `signal`. CLI renders
-handle Ctrl+C by cancelling the active render. Timeline asset preprocessing
-and post-render audio mastering are synchronous and are outside the timeout.
-The synchronous `renderProject` and `renderTimeline` APIs remain available
-without cancellation. To render PNG frames, set
+to bound rendering (1–86400 seconds). `renderTimelineAsync` includes FFmpeg
+audio alignment, speed/reverse/effect proxy generation, sidechain processing,
+HyperFrames capture, final encoding, output probing, and audio mastering in
+that deadline. `renderProjectAsync` also applies cancellation and timeouts to
+capture, final encoding, and output probing. Timeout terminates the active
+media process and removes temporary output. The JavaScript async APIs
+`renderProjectAsync`, `renderTimelineAsync`, and `renderEditedProjectAsync` accept an
+`AbortSignal` as `signal`. CLI renders handle Ctrl+C by cancelling the active
+render and its FFmpeg preprocessing processes. The synchronous `renderProject`
+and `renderTimeline` APIs remain available without cancellation. To render PNG
+frames, set
 `{ "format": "png-sequence" }`; the output path is a new directory. Defaults
 remain controlled by HyperFrames quality (`draft`, `standard`, or `high`).
 Set `"colorProfile": "rec709"` or `"colorProfile": "rec2020-sdr"` to convert
 the rendered SDR video from the renderer's BT.709 working output and write
-matching color metadata. This requires the FFmpeg `colorspace` filter and
-performs a final video encode. HDR profiles are not supported. `npm run doctor`
-reports whether the filter is available. `npm run doctor` also lists common
-H.264, H.265, VP9, and ProRes encoder availability. Before rendering, the
-Engine checks that FFmpeg provides the requested final encoder and reports a
-setup error before starting browser capture when it is missing.
+matching color metadata. This requires FFmpeg's `colorspace` filter and
+performs a final video encode. Set `"colorProfile": "hdr10"` for MP4 or MOV to
+convert the BT.709 SDR render to 10-bit BT.2020/PQ and encode with HEVC Main 10.
+This SDR-to-HDR conversion maps reference white to 203 nits; it cannot recover
+highlight detail absent from the SDR render. HDR10 output requires FFmpeg's
+`zscale` filter and `libx265`. `npm run doctor` reports filter and encoder
+availability. Before rendering, the Engine checks required final encoders and
+filters and reports a setup error before generating timeline proxies or
+starting browser capture when one is missing.
 
 For long renders, add `{ "resumeCheckpoint": true }` to the render options.
 After a complete HyperFrames capture, the async renderer keeps a validated
@@ -282,6 +390,18 @@ await transcribeWithProvider(projectPath, mediaPath, {
 Provider credentials stay inside the consumer's provider client and are not
 written to project metadata or the normalized transcript.
 
+The JavaScript API exports `probeMediaAsync(path, { signal })` for cancellable
+FFprobe inspection when a consumer needs media metadata without registering the
+asset first. The CLI `probe` command uses the same asynchronous path and Ctrl+C
+stops its active FFprobe process.
+
+`asset register` probes and copies sources asynchronously. Ctrl+C cancels the
+probe or staged copy and cleans the incomplete registration; source files and
+existing project assets are left untouched. When `timeline.json` exists, the
+new asset's probed metadata is added to its asset catalog without adding a clip;
+the editing agent can then place it on a track. JavaScript consumers can use
+`await registerMediaAssetAsync(projectPath, sourcePath, { id, signal })`.
+
 `asset verify` checks registered source and proxy SHA-256 identities against
 the manifest and reports missing or modified files. `asset relink` replaces
 the media for an existing asset ID, refreshes its probe metadata and
@@ -291,7 +411,39 @@ work. If `timeline.json` exists, its asset metadata and source fingerprint are
 refreshed as well; the timeline is revalidated before the replacement is saved.
 Stale proxies are removed when the source fingerprint changes. Relinking only
 accepts the original media type and extension, and preserves the replacement
-source file.
+source file. The CLI stages and probes the replacement asynchronously; Ctrl+C
+cancels before commit or restores the prior asset, manifest, and timeline if
+the commit fails. JavaScript consumers can use
+`await relinkProjectAssetAsync(projectPath, assetId, sourcePath, { signal })`.
+Asset registration and relinking update timeline metadata. When a persistent
+timeline history sidecar exists, the Engine resets its snapshots automatically
+and preserves the configured history limit because asset metadata changes form
+a new undo baseline.
+
+Use `asset list` to inspect all registered media, including assets that are not
+yet referenced by a timeline. It returns the versioned manifest metadata as
+JSON without touching media files:
+
+```sh
+node src/cli.mjs asset list video-projects/my-edit
+```
+
+The JavaScript API exposes the same operation as
+`listProjectAssets(projectPath)`.
+
+Use `asset unregister` to remove unused media from the project manifest and
+timeline catalog. It refuses to unregister an asset referenced by any clip.
+The source and proxy files stay on disk, so this operation does not discard
+media; delete those files separately only when you have confirmed they are no
+longer needed. The API returns the removed asset metadata and confirms that the
+files were preserved:
+
+```sh
+node src/cli.mjs asset unregister video-projects/my-edit unused-intro
+```
+
+The JavaScript API exposes the same operation as
+`unregisterProjectAsset(projectPath, assetId)`.
 
 `asset proxy create` generates an H.264, video-only proxy for a registered
 video asset. The optional arguments set maximum dimension, CRF, and output
@@ -307,7 +459,9 @@ video clips to the smallest current proxy and leaves audio clips on registered
 source media. `asset verify` checks proxy files too; a modified proxy is
 regenerated when the same proxy settings are requested again. Regular final
 renders continue using the original assets unless proxy use is explicitly
-requested.
+requested. The CLI uses cancellable FFmpeg processing; Ctrl+C stops proxy
+generation and removes its staged output. JavaScript consumers can call
+`await createAssetProxyAsync(projectPath, assetId, { signal, ...options })`.
 
 `asset preview` creates cached thumbnails and/or an audio waveform for a
 registered asset. It returns source-relative thumbnail timestamps and paths,
@@ -317,7 +471,9 @@ generation settings; changed source media cannot silently reuse stale previews.
 Pass an options JSON file to override `thumbnailIntervalSeconds` (default 2,
 0.25–60), `thumbnailMaxDimension` (default 320, 80–1280), or `waveformPoints`
 (default 2000, 32–20000). The JavaScript API is
-`await generateAssetPreview(projectPath, assetId, options)`.
+`await generateAssetPreview(projectPath, assetId, { signal, ...options })`;
+thumbnail extraction, waveform decoding, and media probing respond to the
+signal. The CLI also cancels active preview processes on Ctrl+C.
 
 Media-analysis providers use the same injected approach. Their findings are
 time-checked against the probed source and returned as suggestions for an AI or
@@ -367,9 +523,22 @@ retimed transcript, or render artifacts. It stores the source SHA-256 and
 artifact paths in timeline lineage. To edit transcript words before rendering,
 apply corrections with `transcript correct` and provide the corrected file to
 `edit`. You can also build and render a generic timeline directly with the
-JavaScript API (`timelineFromEdl`, `editTimeline`, `editTimelineBatch`,
-`detachAudioFromTimelineClip`, `createTimelineHistory`, `createCaptionTrack`,
-and `renderTimeline`).
+JavaScript API (`createProjectTimeline`, `timelineFromEdl`, `editTimeline`,
+`editTimelineBatch`, `editTimelineFile`, `undoTimelineFile`,
+`redoTimelineFile`, `detachAudioFromTimelineClip`, `createTimelineHistory`,
+`createCaptionTrack`, and `renderTimeline`).
+
+Use `timeline inspect` to give an editing agent a compact, read-only view of the
+project format, assets, ordered tracks, clip source and timeline ranges,
+transitions, and audio settings before it proposes an edit:
+
+```sh
+node src/cli.mjs timeline inspect timeline.json
+```
+
+The JavaScript API exports the same view through
+`inspectTimeline(timeline)`. It validates the timeline first and does not write
+or modify project files.
 
 Generic edit operations can add/remove/reorder tracks and add/remove/duplicate clips, detach clip audio,
 move clips within and between compatible tracks, trim/slip/split clips,
@@ -394,6 +563,53 @@ different video layer, use `move-track` in an operation file:
   "timelineStart": 8
 }
 ```
+
+Use `set-track-state` to show or hide video/overlay tracks, mute audio tracks,
+or adjust audio-track volume through the same reviewable operation workflow.
+Partial state updates preserve other settings, and `null` clears an override:
+
+```json
+{ "type": "set-track-state", "trackId": "music", "state": { "muted": true, "volume": 0.35 } }
+```
+
+To process every clip on a music track with the same chain, set its effects at
+track level:
+
+```json
+{
+  "type": "set-track-audio-effects",
+  "trackId": "music",
+  "audioEffects": [
+    { "type": "lowpass", "frequencyHz": 16000 },
+    { "type": "balance", "value": 0.15 }
+  ]
+}
+```
+
+Visual tracks accept `visible`; audio tracks accept `muted`, `volume`, and
+project-time `volumeKeyframes` through `set-track-state`. Use the dedicated
+`set-track-audio-effects` operation to replace or clear a track effect chain.
+Its JavaScript API is
+`setTimelineTrackAudioEffects(timeline, trackId, effects)`; pass `null` or an
+empty array to clear it. Clip effects run first; then a track with effects is
+mixed to one temporary stem and its chain runs across that full timeline.
+Clip/track gain, fades, and timing ducking are preserved.
+
+Use `set-overlay` to reviewably change caption text, word timings, layout,
+styling, or composition reference after adding the overlay clip. The operation
+accepts validated overlay fields only, and `null` clears optional overrides:
+
+```json
+{
+  "type": "set-overlay",
+  "trackId": "captions",
+  "clipId": "caption-01",
+  "properties": { "text": "A clearer caption", "fontSize": 48, "textAlign": "center" }
+}
+```
+
+The JavaScript API is `setTimelineOverlay(timeline, trackId, clipId, properties)`.
+Use `preview-edit` to inspect caption and layout changes before writing them.
 
 Review the exact result before writing an edit. `preview-edit` prints the
 duration change and each added, removed, or updated track and clip as JSON; it
@@ -436,6 +652,29 @@ overwritten. The JavaScript API exposes the same behavior through
 `editTimelineBatch(timeline, operations)`. `previewTimelineEdit(timeline,
 operations)` returns the same validated change plan without modifying the input.
 
+Replace a clip's media source through a reviewable `replace-asset` operation.
+The clip keeps its timeline placement and visual/audio settings; provide new
+source bounds when the old range does not fit the replacement. The operation
+can also clear an incompatible playback rate or speed ramp with `null`, or
+select/clear an audio stream:
+
+```json
+{
+  "type": "replace-asset",
+  "trackId": "video-main",
+  "clipId": "b-roll-01",
+  "assetId": "b-roll-alternate",
+  "sourceIn": 2,
+  "sourceOut": 5,
+  "playbackRate": null,
+  "reverse": false,
+  "speedRamp": null
+}
+```
+
+Use `timeline preview-edit` first to inspect the resulting clip changes. The
+same operation is available as `replaceTimelineClipAsset` in the JavaScript API.
+
 Detach the selected video clip's source audio into a synchronized audio clip.
 This creates an audio track when the requested one does not exist and keeps
 the video clip's source range, timeline placement, and playback rate or speed
@@ -470,7 +709,26 @@ const restored = history.redo();
 ```
 
 The history stores timeline snapshots in memory; save approved project files
-separately through the consumer's normal persistence flow.
+separately through the consumer's normal persistence flow. For CLI agents and
+other one-shot processes, persistent history operates directly on a timeline
+file and keeps a bounded hidden sidecar beside it:
+
+```sh
+node src/cli.mjs timeline preview-edit timeline.json edits/move-intro.json
+node src/cli.mjs timeline project-edit timeline.json edits/move-intro.json
+node src/cli.mjs timeline undo timeline.json
+node src/cli.mjs timeline redo timeline.json
+node src/cli.mjs timeline history timeline.json
+```
+
+The first edit creates `.timeline.json.history.json`; the default history limit
+is 20 snapshots. Pass a limit on the first `project-edit` call to choose a
+different bound. A failed or interrupted two-file update is recovered from its
+atomic history journal on the next command; a lock serializes concurrent CLI
+edits and stale locks from exited processes are cleared. If the timeline was edited outside
+that history, the CLI reports the mismatch; use
+`timeline history timeline.json reset [limit]` to begin a new history from the
+current timeline.
 
 For a crossfade between adjacent clips, apply a timeline edit before rendering:
 
@@ -560,13 +818,64 @@ const clip = {
 
 Animated bounds must stay within the canvas. Keyframes are part of the
 schema-version-1 timeline object and use the same JavaScript renderer as other
-timeline operations.
+timeline operations. AI workflows can replace or clear clip keyframes with the
+reviewable `set-keyframes` timeline operation. It works in a batch and with
+`timeline preview-edit`, so proposed motion can be inspected before saving:
+
+```json
+{
+  "type": "set-keyframes",
+  "trackId": "video",
+  "clipId": "b-roll",
+  "keyframes": [
+    { "time": 0, "properties": { "x": 0.5, "width": 0.4 } },
+    { "time": 2, "properties": { "x": 0.2, "width": 0.6 }, "ease": "power2.out" }
+  ]
+}
+```
+
+Set `keyframes` to `null` to remove the animation. The JavaScript API exposes
+`setTimelineClipKeyframes(timeline, trackId, clipId, keyframes)`.
+
+Use `set-framing` to reviewably change a video's static fit or normalized
+viewport after adding it to the timeline. Partial updates preserve unspecified
+fields; set a field to `null` to restore its inherited/default value:
+
+```json
+{
+  "type": "set-framing",
+  "trackId": "video",
+  "clipId": "b-roll",
+  "framing": { "fit": "cover", "x": 0.1, "width": 0.8 }
+}
+```
+
+The JavaScript API exposes `setTimelineClipFraming(timeline, trackId, clipId,
+framing)`. Timeline validation checks the resulting crop and viewport bounds.
 
 Set a constant `playbackRate` from `0.1` to `5` on video or audio clips. The
 source range must equal `durationSeconds * playbackRate`. Rendering creates a
 temporary FFmpeg proxy for the selected source range (video is re-encoded;
 audio uses pitch-preserving `atempo`) and removes it afterward. Original assets
 and the saved timeline remain unchanged.
+
+Set `reverse: true` on a video or audio clip to play its selected source range
+backward. It can combine with a constant `playbackRate`, but not with
+`speedRamp`. Rendering creates a temporary reversed media proxy and removes it
+afterward. FFmpeg's reverse filters buffer the selected clip, so memory use
+grows with the clip's duration and resolution. Reverse playback is not represented by the
+OpenTimelineIO interchange profile. Detaching a reversed video clip copies the
+reverse setting to its audio clip. Trim and split preserve the reverse source
+direction. To change it as a reviewable edit, use the
+`set-reverse` timeline operation with the CLI or `setTimelineClipReverse` API:
+
+```json
+  { "type": "set-reverse", "trackId": "video", "clipId": "shot-1", "reverse": true }
+```
+
+The `doctor` command and `getEngineCapabilities()` report whether the FFmpeg
+`reverse` and `areverse` filters are available. Rendering checks the filter
+needed by each reversed track before it creates temporary media.
 
 For a smooth speed ramp, set source-relative `speedRamp` points instead of a
 constant `playbackRate`:
@@ -592,7 +901,22 @@ The `ease` field on a point controls the outgoing segment. Supported curves are
 eased rate curves into bounded linear segments for video timestamp mapping and
 audio automation. The clip duration is `integral(ds / playbackRate(s))` over
 its source range; the first point starts at offset 0 and the last ends at
-`sourceOut - sourceIn`.
+`sourceOut - sourceIn`. Use the reviewable `set-speed` edit operation to set a
+constant rate, replace a speed ramp, or reset to normal speed. It recalculates
+clip duration and scales clip-local animation, fades, transitions, word timing,
+and volume automation to preserve their relative timing:
+
+```json
+{
+  "type": "set-speed",
+  "trackId": "video-main",
+  "clipId": "shot-1",
+  "speed": { "playbackRate": 1.5 }
+}
+```
+
+Pass `null` for `playbackRate` or `speedRamp` to reset to normal speed. The
+same operation is exposed as `setTimelineClipSpeed`.
 Rates must stay between 0.1× and 5×. Use the exported `speedRampDuration`
 helper to compute the required clip duration. The video proxy maps frame
 timestamps through the curve. Audio uses pitch-preserving FFmpeg `rubberband`
@@ -603,8 +927,99 @@ The `doctor` command reports whether the filter is available. Trim and split
 operations rebase speed curves and visual keyframes at the edit point.
 
 Audio tracks and clips accept `volume` from 0 to 1, and audio clips accept
-`fadeInSeconds` and `fadeOutSeconds`. To duck a music track while narration clips
-are active, add this to the timeline:
+`fadeInSeconds` and `fadeOutSeconds`.
+
+Use `set-audio-state` to reviewably change an audio clip's static volume, fade
+durations, or selected source audio stream. Partial updates preserve unspecified
+fields; `null` restores the inherited/default value:
+
+```json
+{
+  "type": "set-audio-state",
+  "trackId": "narration",
+  "clipId": "voice-over",
+  "state": { "volume": 0.8, "fadeInSeconds": 0.2, "audioStreamIndex": 0 }
+}
+```
+
+The JavaScript API is
+`setTimelineClipAudioState(timeline, trackId, clipId, state)`. Timeline
+validation checks the selected stream and clip-bound fade durations.
+
+For changing clip gain over time, use `volumeKeyframes`. Times are relative to
+the audio clip, begin at 0, and interpolate linearly between points. The last
+value holds through the clip end. Trim, split, gap insertion, and ripple delete
+preserve the curve. Use `set-volume-keyframes` or the
+`setTimelineClipVolumeKeyframes` API to reviewably replace the curve; pass
+`null` or an empty array to clear it.
+
+```json
+{
+  "type": "set-volume-keyframes",
+  "trackId": "narration",
+  "clipId": "voice-over",
+  "volumeKeyframes": [
+    { "time": 0, "volume": 1 },
+    { "time": 2.5, "volume": 0.35 },
+    { "time": 4, "volume": 1 }
+  ]
+}
+```
+
+Audio tracks can also define `volumeKeyframes` to automate the track fader over
+project time. These points start at time 0, use linear interpolation, and hold
+the last value. Clip and track automation multiply together with static track
+  and clip gain. `set-track-state` can replace the track curve; pass `null` to
+  clear it. Gap insertion and ripple deletion preserve its timing:
+
+```json
+{
+  "type": "set-track-state",
+  "trackId": "music",
+  "state": {
+    "volumeKeyframes": [
+      { "time": 0, "volume": 0.7 },
+      { "time": 5, "volume": 0.25 },
+      { "time": 12, "volume": 0.7 }
+    ]
+  }
+}
+```
+
+Audio clips can also define an ordered `audioEffects` array. The supported
+effects are `equalizer` (`frequencyHz`, `gainDB`, optional `q`), `highpass` or
+`lowpass` (`frequencyHz`, optional `order` 1–2), `compressor` (`thresholdDB`,
+`ratio`, optional attack/release and makeup gain), and `denoise`
+(`reductionDB`, 0.01–30). `balance` takes a `value` from `-1` (left) to `1`
+(right), with `0` centered. Effects are applied to a temporary clip proxy,
+leaving the registered source unchanged. Denoise requires the `afftdn` filter;
+stereo balance requires `stereotools`. `doctor` and `capabilities` report these
+and other audio filter availability. Render preflight checks all filters
+required by selected clip/track effects, sidechain, and mastering settings
+before creating temporary media.
+Audio tracks may define the same `audioEffects` array; the Engine mixes the
+track's clips to a temporary stem, then applies the track chain across that
+complete stem. Use `set-track-audio-effects` to replace or clear the track
+chain without editing the timeline file by hand.
+Use the reviewable `set-audio-effects` operation or the
+`setTimelineClipAudioEffects` API to apply or replace this ordered list. Pass
+`null` or an empty array to clear it.
+
+```json
+{
+  "audioEffects": [
+    { "type": "highpass", "frequencyHz": 80 },
+    { "type": "denoise", "reductionDB": 12 },
+    { "type": "compressor", "thresholdDB": -20, "ratio": 3 },
+    { "type": "balance", "value": -0.2 }
+  ]
+}
+```
+
+Keep the final `audioMastering` stage for whole-mix processing such as loudness,
+final equalization, limiting, and output channel layout.
+
+To duck a music track while narration clips are active, add this to the timeline:
 
 ```js
 timeline.audioMix = {
@@ -638,6 +1053,9 @@ and release to 0.01–9000 ms. The detector stem uses source track/clip gain and
 fades; output track/clip gain and fades remain applied by the timeline renderer.
 This is broadband compression, not speech recognition or phoneme-aware audio
 mixing. Final settings still need listening review on varied real material.
+Use the reviewable `set-audio-mix` edit operation or
+`setTimelineAudioMix(timeline, audioMix)` API to replace these rules; pass
+`null` to clear them.
 
 Optional final-mix loudness mastering is configured on the timeline:
 
@@ -668,7 +1086,10 @@ and normalization; the limiter runs at the end of the final mix chain. These
 controls need listening review against varied real material before mix presets
 can be recommended.
 `channelLayout` can request a mono or stereo final mix; the encoded channel count
-is checked before the mastered render replaces its input.
+is checked before the mastered render replaces its input. Use the reviewable
+`set-audio-mastering` edit operation or
+`setTimelineAudioMastering(timeline, settings)` API to replace settings; pass
+`null` to clear mastering.
 
 Silence and repeated-word detection produce proposals only. Review and save the
 approved cuts in the versioned EDL format before applying them. Source media,
@@ -694,8 +1115,18 @@ node src/cli.mjs timeline import-otio video-projects/my-edit edit.otio imported-
 
 The bridge uses the maintained OpenTimelineIO Python library; the Node.js API
 and other Engine features work without it. OTIO files reference media by path
-and do not embed media. The initial profile supports video/audio tracks, cuts,
-and gaps. It rejects overlaps, retiming, transitions, nested compositions,
-and remote media references. Engine-only clip settings and overlay tracks are
-retained in OTIO metadata for Engine round trips, but other editors may ignore
-or remove that metadata.
+and do not embed media. The profile supports video/audio tracks, nested track
+stacks flattened into ordered Engine tracks, cuts, gaps, standard
+`SMPTE_Dissolve` transitions on import, track enabled state, and project duration
+including trailing gaps. Imported dissolves become overlapping clips with
+video opacity fades or audio crossfades. Import rejects custom transition
+types, other overlaps, retiming, trimmed tracks/stacks, effects, disabled clips,
+nested compositions inside tracks, and remote media references. Export converts
+explicitly faded two-clip overlaps into standard `SMPTE_Dissolve` transitions.
+Unmarked overlaps, chained overlaps, standalone fades, clip-edge transitions,
+retiming, track-level volume automation, and track-level audio effects are
+rejected instead of silently changing their meaning.
+Crossfade offsets and source ranges are derived from the overlapping Engine
+clips.
+Engine-only clip settings and overlay tracks are retained in OTIO metadata for
+Engine round trips, but other editors may ignore or remove that metadata.

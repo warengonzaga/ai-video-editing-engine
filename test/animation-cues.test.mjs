@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { animationStateAt, validateAnimationCues } from '../src/animation/cues.mjs';
-import { normalizeRhubarbOutput } from '../src/animation/rhubarb.mjs';
+import { mapRhubarbCuesToSpriteStates, normalizeRhubarbOutput, rhubarbLipSyncCues } from '../src/animation/rhubarb.mjs';
 
 test('selects timed states with explicit gaps and exclusive ends', () => {
   const track = { schemaVersion: 1, durationSeconds: 2, cues: [
@@ -44,4 +44,17 @@ test('rejects unsupported Rhubarb shapes, overlapping cues, and malformed JSON',
     { start: 0, end: 0.6, value: 'A' }, { start: 0.5, end: 1, value: 'B' },
   ] }, 1));
   assert.throws(() => normalizeRhubarbOutput({ mouthCues: [{ start: 0, end: 1.1, value: 'A' }] }, 1), /within the audio duration/);
+});
+
+test('maps Rhubarb mouth shapes to a consumer sprite pack and allows overrides', () => {
+  const track = normalizeRhubarbOutput({ mouthCues: [
+    { start: 0, end: 0.2, value: 'X' },
+    { start: 0.2, end: 0.4, value: 'A' },
+    { start: 0.4, end: 0.6, value: 'F' },
+  ] }, 0.6);
+  assert.deepEqual(mapRhubarbCuesToSpriteStates(track).cues.map((cue) => cue.state), ['rest', 'closed', 'small']);
+  assert.deepEqual(mapRhubarbCuesToSpriteStates(track, { x: 'neutral', a: 'shut', f: 'round' }).cues.map((cue) => cue.state), ['neutral', 'shut', 'round']);
+  assert.throws(() => mapRhubarbCuesToSpriteStates(track, { x: 'rest' }), /No sprite state is mapped/);
+  assert.throws(() => mapRhubarbCuesToSpriteStates(track, { x: '' }), /non-empty state names/);
+  assert.throws(() => rhubarbLipSyncCues('unused.mp3', { spriteStateMap: { a: '' } }), /non-empty state names/);
 });

@@ -1,19 +1,22 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
-import { probeMedia } from './probe.mjs';
+import { probeMediaAsync } from './probe.mjs';
+import { runProcess } from '../render/process.mjs';
 
 const WAVEFORM_SAMPLE_RATE = 4000;
 const MAX_THUMBNAILS = 20000;
 
 export async function generateAssetPreview(projectPath, assetId, options = {}) {
+  const { signal, ...previewOptions } = options;
+  validateAbortSignal(signal);
   const root = resolve(projectPath);
   if (!existsSync(join(root, 'meta.json'))) throw new Error(`Not an Engine project: ${root}`);
   if (!/^[a-z][a-z0-9-]*$/.test(assetId ?? '')) throw new TypeError('Asset id must be a lowercase kebab-case identifier.');
-  const thumbnailIntervalSeconds = options.thumbnailIntervalSeconds ?? 2;
-  const thumbnailMaxDimension = options.thumbnailMaxDimension ?? 320;
-  const waveformPoints = options.waveformPoints ?? 2000;
+  const thumbnailIntervalSeconds = previewOptions.thumbnailIntervalSeconds ?? 2;
+  const thumbnailMaxDimension = previewOptions.thumbnailMaxDimension ?? 320;
+  const waveformPoints = previewOptions.waveformPoints ?? 2000;
   if (!Number.isFinite(thumbnailIntervalSeconds) || thumbnailIntervalSeconds < 0.25 || thumbnailIntervalSeconds > 60) {
     throw new TypeError('thumbnailIntervalSeconds must be from 0.25 to 60.');
   }
@@ -43,9 +46,10 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   if (!existsSync(source) || !statSync(source).isFile() || lstatSync(source).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or unsafe.`);
   const sourceSha256 = hashFile(source);
   if (sourceSha256 !== asset.sha256) throw new Error(`Asset ${assetId} failed integrity verification; relink it before preview generation.`);
+  signal?.throwIfAborted();
 
   const isImage = asset.type === 'image';
-  const media = isImage ? undefined : probeMedia(source, { requireVideo: false });
+  const media = isImage ? undefined : await probeMediaAsync(source, { requireVideo: false, signal });
   const hasVideo = isImage || Number.isFinite(media?.width);
   const hasAudio = !isImage && media?.hasAudio === true;
   const durationSeconds = isImage ? 0 : media.durationSeconds;
@@ -68,9 +72,9 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
       if (count > MAX_THUMBNAILS) throw new RangeError(`Preview would create ${count} thumbnails; increase thumbnailIntervalSeconds to stay within ${MAX_THUMBNAILS}.`);
       const pattern = join(staging, 'thumbnail-%05d.jpg');
       if (isImage) {
-        runFfmpeg(['-i', source, '-frames:v', '1', '-vf', `scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-q:v', '3', join(staging, 'thumbnail-00001.jpg')]);
+        await runFfmpeg(['-i', source, '-frames:v', '1', '-vf', `scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-q:v', '3', join(staging, 'thumbnail-00001.jpg')], signal);
       } else {
-        runFfmpeg(['-i', source, '-map', '0:v:0', '-vf', `fps=1/${thumbnailIntervalSeconds},scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-frames:v', String(count), '-q:v', '3', pattern]);
+        await runFfmpeg(['-i', source, '-map', '0:v:0', '-vf', `fps=1/${thumbnailIntervalSeconds},scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-frames:v', String(count), '-q:v', '3', pattern], signal);
       }
       for (let index = 1; index <= count; index++) {
         const file = `thumbnail-${String(index).padStart(5, '0')}.jpg`;
@@ -82,7 +86,7 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
 
     let waveform;
     if (hasAudio) {
-      waveform = await createWaveform(source, durationSeconds, waveformPoints);
+      waveform = await createWaveform(source, durationSeconds, waveformPoints, signal);
       writeFileSync(join(staging, 'waveform.json'), `${JSON.stringify(waveform)}\n`, { flag: 'wx' });
     }
     const result = {
@@ -98,6 +102,7 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
       ...thumbnails.map(({ file, sha256 }) => ({ file, sha256 })),
       ...(waveform ? [{ file: 'waveform.json', sha256: hashFile(join(staging, 'waveform.json')) }] : []),
     ] }, null, 2)}\n`, { flag: 'wx' });
+    signal?.throwIfAborted();
     try {
       renameSync(staging, destination);
     } catch (error) {
@@ -122,7 +127,8 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   }
 }
 
-function createWaveform(source, durationSeconds, pointCount) {
+function createWaveform(source, durationSeconds, pointCount, signal) {
+  signal?.throwIfAborted();
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn('ffmpeg', [
       '-nostdin', '-hide_banner', '-v', 'error', '-i', source, '-map', '0:a:0', '-vn',
@@ -138,8 +144,11 @@ function createWaveform(source, durationSeconds, pointCount) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       rejectPromise(error);
     };
+    const onAbort = () => child.kill('SIGTERM');
+    signal?.addEventListener('abort', onAbort, { once: true });
     child.stdout.on('data', (chunk) => {
       const data = remainder.length ? Buffer.concat([remainder, chunk]) : chunk;
       const usableBytes = data.length - (data.length % 4);
@@ -158,6 +167,8 @@ function createWaveform(source, durationSeconds, pointCount) {
     child.on('close', (code) => {
       if (settled) return;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      if (signal?.aborted) return fail(signal.reason ?? new DOMException('Asset preview was aborted.', 'AbortError'));
       if (code !== 0) return fail(new Error(`FFmpeg waveform preview failed: ${stderr.trim() || `exit code ${code}`}`));
       if (sampleIndex === 0) return fail(new Error('FFmpeg returned no audio samples for waveform preview.'));
       resolvePromise({ sampleRate: WAVEFORM_SAMPLE_RATE, points: points.map((point) => ({
@@ -225,11 +236,31 @@ function readCachedPreview(directory, expected) {
   };
 }
 
-function runFfmpeg(args) {
-  const result = spawnSync('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-y', ...args], {
-    encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024, timeout: 120000,
-  });
-  if (result.error || result.status !== 0) throw new Error(`FFmpeg thumbnail generation failed: ${result.error?.message ?? result.stderr.trim()}`);
+function validateAbortSignal(signal) {
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Preview signal must be an AbortSignal.');
+  }
+}
+
+async function runFfmpeg(args, signal) {
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort(signal.reason);
+  if (signal?.aborted) relayAbort();
+  else signal?.addEventListener('abort', relayAbort, { once: true });
+  const timer = setTimeout(() => {
+    const error = new Error('FFmpeg thumbnail generation exceeded 120 seconds.');
+    error.name = 'TimeoutError';
+    controller.abort(error);
+  }, 120000);
+  try {
+    await runProcess('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-y', ...args], { signal: controller.signal, stdio: 'capture' });
+  } catch (error) {
+    if (signal?.aborted || error.name === 'TimeoutError') throw error;
+    throw new Error(`FFmpeg thumbnail generation failed: ${error.message}`, { cause: error });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', relayAbort);
+  }
 }
 
 function hashFile(path) {

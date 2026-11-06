@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { listFfmpegEncoders, parseFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
+import { listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
 
 const require = createRequire(import.meta.url);
 const VIDEO_ENCODERS = Object.freeze({
@@ -12,29 +12,26 @@ const VIDEO_ENCODERS = Object.freeze({
 
 export function getEngineCapabilities(options = {}) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Capability options must be an object.');
-  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
+  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'rhubarb'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
   const ffmpegCommand = options.ffmpeg ?? 'ffmpeg';
   const ffprobeCommand = options.ffprobe ?? 'ffprobe';
+  const rhubarbCommand = options.rhubarb ?? 'rhubarb';
   if (typeof ffmpegCommand !== 'string' || !ffmpegCommand.trim()) throw new TypeError('ffmpeg must be a non-empty command path.');
   if (typeof ffprobeCommand !== 'string' || !ffprobeCommand.trim()) throw new TypeError('ffprobe must be a non-empty command path.');
+  if (typeof rhubarbCommand !== 'string' || !rhubarbCommand.trim()) throw new TypeError('rhubarb must be a non-empty command path.');
 
   const nodeVersion = process.versions.node;
   const nodeMajor = Number(nodeVersion.split('.')[0]);
   const ffmpeg = inspectCommand(ffmpegCommand);
   const ffprobe = inspectCommand(ffprobeCommand);
+  const rhubarb = inspectCommand(rhubarbCommand, ['--version']);
   let encoders = new Set();
   let filters = new Set();
   let ffmpegInspectionError;
   if (ffmpeg.available) {
     try {
       encoders = listFfmpegEncoders(ffmpegCommand);
-      const output = spawnSync(ffmpegCommand, ['-hide_banner', '-filters'], {
-        encoding: 'utf8',
-        windowsHide: true,
-        maxBuffer: 4 * 1024 * 1024,
-      });
-      if (output.error || output.status !== 0) throw new Error(output.error?.message ?? output.stderr.trim());
-      filters = parseFfmpegFilters(output.stdout);
+      filters = listFfmpegFilters(ffmpegCommand);
     } catch (error) {
       ffmpegInspectionError = error.message;
     }
@@ -48,19 +45,36 @@ export function getEngineCapabilities(options = {}) {
     tools: {
       ffmpeg: { ...ffmpeg, ...(ffmpegInspectionError ? { inspectionError: ffmpegInspectionError } : {}) },
       ffprobe,
+      rhubarb,
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
     },
     render: {
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
-      filters: { rubberband: filters.has('rubberband'), colorspace: filters.has('colorspace') },
+      filters: {
+        rubberband: filters.has('rubberband'),
+        afftdn: filters.has('afftdn'),
+        stereotools: filters.has('stereotools'),
+        equalizer: filters.has('equalizer'),
+        highpass: filters.has('highpass'),
+        lowpass: filters.has('lowpass'),
+        acompressor: filters.has('acompressor'),
+        sidechaincompress: filters.has('sidechaincompress'),
+        loudnorm: filters.has('loudnorm'),
+        alimiter: filters.has('alimiter'),
+        aresample: filters.has('aresample'),
+        reverse: filters.has('reverse'),
+        areverse: filters.has('areverse'),
+        colorspace: filters.has('colorspace'),
+        zscale: filters.has('zscale'),
+      },
     },
     requiredToolsReady: nodeMajor >= 22 && ffmpeg.available && ffprobe.available && hyperframes && gsap,
   };
 }
 
-function inspectCommand(command) {
-  const result = spawnSync(command, ['-version'], { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 });
+function inspectCommand(command, args = ['-version']) {
+  const result = spawnSync(command, args, { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 });
   if (result.error || result.status !== 0) return { available: false };
   return { available: true, version: result.stdout.trim().split(/\r?\n/, 1)[0] };
 }

@@ -10,6 +10,10 @@ export function parseFfmpegFilters(output) {
 
 export function hasFfmpegFilter(filterName, ffmpeg = 'ffmpeg') {
   if (typeof filterName !== 'string' || !/^[a-z0-9_]+$/.test(filterName)) throw new TypeError('FFmpeg filter name is invalid.');
+  return listFfmpegFilters(ffmpeg).has(filterName);
+}
+
+export function listFfmpegFilters(ffmpeg = 'ffmpeg') {
   const result = spawnSync(ffmpeg, ['-hide_banner', '-filters'], {
     encoding: 'utf8',
     windowsHide: true,
@@ -18,7 +22,7 @@ export function hasFfmpegFilter(filterName, ffmpeg = 'ffmpeg') {
   if (result.error || result.status !== 0) {
     throw new Error(`Could not inspect FFmpeg filters: ${result.error?.message ?? result.stderr.trim()}`);
   }
-  return parseFfmpegFilters(result.stdout).has(filterName);
+  return parseFfmpegFilters(result.stdout);
 }
 
 export function parseFfmpegEncoders(output) {

@@ -1,3 +1,5 @@
+import { sampleAudioVolumeKeyframes } from './audio-volume.mjs';
+
 export function validateAudioMix(timeline) {
   const mix = timeline.audioMix;
   if (mix === undefined) return timeline;
@@ -51,7 +53,7 @@ export function buildAudioVolumeAutomation(timeline, track, clip) {
   for (const rule of timeline.audioMix?.ducking ?? []) {
     if (rule.targetTrackId !== track.id) continue;
     const source = timeline.tracks.find((item) => item.id === rule.sourceTrackId);
-    for (const sourceClip of source.clips) {
+    for (const sourceClip of source._duckingIntervals ?? source.clips) {
       const duckStart = Math.max(start, sourceClip.timelineStart);
       const duckEnd = Math.min(end, sourceClip.timelineStart + sourceClip.durationSeconds);
       if (duckEnd <= duckStart) continue;
@@ -70,6 +72,10 @@ export function buildAudioVolumeAutomation(timeline, track, clip) {
   const fadeOut = clip.fadeOutSeconds ?? 0;
   if (fadeIn > 0) points.add(start + fadeIn);
   if (fadeOut > 0) points.add(end - fadeOut);
+  for (const keyframe of clip.volumeKeyframes ?? []) points.add(start + keyframe.time);
+  for (const keyframe of track.volumeKeyframes ?? []) {
+    if (keyframe.time > start && keyframe.time < end) points.add(keyframe.time);
+  }
   for (const ramp of duckRamps) {
     points.add(Math.max(start, ramp.start - ramp.attackSeconds));
     points.add(ramp.start);
@@ -79,6 +85,8 @@ export function buildAudioVolumeAutomation(timeline, track, clip) {
 
   return [...points].sort((a, b) => a - b).map((time) => {
     let volume = baseVolume;
+    volume *= sampleAudioVolumeKeyframes(track.volumeKeyframes, time);
+    volume *= sampleAudioVolumeKeyframes(clip.volumeKeyframes, time - start);
     if (fadeIn > 0 && time < start + fadeIn) volume *= Math.max(0, (time - start) / fadeIn);
     if (fadeOut > 0 && time > end - fadeOut) volume *= Math.max(0, (end - time) / fadeOut);
     for (const ramp of duckRamps) volume *= duckFactorAt(time, ramp);

@@ -4,7 +4,7 @@ The phased implementation plan and acceptance criteria are in
 [`implementation-plan.md`](implementation-plan.md). Keep this handoff current
 with verified capabilities, evidence, limits, and the next work.
 
-Last updated: 2026-11-06
+Last updated: 2026-11-07
 
 ## Current status
 
@@ -131,8 +131,10 @@ Last updated: 2026-11-06
   a shared timeout across HyperFrames and explicit FFmpeg encoding. Async render
   APIs accept `AbortSignal`; CLI Ctrl+C terminates the active process tree.
   Timeout and cancellation clean Engine and HyperFrames temporary outputs and
-  restore timeline metadata. Asset preprocessing and post-render audio mastering
-  remain synchronous and outside the timeout. Async renders can retain a
+  restore timeline metadata. Timeline preprocessing and post-render mastering
+  are included in `renderTimelineAsync`'s deadline. Its FFmpeg/ffprobe
+  preprocessing and mastering processes are asynchronous and terminate with
+  timeout or external abort signals. Async renders can retain a
   validated HyperFrames capture for retry after a later-stage failure. Cache
   data is content-fingerprinted, SHA-256 checked, capped at 8 GiB per artifact
   by default, expires after 72 hours, and is removed after success. Interrupted
@@ -145,10 +147,53 @@ Last updated: 2026-11-06
 - The optional Rhubarb 1.14.0 adapter converts audio to mono WAV, requests JSON
   mouth cues with the phonetic recognizer by default, and normalizes shape labels
   to the Engine's lowercase cue contract. On the supplied 11.114667-second
-  `Voice 015.mp3`, it produced 60 cues across shapes A, B, C, E, F, and X.
-  This proves CLI integration and cue normalization only; recognition timing,
-  sprite completeness, rendered lip sync, and human review remain open. Rhubarb
-  is an optional external runtime and is not bundled.
+  `Voice 015.mp3`, it produced 60 phonetic cues across shapes A, B, C, E, F, and
+  X. Mapping these to Waren's available mouth sprites produced 61 continuous
+  cues (including the final rest frame), using closed, small, open, and rest
+  sprites. The mapping is consumer-owned and configurable.
+- A separate Rhubarb-backed Windows render was produced at
+  `video-projects/waren-avatar-phonetic-review/renders/voice-015-waren-avatar-phonetic-review-light.mp4`.
+  It is 1920x1080, 30 fps, 11.133 seconds, with AAC narration, blink cues, and
+  phonetic sprite changes. The existing amplitude-driven comparison remains at
+  `video-projects/waren-avatar-speech-review/renders/voice-015-waren-avatar-review-20261106.mp4`.
+  Representative frames were inspected for background, framing, and mouth
+  placement. Rhubarb 1.14.0 is available only in the ignored local validation
+  tooling directory; it is optional, external, and not bundled with the Engine.
+  Automatic phonetic recognition can misread Taglish, so cue timing and visual
+  quality still require listening and human review before Studio integration.
+- `mapRhubarbCuesToSpriteStates` adapts Rhubarb labels to consumer-defined sprite
+  states, with a default five-state map. The `lip-sync` CLI accepts an optional
+  `spriteStateMap` in its options JSON to emit sprite-ready cues; without it, the
+  raw lowercase Rhubarb labels remain unchanged. Capability JSON and `doctor`
+  identify Rhubarb as optional, without including it in the Engine's required
+  readiness gate.
+- `avatar-compose` specs can now request `lipSync` generation directly by
+  naming the narration audio, mouth layer, and optional Rhubarb settings. The
+  generated track is mapped using consumer-provided sprite states, clipped to
+  scene duration, and attached before composition generation. The narration is
+  automatically attached unless a separate narration path is supplied. The
+  existing standalone `lip-sync` command remains available for reusable cue
+  files. This removes the intermediate cue-file step for the common
+  speech-avatar workflow. No tests were run per the user's direction to focus
+  on implementation before manual debugging.
+- Sidechain audio-proxy FFmpeg filter graphs now use one filter thread each to
+  limit nested thread fan-out during parallel renders. After this change, the
+  full parallel local suite passed 128 tests, skipped 3 optional OTIO tests,
+  and had no failures. The earlier parallel run exposed a transient failure in
+  the sidechain recovery assertion; the isolated and serial runs also passed.
+- A fresh `npm run test:render-smoke` passed after the sidechain thread limit.
+  Its 12-second synthetic sync render measured 0.000021-second offsets at
+  0.5s and 10.5s and approximately zero drift. Audio-only sidechain output
+  measured music amplitude 0.1767 before narration, 0.0372 during narration,
+  and 0.1762 after narration, with the expected narration amplitude of 0.28.
+  The first sandboxed run could not connect to HyperFrames' temporary localhost
+  server; the authorized loopback run completed. HyperFrames emitted
+  non-blocking asset-load 404 warnings during some smoke renders.
+- `npm audit --omit=dev --offline` found zero production dependency
+  vulnerabilities using the local npm audit cache.
+- Human review of the current Voice 015 avatar render is pending. Do not treat
+  amplitude-driven timing as phonetic lip sync or start Studio integration
+  until the review and the Rhubarb-backed render are complete.
 
 ## Verification evidence
 
@@ -294,9 +339,10 @@ Last updated: 2026-11-06
   including VFR ingest, layered video/still/nested composition, blend mode,
   captions, speed ramps, Rec.2020 SDR, audio-only/video-only output, sidechain
   mixing, and 12-second A/V sync. Cue offsets were 0.000021s at both 0.5s and
-  10.5s. The smoke cleanup now uses asynchronous Windows retry handling. Hosted
-  matrix validation is complete for the current smoke suite; human audiovisual
-  review and representative real-media validation remain open.
+  10.5s. The smoke cleanup now uses asynchronous Windows retry handling. An
+  earlier hosted matrix passed its then-current suite; later changes still need
+  fresh cross-platform hosted validation. Human audiovisual review and
+  representative real-media validation remain open.
 - A sampled Windows process-tree profile of the complete synthetic render smoke
   took 62.19 seconds, peaked at 3,419.2 MiB working set across 53 processes,
   and exited successfully. The host was the 16-core AMD Ryzen 7 7840HS system
@@ -785,3 +831,280 @@ smoke render alone.
   smoke passes with this offset regression enabled, along with the existing
   VFR, layered, format, audio, and sync checks. This remains generated fixture
   evidence rather than real camera footage or cross-platform validation.
+- The user previously asked to defer tests and GitHub Actions while implementation
+  continued. Local verification has since resumed for the current implementation;
+  hosted workflows remain manual-dispatch only and were not started. Open plan
+  items that require human audiovisual review, representative-project profiling,
+  or review-gated Studio integration remain open.
+- Added an `hdr10` color profile for MP4/MOV output. It converts the renderer's
+  BT.709 SDR frames to 10-bit BT.2020/PQ with a 203-nit reference white, encodes
+  HEVC Main 10, and writes static HDR10 mastering and content-light metadata.
+  The profile requires FFmpeg `zscale` and `libx265`; explicit H.264 requests
+  fail before capture. Probe results now retain pixel format so final validation
+  checks 10-bit output in addition to color tags. README, capability discovery,
+  and `doctor` document/report the new requirements. Tests, render smoke, and
+  visual HDR review were not run per user direction; the transform assumptions
+  and metadata still need manual output review. Corrected the HDR10 mastering
+  display's BT.2020 red-primary coordinates to `R(35400,14600)` after static
+  review found the earlier y-coordinate out of range.
+- Expanded the OpenTimelineIO profile to flatten nested track stacks, preserve
+  audio mute/video visibility through OTIO track enabled state, and retain
+  trailing gaps when exporting/importing project duration. Import now rejects
+  trimmed tracks/stacks, effects, and disabled clips explicitly instead of
+  silently discarding them. Nested compositions inside tracks remain
+  unsupported. No tests or bridge invocation were run per user direction.
+- Updated OTIO import to expand standard `SMPTE_Dissolve` transitions into
+  overlapping Engine clips and map them to video opacity fades or audio
+  crossfades, using OTIO's maintained expanded-transition algorithm. Custom
+  transitions and transition neighbors other than clips are rejected. At that
+  checkpoint, export still rejected overlaps and clip transitions.
+- Validated the current Engine implementation locally: `npm test` passes all
+  130 tests with the pinned OpenTimelineIO 0.18.1 dependency available from a
+  temporary install; no tests were skipped. Added coverage for video-dissolve
+  overlap/fade mapping and audio crossfade fades. A 3-second, 320×240 synthetic
+  HDR10 render completed on Windows; ffprobe confirms 30 fps HEVC Main 10,
+  `yuv420p10le`, limited-range BT.2020/PQ, valid BT.2020 red-primary
+  coordinates (`35400/50000`, `14600/50000`), and 203-nit MaxCLL/MaxFALL.
+  Artifact: `video-projects/timeline-render-smoke/renders/hdr10-validation-20261106.mp4`.
+  A subsequent full `npm run test:render-smoke` pass on Windows covers MP4,
+  WebM, MOV, GIF, PNG sequences, Rec.2020 SDR, layered composition, captions,
+  audio routing, track visibility/mute, and 12-second A/V sync. Sync cues were
+  0.000021 seconds late at 0.5s and 10.5s, with effectively zero measured drift.
+  The first sandboxed attempt could not reach the local HyperFrames server; the
+  same synthetic suite passed with local loopback access enabled. No hosted
+  workflow was started. Real-footage HDR review, cross-platform hosted runs,
+  representative-project profiling, and human audio/visual approval remain
+  open.
+- The prior Voice 015 profile used a precomposed avatar video with narration,
+  so the Engine sprite compositor was not driving its mouth. Added parent-relative
+  sprite placement to `createAvatarComposition` and fixed its aspect-ratio math;
+  mouth layers now anchor to normalized coordinates on an earlier body layer.
+  The compositor also removes the starter title's orphaned GSAP animation when
+  it removes that title. The new ignored review project
+  `video-projects/waren-avatar-speech-review` uses the supplied Waren body,
+  mouth, and blink sprites plus the existing Voice 015 recording. Its 11.133s
+  output is 1920×1080 H.264/AAC at 30 fps. Frame inspection at 1s, 1.9s, 5s,
+  and 9s confirms the mouth is on the face, changes between states, the blink
+  closes the eyes without changing body size, and the idle mouth returns.
+  Mouth timing uses 168 audio-level cues at 15 Hz, not phoneme analysis. Render:
+  `video-projects/waren-avatar-speech-review/renders/voice-015-waren-avatar-review-20261106.mp4`;
+  contact sheet:
+  `video-projects/waren-avatar-speech-review/renders/avatar-review-contact-sheet.png`.
+  Current `node --test --test-concurrency=1` passes 128 tests and skips 3
+  optional OTIO tests because `requirements-otio.txt` is not installed; no tests
+  fail. The default parallel test run had one timing-sensitive sidechain-render
+  failure; that test passes alone and the serial suite passes. User audio review,
+  phoneme-level alignment, and the earlier demo comparison remain open.
+- Generated a separate Rhubarb-backed Voice 015 render using 61 mapped mouth
+  cues and the existing blink sprites. Representative frames confirm the
+  light review canvas, full-body framing, and mouth placement; the output is
+  `video-projects/waren-avatar-phonetic-review/renders/voice-015-waren-avatar-phonetic-review-light.mp4`.
+  The original amplitude-based render remains available unchanged at
+  `video-projects/waren-avatar-speech-review/renders/voice-015-waren-avatar-review-20261106.mp4`.
+  ffprobe reports 1920x1080 H.264 video at 30 fps with 48 kHz stereo AAC audio
+  and 11.133 seconds duration. Rhubarb 1.14.0 was downloaded into ignored local
+  validation tooling; it is optional and is not bundled.
+- Extended `avatar-compose` to accept an optional `lipSync` block that names
+  the narration audio, mouth layer, and Rhubarb options. The Engine now creates
+  mapped mouth cues during composition setup and automatically attaches that
+  audio as narration unless a separate narration path is given. Added a
+  consumer-owned JSON example to the README. This reduced the common
+  speech-avatar authoring path to one composition specification. Per the user's
+  direction, no tests or automated validation were run after this change.
+- Next implementation focus: complete remaining reusable Engine capabilities
+  without starting the gated Studio migration. Leave user audiovisual review,
+  any correction pass, and Studio integration until the implementation work is
+  complete.
+- Added `inspectTimeline(timeline)` and `timeline inspect <timeline.json>` as a
+  read-only, validated overview for AI editing workflows. The output summarizes
+  canvas settings, media metadata, ordered tracks, clip source/timeline ranges,
+  transitions, and audio properties. README, architecture, and implementation
+  plan now document this interface. No tests or automated validation were run,
+  per the user's direction to prioritize implementation.
+- Added `listProjectAssets(projectPath)` and `asset list <project>` to expose the
+  versioned registered-media catalog to agent workflows, including unreferenced
+  assets. The operation returns a detached manifest copy and does not touch
+  media files. README and implementation plan document the new interface. No
+  tests were run, per the user's direction.
+- Extended OTIO export to represent a two-clip Engine overlap as a standard
+  `SMPTE_Dissolve` when the incoming clip has a matching explicit fade (and
+  audio pairs also have a matching outgoing fade). Source ranges are segmented
+  around the transition so the transition uses only frames in the Engine clip
+  source ranges. Unmarked/chained overlaps, standalone fades, clip-edge
+  transitions, and retiming remain explicit errors. Updated the OTIO docs and
+  implementation plan. The optional OTIO bridge was not run and no tests were
+  run, per the user's direction to defer validation.
+- Added video and audio reverse playback for selected clip source ranges. The
+  renderer creates a temporary FFmpeg proxy and supports combining reverse
+  playback with a constant speed; reverse plus speed ramps and OTIO export are
+  rejected explicitly. Detaching audio from a reversed video clip preserves
+  reverse playback in the audio track. Timeline validation, AI-readable clip inspection, and
+  the reviewable `set-reverse` CLI/API operation include the capability.
+  README/architecture/plan documentation describe it. No tests or render
+  verification were run, per the user's direction to prioritize implementation
+  first. FFmpeg reverse-filter memory use scales with clip duration and
+  resolution. FFmpeg `reverse`/`areverse` availability is reported by doctor
+  and capability discovery, and checked before the renderer creates temporary
+  media.
+- Added ordered audio effects per audio clip: parametric equalizer, high-pass,
+  low-pass, compressor, and optional spectral denoise through FFmpeg `afftdn`.
+  The renderer processes temporary WAV proxies, preserves registered sources,
+  supports the selected audio stream, and checks the optional denoise filter
+  before rendering. Timeline validation, inspection output, OpenTimelineIO
+  rejection behavior, reviewable `set-audio-effects` CLI/API editing, FFmpeg
+  capability discovery, README, architecture, and implementation plan describe
+  the feature. Local FFmpeg filter help was inspected for option compatibility;
+  no tests or renders were run, per the user's implementation-first direction.
+- Added clip-relative `volumeKeyframes` for linear audio gain automation, with
+  a held final value. The renderer combines it with static gain, fades, and
+  timing ducking. Trim, split, ripple-delete, and synchronized gap insertion
+  slice and rebase the curve. Added validated `set-volume-keyframes` CLI/API
+  editing and timeline inspection output; OTIO export rejects this unsupported
+  external mapping. No tests or renders were run, per the user's direction.
+- Consolidated FFmpeg filter discovery behind the reusable `listFfmpegFilters`
+  API. Capability discovery, doctor, and render preflight each inspect the
+  filter registry once instead of starting a separate FFmpeg process per
+  optional filter. Timeline-required filters and output encoder/color-profile
+  capabilities are checked before render temporary media is created. No tests
+  or renders were run, per the user's implementation-first direction.
+- Extended `renderTimelineAsync`'s deadline across audio alignment, playback
+  proxy generation, sidechain processing, HyperFrames capture, final encoding,
+  output probing, and optional audio mastering. Timeline preparation, probing,
+  and mastering now use asynchronous FFmpeg/ffprobe processes connected to the
+  same abort signal, so timeout and caller cancellation terminate active
+  process trees. `renderProjectAsync` now also probes captured and encoded media
+  asynchronously with its render signal. Added the public cancellable
+  `probeMediaAsync` API and validate render options, timeline-required filters,
+  output encoders, and color-profile filters before generating temporary media.
+  Temporary assets and project metadata use the existing cleanup/restore path.
+  JavaScript syntax checks passed; no tests or renders were run, per the user's
+  instruction to defer validation.
+- Changed the `probe` CLI command to use `probeMediaAsync` and share the
+  existing Ctrl+C cancellation handler, so local media ingest can terminate its
+  active FFprobe process. README documents the CLI and API behavior. No tests
+  or media probes were run, per the implementation-first direction.
+- Added `createAssetProxyAsync` with AbortSignal-aware FFmpeg proxy creation and
+  async output probing. The `asset proxy create` CLI command now routes through
+  it, reports Ctrl+C cancellation accurately, and cleans staged files. The
+  synchronous API remains available. README and the implementation plan
+  describe the API/CLI workflow. No tests or proxy renders were run.
+- Extended asset preview cancellation across async media probing, thumbnail
+  extraction, and streamed waveform decoding. The CLI `asset preview` command
+  now forwards Ctrl+C through the same cancellation path. Added a 120-second
+  timeout for each thumbnail FFmpeg task and documented the AbortSignal API.
+  No tests, media probes, previews, or renders were run.
+- Added the reviewable `set-keyframes` timeline operation and public
+  `setTimelineClipKeyframes` API. It replaces or clears validated visual
+  keyframes on video and overlay clips, and participates in batches and
+  dry-run edit previews. README and implementation-plan docs include the
+  workflow. No tests or renders were run.
+- Added the reviewable `set-framing` operation and
+  `setTimelineClipFraming` API for partial static video-fit and viewport
+  updates, including `null` resets to inherited values. Resulting clips pass
+  the same timeline placement and fit validation as timeline construction.
+  README, architecture, and implementation-plan docs describe it. No tests or
+  renders were run.
+- Added `set-track-state` and `setTimelineTrackState` for reviewable video or
+  overlay visibility and audio mute/volume changes. Partial updates preserve
+  the other state; `null` removes an override. The shared timeline validator
+  enforces state by track kind and value bounds. README and architecture/plan
+  docs cover the edit operation. No tests or renders were run.
+- Added `set-audio-state` and `setTimelineClipAudioState` for reviewable clip
+  volume, fade-in/fade-out, and source audio-stream changes. Null resets an
+  override; timeline validation enforces track kind, stream index, volume, and
+  fade bounds. README and implementation docs describe the operation. No tests
+  or renders were run.
+- Added `set-overlay` and `setTimelineOverlay` for allowlisted text/composition,
+  caption timing, layout, and style edits. The resulting overlay is validated
+  against the timeline schema and supports the existing batch and dry-run
+  workflows. README, architecture, and implementation-plan docs describe it.
+  No tests or renders were run.
+- Added `registerMediaAssetAsync` for staged, AbortSignal-aware source copying,
+  hashing, and asynchronous ffprobe of audio/video/image inputs. The CLI asset
+  registration command now uses it with Ctrl+C cancellation. A partial asset is
+  only linked into the project before the manifest transaction, and is removed
+  if that commit fails. README and implementation-plan docs describe it. No
+  tests or media registration jobs were run.
+- Added `relinkProjectAssetAsync` with cancellable staged copy, async probing,
+  and transactional replacement of the registered source, asset manifest, and
+  matching timeline metadata. Asset registration and relink metadata now use
+  same-directory temporary files and atomic replacement; a rollback conflict
+  preserves the old source backup and reports its path. The CLI relink command
+  forwards Ctrl+C. Exported and documented the async API. No tests or relink
+  jobs were run.
+- Added persistent timeline-file history for one-shot CLI and agent workflows.
+  `timeline project-edit`, `undo`, `redo`, and `history` keep bounded snapshots
+  in an adjacent sidecar, detect external timeline changes, and recover a
+  journaled edit if the timeline-file replacement was interrupted. A per-file
+  lock serializes concurrent changes and stale locks from exited processes are
+  cleared. The default bound is 20 snapshots with a 64 MiB sidecar limit. No
+  tests or history operations were run.
+- New projects now include a validated empty timeline initialized from project
+  metadata and the registered asset catalog, with video, audio, and overlay
+  tracks. Added `createProjectTimeline` and `timeline create` for existing
+  projects or separate output files. No project creation or timeline command
+  was run after this change.
+- Asset registration now refreshes an existing timeline's asset catalog after
+  probing, without adding clips. It updates the manifest and timeline using
+  atomic replacements and restores both on a reported commit failure. Existing
+  persistent history is reset as a new baseline after registration or relink,
+  preserving its configured limit. No media registration jobs were run.
+- Added reviewable `replace-asset` timeline editing through the operation
+  dispatcher and JavaScript API. It switches a clip to another registered
+  source, preserves its placement and compatible settings, accepts explicit
+  source bounds and stream selection, and allows clearing playback rate or
+  speed-ramp settings when required by the new media. No tests or replacement
+  edits were run.
+- Added the reviewable `set-speed` edit operation and `setTimelineClipSpeed`
+  API for constant rates, speed ramps, and normal-speed reset. It recomputes
+  clip duration from the unchanged source range and rescales clip-local
+  keyframes, word timings, fades, transitions, and volume automation. Timeline
+  validation catches resulting track overlaps. No tests or render jobs were
+  run.
+- Added `unregisterProjectAsset` and `asset unregister` for unused project
+  media. It refuses assets still referenced by timeline clips, updates the
+  manifest and timeline with rollback, resets persistent history when the
+  timeline catalog changes, and preserves source and proxy files. No tests or
+  asset operations were run.
+- Added ordered per-clip stereo balance through the existing audio-effects
+  edit API, using FFmpeg `stereotools`. Added required-filter preflight and
+  capability/doctor reporting plus documentation. No tests, render, or audio
+  review were run.
+- Extended audio effects to audio tracks. `set-track-state` can replace or
+  clear the ordered effect chain; added the dedicated `set-track-audio-effects`
+  operation and `setTimelineTrackAudioEffects` API. Rendering applies clip
+  effects first, mixes clip gain/fades/ducking into a temporary track stem, then
+  applies track effects across that stem. No tests, render, or audio review were
+  run.
+- OTIO export now rejects track-level audio-effect chains instead of relying
+  only on Engine metadata that other editors may discard. Updated the OTIO
+  support boundary docs. No interchange operation or tests were run.
+- Added project-time audio-track `volumeKeyframes`, with validation, inspection,
+  reviewable updates through `set-track-state`, and gain-envelope compilation.
+  Insert-gap freezes automation across the inserted gap; ripple-delete retimes
+  the curve and resumes its post-cut level. Track-effect stems bake the curve,
+  and OTIO export refuses it. No tests, renders, or interchange operations were
+  run.
+- Avatar composition now requires identical PNG canvas dimensions across the
+  states of each layer. This holds the body bounds steady across blink/pose
+  swaps and keeps face-feature anchors stable. Updated the existing assertion
+  and README contract; no tests or renders were run.
+- FFmpeg capability discovery and `doctor` now expose the filters used by
+  audio effects, sidechain processing, and mastering. Render preflight checks
+  all filters selected by the timeline before temporary media is created, with
+  an actionable feature-specific error when a filter is missing. No tests or
+  renders were run.
+- Added validated `set-audio-mix` and `set-audio-mastering` edit operations and
+  `setTimelineAudioMix` / `setTimelineAudioMastering` APIs. They replace or
+  clear top-level audio processing settings and participate in dry-run/batch
+  edits. Updated README, architecture, and implementation plan; no tests or
+  renders were run.
+- Added `set-project-state` and `setTimelineProjectState` for reviewable
+  timeline duration and project-wide source-fit changes. Normal timeline
+  validation rejects durations that exclude existing clips; canvas dimensions
+  and frame rate stay pinned to project metadata. No tests or renders were run.
+- Media probing now falls back to the longest valid stream duration when
+  ffprobe omits or marks container duration unavailable, deriving seconds from
+  `duration_ts × time_base` when the stream duration is absent. Files with no
+  usable duration remain rejected. No media probes or tests were run for this
+  change.

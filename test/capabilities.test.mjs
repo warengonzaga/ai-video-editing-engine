@@ -10,6 +10,7 @@ test('reports versioned runtime, tools, encoder and filter capabilities', () => 
   assert.equal(capabilities.node.supported, true);
   assert.equal(capabilities.tools.ffmpeg.available, true);
   assert.equal(capabilities.tools.ffprobe.available, true);
+  assert.equal(typeof capabilities.tools.rhubarb.available, 'boolean');
   assert.equal(typeof capabilities.render.videoEncoders.h264, 'boolean');
   assert.equal(typeof capabilities.render.videoEncoders.vp9, 'boolean');
   assert.equal(typeof capabilities.render.filters.colorspace, 'boolean');
@@ -20,10 +21,12 @@ test('reports absent external tools without throwing', () => {
   const capabilities = getEngineCapabilities({
     ffmpeg: 'codex-engine-missing-ffmpeg',
     ffprobe: 'codex-engine-missing-ffprobe',
+    rhubarb: 'codex-engine-missing-rhubarb',
   });
 
   assert.equal(capabilities.tools.ffmpeg.available, false);
   assert.equal(capabilities.tools.ffprobe.available, false);
+  assert.equal(capabilities.tools.rhubarb.available, false);
   assert.equal(capabilities.render.videoEncoders.h264, false);
   assert.equal(capabilities.requiredToolsReady, false);
 });
@@ -31,11 +34,14 @@ test('reports absent external tools without throwing', () => {
 test('rejects unsupported capability query options', () => {
   assert.throws(() => getEngineCapabilities({ providerKey: 'secret' }), /Unsupported capability option/);
   assert.throws(() => getEngineCapabilities({ ffmpeg: '' }), /non-empty command path/);
+  assert.throws(() => getEngineCapabilities({ rhubarb: '' }), /non-empty command path/);
 });
 
 test('prints the same capability contract through the CLI', () => {
   const result = spawnSync(process.execPath, ['src/cli.mjs', 'capabilities'], { encoding: 'utf8' });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(JSON.parse(result.stdout).schemaVersion, 1);
+  const capabilities = JSON.parse(result.stdout);
+  assert.equal(capabilities.schemaVersion, 1);
+  assert.equal(typeof capabilities.tools.rhubarb.available, 'boolean');
 });

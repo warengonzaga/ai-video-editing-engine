@@ -1,12 +1,14 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join, resolve } from 'node:path';
 import { validateAnimationCues } from './cues.mjs';
+import { rhubarbLipSyncCues } from './rhubarb.mjs';
 
 /** Build a generic sprite-avatar composition from user-supplied images and timed cues. */
 export function createAvatarComposition(projectPath, specification) {
   const project = resolve(projectPath);
   const meta = JSON.parse(readFileSync(join(project, 'meta.json'), 'utf8'));
-  const { durationSeconds, layers, narration } = specification ?? {};
+  const { durationSeconds, narration, lipSync } = specification ?? {};
+  let layers = specification?.layers;
   if (!Number.isFinite(durationSeconds) || Math.abs(durationSeconds - meta.durationSeconds) > 0.001 || !Array.isArray(layers) || !layers.length) {
     throw new TypeError('Avatar specification duration must match project duration and include layers.');
   }
@@ -17,53 +19,104 @@ export function createAvatarComposition(projectPath, specification) {
   if (existsSync(output)) throw new Error('Avatar composition already exists.');
   const index = readFileSync(indexPath, 'utf8');
   if (!/\n\s*<\/div>\s*\n\s*<script>/.test(index)) throw new Error('Could not find the generated project root composition.');
-  if (narration && (!existsSync(resolve(narration)) || existsSync(join(project, 'assets', `narration${extname(narration).toLowerCase()}`)))) throw new Error('Narration is missing or the destination already exists.');
+  if (index.includes('data-composition-src="compositions/avatar-scene.html"')) throw new Error('Avatar composition is already mounted.');
+  const narrationPath = narration ?? lipSync?.audioPath;
+  if (narrationPath && (!existsSync(resolve(narrationPath)) || existsSync(join(project, 'assets', `narration${extname(narrationPath).toLowerCase()}`)))) throw new Error('Narration is missing or the destination already exists.');
+  if (lipSync !== undefined) {
+    if (!lipSync || typeof lipSync !== 'object' || Array.isArray(lipSync)
+        || typeof lipSync.audioPath !== 'string' || !lipSync.audioPath.trim()
+        || typeof lipSync.layer !== 'string' || !/^[a-z][a-z0-9-]*$/.test(lipSync.layer)
+        || (lipSync.options !== undefined && (!lipSync.options || typeof lipSync.options !== 'object' || Array.isArray(lipSync.options)))) {
+      throw new TypeError('Avatar lipSync requires an audioPath, a mouth layer name, and optional Rhubarb options.');
+    }
+    const layerIndex = layers.findIndex((layer) => layer?.name === lipSync.layer && layer.role === 'mouth');
+    if (layerIndex < 0) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} must name a mouth layer.`);
+    if (layers[layerIndex].track !== undefined) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} already has a track.`);
+    const generatedTrack = rhubarbLipSyncCues(lipSync.audioPath, lipSync.options ?? {});
+    layers = layers.map((layer, index) => index === layerIndex
+      ? { ...layer, track: {
+        schemaVersion: generatedTrack.schemaVersion,
+        durationSeconds,
+        cues: generatedTrack.cues
+          .filter((cue) => cue.start < durationSeconds)
+          .map((cue) => ({ ...cue, end: Math.min(cue.end, durationSeconds) })),
+      } }
+      : layer);
+  }
   const names = new Set();
+  const layouts = new Map();
+  const canvasAspect = meta.width / meta.height;
   for (const layer of layers) {
     if (!layer || names.has(layer.name) || !/^[a-z][a-z0-9-]*$/.test(layer.name) || !['eyes', 'mouth', 'body', 'custom'].includes(layer.role)) throw new TypeError('Invalid or duplicate avatar layer.');
     names.add(layer.name);
     const track = validateAnimationCues(layer.track);
     if (Math.abs(track.durationSeconds - durationSeconds) > 0.001) throw new TypeError('Avatar layer timing does not match the scene.');
     const states = { default: layer.image, ...(layer.states ?? {}) };
+    const dimensionsByState = [];
+    let defaultDimensions;
     for (const [state, path] of Object.entries(states)) {
       if (!/^[a-z][a-z0-9-]*$/.test(state) || typeof path !== 'string' || !existsSync(resolve(path)) || extname(path).toLowerCase() !== '.png') throw new TypeError(`Invalid sprite for ${layer.name}.${state}.`);
+      const dimensions = pngDimensions(resolve(path), `${layer.name}.${state}`);
+      dimensionsByState.push(dimensions);
+      if (state === 'default') defaultDimensions = dimensions;
+    }
+    if (dimensionsByState.some(({ width, height }) =>
+      width !== defaultDimensions.width || height !== defaultDimensions.height)) {
+      throw new TypeError(`Sprite states for ${layer.name} must use matching canvas dimensions.`);
     }
     for (const cue of track.cues) if (!Object.hasOwn(states, cue.state)) throw new TypeError(`Missing sprite for ${layer.name}.${cue.state}.`);
-    const position = [Number(layer.x ?? .5), Number(layer.y ?? .5), Number(layer.width ?? .2)];
-    if (!position.every(Number.isFinite) || position[0] < 0 || position[0] > 1 || position[1] < 0 || position[1] > 1 || position[2] <= 0 || position[2] > 1) throw new TypeError(`Invalid placement for ${layer.name}.`);
+    const width = Number(layer.width ?? .2);
+    let x, y;
+    if (layer.relativeTo !== undefined) {
+      const parent = layouts.get(layer.relativeTo);
+      const anchor = layer.anchor;
+      if (!parent) throw new TypeError(`Avatar layer ${layer.name} must reference an earlier parent layer.`);
+      if (Object.hasOwn(layer, 'x') || Object.hasOwn(layer, 'y')
+          || !Array.isArray(anchor) || anchor.length !== 2
+          || !anchor.every((value) => Number.isFinite(value) && value >= 0 && value <= 1)
+          || !Number.isFinite(width) || width <= 0 || width > 1) {
+        throw new TypeError(`Invalid parent-relative placement for ${layer.name}.`);
+      }
+      x = parent.x + (anchor[0] - 0.5) * parent.width;
+      y = parent.y + (anchor[1] - 0.5) * parent.height;
+      const childWidth = parent.width * width;
+      layouts.set(layer.name, { x, y, width: childWidth, height: childWidth * (defaultDimensions.height / defaultDimensions.width) * canvasAspect });
+    } else {
+      const position = [Number(layer.x ?? .5), Number(layer.y ?? .5), width];
+      if (Object.hasOwn(layer, 'anchor') || !position.every(Number.isFinite)
+          || position[0] < 0 || position[0] > 1 || position[1] < 0 || position[1] > 1
+          || position[2] <= 0 || position[2] > 1) throw new TypeError(`Invalid placement for ${layer.name}.`);
+      [x, y] = position;
+      layouts.set(layer.name, { x, y, width, height: width * (defaultDimensions.height / defaultDimensions.width) * canvasAspect });
+    }
   }
   mkdirSync(assetDir, { recursive: true });
-  const safeLayers = layers.map((layer, index) => {
-    if (!layer || !/^[a-z][a-z0-9-]*$/.test(layer.name) || !['eyes', 'mouth', 'body', 'custom'].includes(layer.role)) throw new TypeError(`Invalid avatar layer at index ${index}.`);
+  const safeLayers = layers.map((layer) => {
     const source = resolve(layer.image ?? '');
-    if (!existsSync(source) || extname(source).toLowerCase() !== '.png') throw new TypeError(`Avatar layer ${layer.name} must reference an existing PNG.`);
     const cues = validateAnimationCues(layer.track);
-    if (Math.abs(cues.durationSeconds - durationSeconds) > 0.001) throw new TypeError(`Avatar layer ${layer.name} timing does not match the scene.`);
     const states = { default: source, ...(layer.states ?? {}) };
     for (const [state, image] of Object.entries(states)) {
-      if (!/^[a-z][a-z0-9-]*$/.test(state)) throw new TypeError(`Invalid state name for ${layer.name}.`);
       const stateSource = resolve(image);
-      if (!existsSync(stateSource) || extname(stateSource).toLowerCase() !== '.png') throw new TypeError(`State ${state} for ${layer.name} must reference an existing PNG.`);
       const target = join(assetDir, `${layer.name}-${state}-${basename(stateSource)}`);
       if (!existsSync(target)) copyFileSync(stateSource, target);
       states[state] = `assets/avatar/${basename(target)}`;
     }
-    const x = Number(layer.x ?? 0.5), y = Number(layer.y ?? 0.5), width = Number(layer.width ?? 0.2);
-    if (![x, y, width].every(Number.isFinite) || x < 0 || x > 1 || y < 0 || y > 1 || width <= 0 || width > 1) throw new TypeError(`Invalid normalized placement for ${layer.name}.`);
-    return { name: layer.name, role: layer.role, image: states.default, states, x, y, width, cues };
+    const layout = layouts.get(layer.name);
+    return { name: layer.name, role: layer.role, image: states.default, states, ...layout, cues };
   });
   const id = 'avatar-scene';
   const timeline = safeLayers.map((layer) => ({ name: layer.name, states: layer.states, cues: layer.cues })).map(({name,states,cues}) => ({name,states,cues:cues.cues}));
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><script src="assets/gsap.min.js"></script><style>*{box-sizing:border-box}html,body,#${id}{margin:0;width:${meta.width}px;height:${meta.height}px;overflow:hidden}#${id}{position:relative;background:transparent}.sprite{position:absolute;left:calc(var(--x)*100%);top:calc(var(--y)*100%);width:calc(var(--w)*100%);height:auto;transform:translate(-50%,-50%)}</style></head><body><div id="${id}" data-composition-id="${id}" data-start="0" data-duration="${durationSeconds}" data-width="${meta.width}" data-height="${meta.height}">${safeLayers.map((layer, index) => `<img id="avatar-${layer.name}" class="clip sprite" data-track-index="${index}" data-start="0" data-duration="${durationSeconds}" src="${layer.image}" style="--x:${layer.x};--y:${layer.y};--w:${layer.width}">`).join('')}</div><script>const tracks=${JSON.stringify(timeline)};const tl=gsap.timeline({paused:true});for(let i=0;i<tracks.length;i++){const t=tracks[i],el=document.querySelector('.sprite[data-track-index="'+i+'"]');for(const c of t.cues){const src=t.states[c.state];if(!src)throw new Error('Missing sprite for '+t.name+': '+c.state);tl.set(el,{attr:{src}},c.start);tl.set(el,{attr:{src:t.states.default}},c.end)}}window.__timelines=window.__timelines||{};window.__timelines['${id}']=tl;</script></body></html>`;
   writeFileSync(output, html, { flag: 'wx' });
-  if (index.includes('data-composition-src="compositions/avatar-scene.html"')) throw new Error('Avatar composition is already mounted.');
   const mount = `\n    <div id="avatar-scene-instance" data-composition-id="avatar-scene-instance" data-composition-src="compositions/avatar-scene.html" data-start="0" data-duration="${durationSeconds}" data-track-index="10"></div>`;
-  const withoutStarterTitle = index.replace(/\s*<div id="title" class="clip" data-start="0" data-duration="[^"]+" data-track-index="0">[^<]*<\/div>/, '');
+  const withoutStarterTitle = index
+    .replace(/\s*<div id="title" class="clip" data-start="0" data-duration="[^"]+" data-track-index="0">[^<]*<\/div>/, '')
+    .replace(/^\s*timeline\.from\('#title',\s*\{[^}]+\}\);\s*$/m, '');
   const updated = withoutStarterTitle.replace(/\n\s*<\/div>\s*\n\s*<script>/, (match) => `${mount}${match}`);
   if (updated === index) throw new Error('Could not find the generated project root composition.');
   writeFileSync(indexPath, updated);
-  if (narration) {
-    const audio = resolve(narration);
+  if (narrationPath) {
+    const audio = resolve(narrationPath);
     if (!existsSync(audio)) throw new TypeError('Narration file does not exist.');
     const audioName = `narration${extname(audio).toLowerCase()}`;
     copyFileSync(audio, join(project, 'assets', audioName));
@@ -71,4 +124,16 @@ export function createAvatarComposition(projectPath, specification) {
     writeFileSync(indexPath, withAudio);
   }
   return { compositionPath: output, layers: safeLayers.length };
+}
+
+function pngDimensions(path, label) {
+  const image = readFileSync(path);
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (image.length < 24 || !image.subarray(0, 8).equals(signature) || image.toString('ascii', 12, 16) !== 'IHDR') {
+    throw new TypeError(`Sprite ${label} must be a valid PNG image.`);
+  }
+  const width = image.readUInt32BE(16);
+  const height = image.readUInt32BE(20);
+  if (width === 0 || height === 0) throw new TypeError(`Sprite ${label} has invalid dimensions.`);
+  return { width, height };
 }

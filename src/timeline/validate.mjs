@@ -7,6 +7,8 @@ import { validateVisualMask } from './mask.mjs';
 import { validateSpeedRamp } from './speed-ramp.mjs';
 import { validateClipTransition } from './transition.mjs';
 import { validateBlendMode } from './blend-mode.mjs';
+import { validateAudioClipEffects } from './audio-effects.mjs';
+import { validateAudioTrackVolumeKeyframes, validateAudioVolumeKeyframes } from './audio-volume.mjs';
 
 const TRACK_KINDS = new Set(['video', 'audio', 'overlay']);
 
@@ -42,6 +44,11 @@ export function validateTimeline(timeline) {
     if (track.visible !== undefined && ((track.kind !== 'video' && track.kind !== 'overlay') || typeof track.visible !== 'boolean')) throw new TypeError(`Track ${track.id} visible must be a boolean on a video or overlay track.`);
     if (track.allowOverlap !== undefined && typeof track.allowOverlap !== 'boolean') throw new TypeError(`Track ${track.id} allowOverlap must be a boolean.`);
     if (track.volume !== undefined && (track.kind !== 'audio' || !Number.isFinite(track.volume) || track.volume < 0 || track.volume > 1)) throw new TypeError(`Track ${track.id} volume must be between 0 and 1 on an audio track.`);
+    if (track.audioEffects !== undefined) {
+      if (track.kind !== 'audio') throw new TypeError(`Track ${track.id} audioEffects are supported only on audio tracks.`);
+      validateAudioClipEffects(track.audioEffects, `track ${track.id}`);
+    }
+    validateAudioTrackVolumeKeyframes(track.volumeKeyframes, track, project.durationSeconds);
     trackIds.add(track.id);
     trackOrders.add(track.order);
     const clipIds = new Set();
@@ -61,6 +68,14 @@ export function validateTimeline(timeline) {
       if (track.kind === 'video' && assetRecord?.type === 'audio') throw new TypeError(`Video clip ${clip.id} references an audio-only asset.`);
       if (track.kind === 'audio' && assetRecord?.type === 'image') throw new TypeError(`Audio clip ${clip.id} references an image asset.`);
       if (track.kind === 'audio' && assetRecord?.type === 'video' && assetRecord.hasAudio === false) throw new TypeError(`Audio clip ${clip.id} references a video asset without audio.`);
+      if (clip.audioEffects !== undefined) {
+        if (track.kind !== 'audio') throw new TypeError(`Clip ${clip.id} audioEffects are supported only on audio tracks.`);
+        validateAudioClipEffects(clip.audioEffects, clip.id);
+      }
+      if (clip.volumeKeyframes !== undefined) {
+        if (track.kind !== 'audio') throw new TypeError(`Clip ${clip.id} volumeKeyframes are supported only on audio tracks.`);
+        validateAudioVolumeKeyframes(clip.volumeKeyframes, clip);
+      }
       if (clip.audioStreamIndex !== undefined) {
         if (track.kind !== 'audio' || !Number.isSafeInteger(clip.audioStreamIndex) || clip.audioStreamIndex < 0) {
           throw new TypeError(`Clip ${clip.id} audioStreamIndex must be a non-negative integer on an audio track.`);
@@ -93,6 +108,14 @@ export function validateTimeline(timeline) {
       }
       if (clip.playbackRate !== undefined && (!Number.isFinite(clip.playbackRate) || clip.playbackRate < 0.1 || clip.playbackRate > 5 || track.kind === 'overlay' || (track.kind === 'video' && assetRecord?.type === 'image'))) {
         throw new TypeError(`Clip ${clip.id} playbackRate must be from 0.1 to 5 on video or audio media.`);
+      }
+      if (clip.reverse !== undefined && (typeof clip.reverse !== 'boolean'
+          || !['video', 'audio'].includes(track.kind)
+          || (track.kind === 'video' && assetRecord?.type === 'image'))) {
+        throw new TypeError(`Clip ${clip.id} reverse must be a boolean on video or audio media.`);
+      }
+      if (clip.reverse === true && clip.speedRamp !== undefined) {
+        throw new TypeError(`Clip ${clip.id} cannot combine reverse playback with a speedRamp.`);
       }
       if (clip.volume !== undefined && (track.kind !== 'audio' || !Number.isFinite(clip.volume) || clip.volume < 0 || clip.volume > 1)) throw new TypeError(`Clip ${clip.id} volume must be between 0 and 1 on an audio track.`);
       for (const fade of ['fadeInSeconds', 'fadeOutSeconds']) {

@@ -34,6 +34,9 @@ export function resolveEncoderArgs(format, options = {}) {
 
 export function resolveColorProfile(profile, format) {
   if (profile === undefined) return undefined;
+  if (profile === 'hdr10' && !['mp4', 'mov'].includes(format)) {
+    throw new TypeError(`The hdr10 color profile requires MP4 or MOV output, not ${format}.`);
+  }
   if (!['mp4', 'mov', 'webm'].includes(format)) {
     throw new TypeError(`Color profiles are supported for MP4, MOV, and WebM output, not ${format}.`);
   }
@@ -45,6 +48,7 @@ export function resolveColorProfile(profile, format) {
       colorTransfer: 'bt709',
       colorPrimaries: 'bt709',
       colorRange: 'tv',
+      requiredFilter: 'colorspace',
     },
     'rec2020-sdr': {
       id: 'rec2020-sdr',
@@ -53,14 +57,33 @@ export function resolveColorProfile(profile, format) {
       colorTransfer: 'bt709',
       colorPrimaries: 'bt2020',
       colorRange: 'tv',
+      requiredFilter: 'colorspace',
+    },
+    hdr10: {
+      id: 'hdr10',
+      filter: 'zscale=pin=bt709:tin=bt709:min=bt709:rin=tv:p=bt2020:t=smpte2084:m=bt2020nc:r=tv:npl=203,format=yuv420p10le',
+      colorSpace: 'bt2020nc',
+      colorTransfer: 'smpte2084',
+      colorPrimaries: 'bt2020',
+      colorRange: 'tv',
+      pixelFormat: 'yuv420p10le',
+      requiredFilter: 'zscale',
+      masteringDisplay: 'G(8500,39850)B(6550,2300)R(35400,14600)WP(15635,16450)L(10000000,1)',
+      contentLightLevel: '203,203',
     },
   };
   const resolved = profiles[profile];
-  if (!resolved) throw new TypeError(`Unsupported colorProfile ${String(profile)}; choose rec709 or rec2020-sdr.`);
+  if (!resolved) throw new TypeError(`Unsupported colorProfile ${String(profile)}; choose rec709, rec2020-sdr, or hdr10.`);
   return resolved;
 }
 
-export function resolveProfileEncoder(format, encoder) {
+export function resolveProfileEncoder(format, encoder, colorProfile) {
+  if (colorProfile?.id === 'hdr10') {
+    if (encoder.codec && encoder.codecId !== 'h265') {
+      throw new TypeError('The hdr10 color profile requires the h265 codec.');
+    }
+    return encoder.codec ? encoder : { ...encoder, codecId: 'h265', codec: 'libx265' };
+  }
   if (encoder.codec) return encoder;
   const codecId = format === 'webm' ? 'vp9' : 'h264';
   const codec = format === 'webm' ? 'libvpx-vp9' : 'libx264';

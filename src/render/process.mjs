@@ -3,15 +3,30 @@ import { spawn } from 'node:child_process';
 export function runProcess(command, args, { cwd, signal, stdio = 'inherit', windowsHide = true } = {}) {
   if (signal?.aborted) return Promise.reject(abortReason(signal));
   return new Promise((resolve, reject) => {
+    const capture = stdio === 'capture';
     const child = spawn(command, args, {
       cwd,
-      stdio,
+      stdio: capture ? ['ignore', 'pipe', 'pipe'] : stdio,
       windowsHide,
       detached: process.platform !== 'win32',
     });
     let settled = false;
     let killPromise;
     let forceTimer;
+    const outputLimit = 16 * 1024 * 1024;
+    const output = { stdout: [], stderr: [], stdoutBytes: 0, stderrBytes: 0 };
+    const captureOutput = (stream, key, byteKey) => {
+      stream?.on('data', (chunk) => {
+        if (output[byteKey] >= outputLimit) return;
+        const retained = chunk.subarray(0, outputLimit - output[byteKey]);
+        output[key].push(retained);
+        output[byteKey] += retained.length;
+      });
+    };
+    if (capture) {
+      captureOutput(child.stdout, 'stdout', 'stdoutBytes');
+      captureOutput(child.stderr, 'stderr', 'stderrBytes');
+    }
     const finish = (callback, value) => {
       if (settled) return;
       settled = true;
@@ -32,9 +47,10 @@ export function runProcess(command, args, { cwd, signal, stdio = 'inherit', wind
       if (signal?.aborted) {
         finish(reject, abortReason(signal));
       } else if (code === 0) {
-        finish(resolve, true);
+        finish(resolve, capture ? { stdout: Buffer.concat(output.stdout).toString('utf8'), stderr: Buffer.concat(output.stderr).toString('utf8') } : true);
       } else {
-        finish(reject, new Error(`${command} exited with ${signalName ? `signal ${signalName}` : `code ${code}`}.`));
+        const stderr = capture ? Buffer.concat(output.stderr).toString('utf8').trim() : '';
+        finish(reject, new Error(`${command} exited with ${signalName ? `signal ${signalName}` : `code ${code}`}.${stderr ? ` ${stderr}` : ''}`));
       }
     });
     if (signal?.aborted) abort();

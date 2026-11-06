@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import { probeMedia } from '../media/probe.mjs';
+import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { normalizeTranscript } from '../transcript/normalize.mjs';
 import { parseSubtitleText } from '../transcript/subtitles.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
@@ -75,9 +75,9 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
   const encoderSettings = options.encoder ?? {};
   const videoEncoder = resolveVideoEncoder(format, encoderSettings);
   const colorProfile = resolveColorProfile(options.colorProfile, format);
-  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder) : videoEncoder;
+  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder, colorProfile) : videoEncoder;
   if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
-  if (colorProfile && !hasFfmpegFilter('colorspace')) throw new Error('Color-profile rendering requires an FFmpeg build with the colorspace filter.');
+  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter)) throw new Error(`The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`);
   const encoderArgs = resolveEncoderArgs(format, encoderSettings);
   const renderControlArgs = resolveRenderControlArgs(options);
   if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
@@ -160,9 +160,9 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
   const encoderSettings = renderOptions.encoder ?? {};
   const videoEncoder = resolveVideoEncoder(format, encoderSettings);
   const colorProfile = resolveColorProfile(renderOptions.colorProfile, format);
-  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder) : videoEncoder;
+  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder, colorProfile) : videoEncoder;
   if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
-  if (colorProfile && !hasFfmpegFilter('colorspace')) throw new Error('Color-profile rendering requires an FFmpeg build with the colorspace filter.');
+  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter)) throw new Error(`The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`);
   const encoderArgs = resolveEncoderArgs(format, encoderSettings);
   if (resumeCheckpoint && format === 'png-sequence') throw new TypeError('Resumable checkpoints do not support PNG sequence output.');
   if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
@@ -210,7 +210,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     if (!checkpointArtifact) {
       await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal);
       if (checkpoint) {
-        validateRenderedMedia(probeMedia(temporaryOutput), meta);
+        validateRenderedMedia(await probeMediaAsync(temporaryOutput, { signal: control.signal }), meta);
         checkpointArtifact = await saveRenderCheckpoint(checkpoint, temporaryOutput);
       }
     }
@@ -231,7 +231,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     }
     const renderArtifact = checkpointArtifact ?? temporaryOutput;
     if (finalEncoder.codec) await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile);
-    const rendered = probeMedia(encodedOutput ?? renderArtifact);
+    const rendered = await probeMediaAsync(encodedOutput ?? renderArtifact, { signal: control.signal });
     validateRenderedMedia(rendered, meta, finalEncoder.codecId);
     validateColorProfile(rendered, colorProfile);
     closeSync(openSync(output, 'wx'));
@@ -266,7 +266,7 @@ function validateRenderedMedia(rendered, meta, codecId) {
 
 function validateColorProfile(rendered, colorProfile) {
   if (!colorProfile) return;
-  for (const field of ['colorSpace', 'colorTransfer', 'colorPrimaries', 'colorRange']) {
+  for (const field of ['colorSpace', 'colorTransfer', 'colorPrimaries', 'colorRange', ...(colorProfile.pixelFormat ? ['pixelFormat'] : [])]) {
     if (rendered[field] !== colorProfile[field]) {
       throw new Error(`Rendered ${field} ${rendered[field] ?? 'unknown'} does not match requested ${colorProfile.id} profile (${colorProfile[field]}).`);
     }
@@ -313,14 +313,12 @@ async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, sign
     '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
     '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
   ];
-  if (encoder.codecId === 'prores') args.push('-profile:v', '3', '-pix_fmt', 'yuv422p10le');
-  else args.push('-pix_fmt', 'yuv420p');
+  appendVideoProfileArgs(args, encoder, colorProfile);
   if (encoder.crf !== undefined) {
     args.push('-crf', String(encoder.crf));
     if (encoder.codecId === 'vp9') args.push('-b:v', '0');
   }
   if (encoder.videoBitrate !== undefined) args.push('-b:v', encoder.videoBitrate);
-  if (colorProfile) args.push('-vf', colorProfile.filter, '-color_primaries', colorProfile.colorPrimaries, '-color_trc', colorProfile.colorTransfer, '-colorspace', colorProfile.colorSpace, '-color_range', colorProfile.colorRange);
   args.push('-c:a', 'copy');
   if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
   args.push(outputPath);
@@ -332,20 +330,30 @@ function encodeVideoFile(inputPath, outputPath, format, encoder, colorProfile) {
     '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
     '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
   ];
-  if (encoder.codecId === 'prores') args.push('-profile:v', '3', '-pix_fmt', 'yuv422p10le');
-  else args.push('-pix_fmt', 'yuv420p');
+  appendVideoProfileArgs(args, encoder, colorProfile);
   if (encoder.crf !== undefined) {
     args.push('-crf', String(encoder.crf));
     if (encoder.codecId === 'vp9') args.push('-b:v', '0');
   }
   if (encoder.videoBitrate !== undefined) args.push('-b:v', encoder.videoBitrate);
-  if (colorProfile) args.push('-vf', colorProfile.filter, '-color_primaries', colorProfile.colorPrimaries, '-color_trc', colorProfile.colorTransfer, '-colorspace', colorProfile.colorSpace, '-color_range', colorProfile.colorRange);
   args.push('-c:a', 'copy');
   if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
   args.push(outputPath);
   const result = spawnSync('ffmpeg', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
   if (result.error || result.status !== 0) {
     throw new Error(`Could not encode ${encoder.codecId} video: ${result.error?.message ?? result.stderr.trim()}`);
+  }
+}
+
+function appendVideoProfileArgs(args, encoder, colorProfile) {
+  if (encoder.codecId === 'prores') args.push('-profile:v', '3', '-pix_fmt', 'yuv422p10le');
+  else args.push('-pix_fmt', colorProfile?.pixelFormat ?? 'yuv420p');
+  if (colorProfile) {
+    args.push('-vf', colorProfile.filter);
+    if (colorProfile.id === 'hdr10') {
+      args.push('-profile:v', 'main10', '-x265-params', `hdr10=1:master-display=${colorProfile.masteringDisplay}:max-cll=${colorProfile.contentLightLevel}`);
+    }
+    args.push('-color_primaries', colorProfile.colorPrimaries, '-color_trc', colorProfile.colorTransfer, '-colorspace', colorProfile.colorSpace, '-color_range', colorProfile.colorRange);
   }
 }
 

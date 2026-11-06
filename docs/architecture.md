@@ -26,10 +26,20 @@ third-party notices first and preserve the required attribution.
    assistant instructions, creative styles, and project examples.
 5. **Verifiable output:** make machine checks catch structural and timing errors,
    while keeping rendered audio and visual review as a human step.
+6. **Agent-readable state:** expose a deterministic read-only summary of the
+   project, media, tracks, and clip timing before an editing agent proposes
+   changes.
 
 These targets define this repository's engine scope. Consumer products, plugins,
 image editing, asset-generation marketplaces, and large bundled style libraries
 belong elsewhere.
+
+New projects include a validated empty timeline initialized from project
+dimensions, frame rate, duration, source-fit policy, and registered asset
+metadata. Existing projects can create the same timeline through the CLI or
+`createProjectTimeline` API. The default track scaffold contains video, audio,
+and overlay tracks; consumers can add or remove tracks through normal edit
+operations.
 
 ## OpenTimelineIO interchange boundary
 
@@ -39,14 +49,23 @@ adapter. This keeps OTIO parsing and serialization out of hand-written Node
 code and keeps Python/OpenTimelineIO optional for consumers that do not use
 interchange. The pinned optional dependency is in `requirements-otio.txt`.
 
-The first interchange profile maps external media references, video/audio
-tracks, clips, and gaps. It rejects overlapping clips, speed changes, clip
-transitions, nested compositions, non-file remote references, and missing
-media instead of silently changing their meaning. The full Engine timeline is
-carried in namespaced OTIO metadata so Engine-specific overlays and settings
-can survive an Engine-to-OTIO-to-Engine round trip. Other editors may discard
-unknown metadata, so this is not a cross-editor preservation guarantee. OTIO
-references media paths and does not package the media files.
+The interchange profile maps external media references, video/audio tracks,
+nested track stacks (flattened into ordered Engine tracks), clips, gaps, track
+enabled state, and project duration including trailing gaps. Import expands
+standard `SMPTE_Dissolve` transitions into overlapping Engine clips with
+video opacity fades or audio crossfades. It rejects custom transition types,
+other overlaps, speed changes, trimmed tracks/stacks, effects, disabled clips,
+nested compositions inside tracks, non-file remote references, and missing
+media instead of silently changing their meaning. Export converts explicitly
+faded two-clip overlaps to standard `SMPTE_Dissolve` transitions. Unmarked or
+chained overlaps, standalone fades, clip-edge transitions, and retiming are
+rejected instead of silently changing their meaning. Track-level audio effects
+and volume automation are also refused on export because the profile does not
+map them to standard OTIO effects. The full Engine timeline is carried in
+namespaced OTIO metadata so Engine-specific overlays and settings can survive
+an Engine-to-OTIO-to-Engine round trip. Other editors may discard unknown
+metadata, so this is not a cross-editor preservation guarantee. OTIO references
+media paths and does not package the media files.
 
 ## Phase 1 capability audit (2026-11-05)
 
@@ -91,7 +110,10 @@ will be checked into docs only after the validator and CLI/API land.
 - `project`: stable id, width, height, frame rate, and duration in seconds.
 - `assets`: stable ids and project-relative media paths; probe metadata is
   derived and records streams, duration, dimensions, average and nominal frame
-  rates, per-stream timing, and codecs. Asset verification compares SHA-256
+  rates, per-stream timing, and codecs. When the container duration is absent,
+  probing falls back to the longest valid stream duration, deriving seconds
+  from `duration_ts × time_base` when needed; media with no usable duration
+  remains invalid. Asset verification compares SHA-256
   identities, while relinking replaces media under the same stable id/path and
   refreshes its probe record without modifying the replacement source.
   Optional video-only H.264 proxies retain their own dimensions, stream timing,
@@ -101,7 +123,8 @@ will be checked into docs only after the validator and CLI/API land.
 - `tracks`: ordered tracks with stable ids and kinds (`video`, `audio`,
   `overlay`), plus explicit z-order and optional mute/visibility settings.
 - `clips`: stable id, asset reference, source in/out, timeline start, and
-  optional placement/fit, constant `playbackRate` or source-relative `speedRamp`,
+  optional placement/fit, constant `playbackRate`, source-relative `speedRamp`,
+  or reverse playback on video and audio clips,
   volume, and composition reference. A speed ramp has linear or named eased
   `playbackRate` interpolation between `{ sourceOffset, playbackRate, ease? }`
   points covering the full clip source span; the optional ease controls the
@@ -133,6 +156,19 @@ will be checked into docs only after the validator and CLI/API land.
   in one volume envelope. Signal-aware rules build temporary detector stems
   from source track clips and create temporary compressed target audio clips;
   all generated media is removed after render.
+- `audioEffects`: optional ordered per-clip equalizer, high-pass, low-pass,
+  compressor, stereo-balance, and noise-reduction effects on audio tracks.
+  Audio tracks can also define an ordered track-level chain. Clip effects run
+  first; track clips are then mixed to a temporary stem and the track effects
+  run across the full stem. Required FFmpeg filters for clip/track effects,
+  sidechain, and mastering are included in capability discovery and checked
+  before rendering.
+- `volumeKeyframes`: optional, clip-relative audio gain automation with linear
+  interpolation and a held final value. Time 0 is required; trim, split, and
+  synchronized timeline operations rebase and preserve the curve.
+- Audio tracks can also define `volumeKeyframes` in project time. The curve is
+  multiplied with static track/clip gain and clip automation; gap insertion and
+  ripple deletion preserve its shape relative to edited timeline content.
 - `audioMastering`: optional final-mix integrated loudness, true-peak ceiling,
   and loudness-range targets. FFmpeg `loudnorm` uses measured two-pass mode
   when possible, dynamic single-pass mode for unmeasurable non-silent input,
@@ -156,6 +192,16 @@ rendered through a temporary FFmpeg proxy that is removed after render; video
 proxy encoding and pitch-preserving audio `atempo` are explicit costs. Eased
 audio speed ramps use FFmpeg's optional `rubberband` filter to preserve pitch;
 rendering such a ramp fails with an actionable error when the filter is absent.
+Reverse video and audio playback use an FFmpeg temporary proxy for the selected
+source range. They can combine with a constant playback rate, but not a speed
+ramp; image assets cannot be reversed. FFmpeg's reverse filters buffer the
+selected clip, so memory use grows with clip duration and resolution. Trim and
+split operations preserve the reverse source direction. Detaching audio from a
+reversed video clip copies the reverse setting to the audio clip. OTIO export
+rejects reverse playback rather than silently dropping it.
+Capability discovery reports the `reverse` and `areverse` filters, and render
+preflight checks the specific filter required by a reversed track before the
+renderer creates temporary media.
 If a linked video's audio stream has a material start or
 duration offset, the renderer creates a temporary FFmpeg-normalized audio file
 for the composition and removes it afterward; source media stays unchanged. Overlap
@@ -166,9 +212,21 @@ supported and can be compiled into the timeline model.
 Consumers use the same operations through CLI and JavaScript exports. Timeline
 operations include validation, EDL assembly, track/clip add and remove, trim,
 slip, split, move, synchronized gap insertion and ripple deletion, crossfade,
-versioned fade/wipe transitions, caption generation, and rendering. Consumers
-can wrap immutable edits in bounded in-memory undo/redo history that returns
-isolated snapshots and drops redo entries after a new branch of edits. Crossfades configure GSAP opacity or
+registered-asset replacement, reviewable speed changes, versioned fade/wipe transitions, reviewable visual framing and keyframe changes,
+track visibility/mute/volume changes, caption generation, and rendering.
+Reviewable audio clip gain/fade/stream selection and overlay content/style
+changes join this operation surface. `set-audio-mix` and
+`set-audio-mastering` expose validated reviewable changes for timeline-level
+mix rules and final-mix settings. `set-project-state` can change timeline
+duration and project-wide source fitting while keeping width, height, and frame
+rate consistent with Engine project metadata.
+Consumers can wrap immutable edits in bounded in-memory undo/redo history that returns
+isolated snapshots and drops redo entries after a new branch of edits. CLI agents
+can also use persistent timeline-file history across process invocations. It
+stores bounded snapshots in an atomic sidecar journal, recovers an interrupted
+timeline write, and refuses to overwrite a timeline modified outside the
+history session until the user resets that session. A lock serializes history
+updates and stale locks from exited processes are cleared. Crossfades configure GSAP opacity or
 audio-volume fades on a validated, caller-positioned clip overlap. Video and
 overlay clips can animate normalized placement, size, opacity, rotation, and
 CSS visual filters with clip-local keyframes. Rendering compiles video clips, audio
@@ -191,9 +249,17 @@ codec is checked before publishing the file. Render options can bound capture
 workers from 1 to 64, select HyperFrames low-memory mode, and set a bounded
 render timeout that also applies to the explicit-codec FFmpeg stage. The async
 render APIs accept an `AbortSignal`; the CLI maps Ctrl+C to process-tree
-cancellation. Timeout and cancellation remove Engine and HyperFrames temporary
-outputs and roll back timeline metadata. Timeline asset preprocessing and
-post-render audio mastering remain synchronous and outside the timeout window.
+cancellation. `renderTimelineAsync` applies one deadline to FFmpeg/ffprobe
+preprocessing, HyperFrames, final encoding, output probing, and audio mastering.
+Timeout and cancellation remove Engine and HyperFrames temporary outputs and
+roll back timeline metadata. The async timeline renderer uses cancellable
+FFmpeg/ffprobe child processes for media preparation and mastering, so timeout
+and external abort signals terminate the active process tree.
+Color profiles can request Rec.709, Rec.2020 SDR, or HDR10. HDR10 export is an
+SDR-to-HDR conversion for MP4/MOV: it maps the Rec.709 render to 10-bit
+BT.2020/PQ at a 203-nit reference white and requires FFmpeg `zscale` plus
+`libx265` Main 10. This changes the transfer function and encoding precision;
+it cannot recreate highlight information absent from the SDR render.
 The async renderer can preserve a completed HyperFrames capture for retrying
 the final stage. Checkpoints are content-fingerprinted, SHA-256 verified,
 bounded by per-capture size and expiration, and removed after success. An

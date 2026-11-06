@@ -53,6 +53,7 @@ test('resolves real SDR output color conversions and profile encoders', () => {
     colorTransfer: 'bt709',
     colorPrimaries: 'bt709',
     colorRange: 'tv',
+    requiredFilter: 'colorspace',
   });
   const rec2020 = resolveColorProfile('rec2020-sdr', 'mov');
   assert.equal(rec2020.colorSpace, 'bt2020nc');
@@ -60,7 +61,18 @@ test('resolves real SDR output color conversions and profile encoders', () => {
   assert.equal(rec2020.colorTransfer, 'bt709');
   assert.deepEqual(resolveProfileEncoder('webm', resolveVideoEncoder('webm')), { codec: 'libvpx-vp9', codecId: 'vp9' });
   assert.throws(() => resolveColorProfile('rec2020-sdr', 'gif'), /supported for MP4, MOV, and WebM/);
-  assert.throws(() => resolveColorProfile('hdr', 'mp4'), /choose rec709 or rec2020-sdr/);
+  const hdr10 = resolveColorProfile('hdr10', 'mp4');
+  assert.equal(hdr10.colorSpace, 'bt2020nc');
+  assert.equal(hdr10.colorTransfer, 'smpte2084');
+  assert.equal(hdr10.colorPrimaries, 'bt2020');
+  assert.equal(hdr10.pixelFormat, 'yuv420p10le');
+  assert.equal(hdr10.requiredFilter, 'zscale');
+  assert.match(hdr10.masteringDisplay, /R\(35400,14600\)/);
+  assert.equal(hdr10.contentLightLevel, '203,203');
+  assert.deepEqual(resolveProfileEncoder('mp4', resolveVideoEncoder('mp4'), hdr10), { codecId: 'h265', codec: 'libx265' });
+  assert.throws(() => resolveProfileEncoder('mp4', resolveVideoEncoder('mp4', { codec: 'h264' }), hdr10), /requires the h265 codec/);
+  assert.throws(() => resolveColorProfile('hdr10', 'webm'), /requires MP4 or MOV/);
+  assert.throws(() => resolveColorProfile('hdr', 'mp4'), /choose rec709, rec2020-sdr, or hdr10/);
 });
 
 test('validates render resource controls', () => {

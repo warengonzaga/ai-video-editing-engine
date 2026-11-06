@@ -71,6 +71,63 @@ test('round-trips a simple Engine timeline through native OTIO', { skip: !otioAv
   assert.equal(JSON.parse(readFileSync(join(projectPath, 'assets', 'manifest.json'), 'utf8')).assets.length, 2);
 });
 
+test('imports SMPTE dissolves as video fades and audio crossfades', { skip: !otioAvailable && 'Install requirements-otio.txt to run OTIO interchange coverage.' }, (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-otio-transition-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const videoPath = join(root, 'source.mp4');
+  const video = spawnSync('ffmpeg', [
+    '-nostdin', '-hide_banner', '-v', 'error', '-y',
+    '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=25:duration=4',
+    '-c:v', 'mpeg4', '-q:v', '5', videoPath,
+  ], { encoding: 'utf8', windowsHide: true });
+  if (video.error?.code === 'ENOENT') return t.skip('FFmpeg is not installed.');
+  assert.equal(video.status, 0, video.stderr);
+
+  const audioPath = join(root, 'source.wav');
+  const audio = spawnSync('ffmpeg', [
+    '-nostdin', '-hide_banner', '-v', 'error', '-y',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=4',
+    '-c:a', 'pcm_s16le', audioPath,
+  ], { encoding: 'utf8', windowsHide: true });
+  assert.equal(audio.status, 0, audio.stderr);
+
+  const projectPath = createVideoProject(root, 'otio-transition-test', { durationSeconds: 6 });
+  const otioPath = join(root, 'transitions.otio');
+  const script = [
+    'import opentimelineio as otio, pathlib, sys',
+    'timeline = otio.schema.Timeline(name="transition-test")',
+    'def add_track(name, kind, path):',
+    '    track = otio.schema.Track(name=name, kind=kind)',
+    '    media = otio.schema.ExternalReference(target_url=pathlib.Path(path).resolve().as_uri(), available_range=otio.opentime.TimeRange(otio.opentime.RationalTime(0, 1), otio.opentime.RationalTime(4, 1)))',
+    '    outgoing_range = otio.opentime.TimeRange(otio.opentime.RationalTime(0, 1), otio.opentime.RationalTime(3, 1))',
+    '    incoming_range = otio.opentime.TimeRange(otio.opentime.RationalTime(1, 1), otio.opentime.RationalTime(3, 1))',
+    '    track.append(otio.schema.Clip(name="outgoing", media_reference=media, source_range=outgoing_range))',
+    '    track.append(otio.schema.Transition(name="dissolve", transition_type="SMPTE_Dissolve", in_offset=otio.opentime.RationalTime(1, 1), out_offset=otio.opentime.RationalTime(1, 1)))',
+    '    track.append(otio.schema.Clip(name="incoming", media_reference=media, source_range=incoming_range))',
+    '    timeline.tracks.append(track)',
+    'add_track("video-dissolve", otio.schema.TrackKind.Video, sys.argv[1])',
+    'add_track("audio-dissolve", otio.schema.TrackKind.Audio, sys.argv[2])',
+    'otio.adapters.write_to_file(timeline, sys.argv[3])',
+  ].join('\n');
+  execFileSync(python, ['-c', script, videoPath, audioPath, otioPath], { stdio: 'pipe' });
+
+  const imported = importTimelineFromOtio(projectPath, otioPath);
+  assert.equal(imported.project.durationSeconds, 6);
+  const videoTrack = imported.tracks.find((track) => track.kind === 'video');
+  assert.equal(videoTrack.allowOverlap, true);
+  assert.deepEqual(videoTrack.clips.map(({ timelineStart, durationSeconds, sourceIn, sourceOut, fadeInSeconds }) => ({ timelineStart, durationSeconds, sourceIn, sourceOut, fadeInSeconds })), [
+    { timelineStart: 0, durationSeconds: 2, sourceIn: 0, sourceOut: 2, fadeInSeconds: undefined },
+    { timelineStart: 2, durationSeconds: 2, sourceIn: 2, sourceOut: 4, fadeInSeconds: undefined },
+    { timelineStart: 2, durationSeconds: 2, sourceIn: 0, sourceOut: 2, fadeInSeconds: 2 },
+    { timelineStart: 4, durationSeconds: 2, sourceIn: 2, sourceOut: 4, fadeInSeconds: undefined },
+  ]);
+
+  const audioTrack = imported.tracks.find((track) => track.kind === 'audio');
+  assert.equal(audioTrack.allowOverlap, true);
+  assert.equal(audioTrack.clips[1].fadeOutSeconds, 2);
+  assert.equal(audioTrack.clips[2].fadeInSeconds, 2);
+});
+
 test('OTIO export rejects unsupported overlapping clips before writing interchange data', { skip: !otioAvailable && 'Install requirements-otio.txt to run OTIO interchange coverage.' }, () => {
   const root = mkdtempSync(join(tmpdir(), 'aive-otio-invalid-'));
   try {

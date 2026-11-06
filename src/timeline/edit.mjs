@@ -4,6 +4,7 @@ import { sliceVisualKeyframes } from './keyframes.mjs';
 import { sliceSpeedRamp, speedRampDuration, speedRampSourceAtTime } from './speed-ramp.mjs';
 import { validateClipTransition } from './transition.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
+import { sampleAudioVolumeKeyframes, sliceAudioVolumeKeyframes } from './audio-volume.mjs';
 
 export function addTimelineTrack(timeline, track) {
   if (!track || typeof track !== 'object' || Array.isArray(track)) throw new TypeError('Timeline track must be an object.');
@@ -93,6 +94,7 @@ export function detachAudioFromTimelineClip(timeline, videoTrackId, videoClipId,
     timelineStart: videoClip.timelineStart,
     durationSeconds: videoClip.durationSeconds,
     ...(audioStreamIndex === undefined ? {} : { audioStreamIndex }),
+    ...(videoClip.reverse === true ? { reverse: true } : {}),
     ...(videoClip.playbackRate === undefined ? {} : { playbackRate: videoClip.playbackRate }),
     ...(videoClip.speedRamp === undefined ? {} : { speedRamp: structuredClone(videoClip.speedRamp) }),
   };
@@ -123,6 +125,7 @@ export function rippleDeleteTimelineClip(timeline, trackId, clipId) {
   const usedIds = new Set(next.tracks.flatMap((track) => track.clips.map((clip) => clip.id)));
 
   for (const track of next.tracks) {
+    if (track.volumeKeyframes) track.volumeKeyframes = rippleTrackVolumeKeyframes(track.volumeKeyframes, cutStart, cutEnd);
     const clips = [];
     for (const clip of track.clips) {
       const clipStart = clip.timelineStart;
@@ -168,6 +171,7 @@ export function insertTimelineGap(timeline, timelineStart, durationSeconds) {
   const next = structuredClone(timeline);
   const usedIds = new Set(next.tracks.flatMap((track) => track.clips.map((clip) => clip.id)));
   for (const track of next.tracks) {
+    if (track.volumeKeyframes) track.volumeKeyframes = insertTrackVolumeGap(track.volumeKeyframes, timelineStart, durationSeconds);
     const clips = [];
     for (const clip of track.clips) {
       const clipStart = clip.timelineStart;
@@ -196,6 +200,31 @@ export function insertTimelineGap(timeline, timelineStart, durationSeconds) {
 
   next.project.durationSeconds += durationSeconds;
   return validateTimeline(next);
+}
+
+function rippleTrackVolumeKeyframes(keyframes, cutStart, cutEnd) {
+  const cutDuration = cutEnd - cutStart;
+  const retained = keyframes.filter((keyframe) => keyframe.time < cutStart)
+    .concat(keyframes.filter((keyframe) => keyframe.time >= cutEnd)
+      .map((keyframe) => ({ ...keyframe, time: keyframe.time - cutDuration })));
+  if (!retained.some((keyframe) => Math.abs(keyframe.time - cutStart) < 1e-9)) {
+    retained.push({ time: cutStart, volume: sampleAudioVolumeKeyframes(keyframes, cutEnd) });
+  }
+  return retained.sort((left, right) => left.time - right.time);
+}
+
+function insertTrackVolumeGap(keyframes, timelineStart, durationSeconds) {
+  const retained = keyframes.filter((keyframe) => keyframe.time <= timelineStart)
+    .concat(keyframes.filter((keyframe) => keyframe.time > timelineStart)
+      .map((keyframe) => ({ ...keyframe, time: keyframe.time + durationSeconds })));
+  const heldVolume = sampleAudioVolumeKeyframes(keyframes, timelineStart);
+  if (!retained.some((keyframe) => Math.abs(keyframe.time - timelineStart) < 1e-9)) {
+    retained.push({ time: timelineStart, volume: heldVolume });
+  }
+  if (!retained.some((keyframe) => Math.abs(keyframe.time - (timelineStart + durationSeconds)) < 1e-9)) {
+    retained.push({ time: timelineStart + durationSeconds, volume: heldVolume });
+  }
+  return retained.sort((left, right) => left.time - right.time);
 }
 
 export function moveTimelineClip(timeline, trackId, clipId, timelineStart) {
@@ -234,6 +263,87 @@ export function moveTimelineClipToTrack(timeline, trackId, clipId, targetTrackId
   return validateTimeline(next);
 }
 
+export function replaceTimelineClipAsset(timeline, trackId, clipId, assetId, options = {}) {
+  validateTimeline(timeline);
+  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Replacement media options must be an object.');
+  const allowed = new Set(['sourceIn', 'sourceOut', 'audioStreamIndex', 'playbackRate', 'reverse', 'speedRamp']);
+  for (const field of Object.keys(options)) {
+    if (!allowed.has(field)) throw new TypeError(`Unsupported replacement media option: ${field}.`);
+    if (options[field] === undefined) throw new TypeError('Replacement media options must not be undefined.');
+  }
+  if (typeof assetId !== 'string' || !/^[a-z][a-z0-9-]*$/.test(assetId)) throw new TypeError('Replacement asset id must be a lowercase kebab-case id.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind === 'overlay') throw new TypeError('Overlay clips do not reference media assets.');
+  if (!next.assets.some((asset) => asset.id === assetId)) throw new TypeError(`Unknown timeline asset: ${assetId}`);
+  clip.assetId = assetId;
+  if (options.sourceIn !== undefined) clip.sourceIn = options.sourceIn;
+  if (options.sourceOut !== undefined) clip.sourceOut = options.sourceOut;
+  if (options.audioStreamIndex === null) delete clip.audioStreamIndex;
+  else if (options.audioStreamIndex !== undefined) clip.audioStreamIndex = options.audioStreamIndex;
+  if (options.playbackRate === null) delete clip.playbackRate;
+  else if (options.playbackRate !== undefined) clip.playbackRate = options.playbackRate;
+  if (options.reverse !== undefined) clip.reverse = options.reverse;
+  if (options.speedRamp === null) delete clip.speedRamp;
+  else if (options.speedRamp !== undefined) clip.speedRamp = structuredClone(options.speedRamp);
+  return validateTimeline(next);
+}
+
+export function setTimelineClipSpeed(timeline, trackId, clipId, speed) {
+  validateTimeline(timeline);
+  if (!speed || typeof speed !== 'object' || Array.isArray(speed)) throw new TypeError('Clip speed must be an object.');
+  const fields = Object.keys(speed);
+  if (fields.length !== 1 || !['playbackRate', 'speedRamp'].includes(fields[0])) {
+    throw new TypeError('Set exactly one of playbackRate or speedRamp.');
+  }
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'video' && track.kind !== 'audio') throw new TypeError('Playback speed is supported on video and audio clips.');
+  const asset = next.assets.find((entry) => entry.id === clip.assetId);
+  if (track.kind === 'video' && asset?.type === 'image') throw new TypeError('Still-image clips do not support playback speed.');
+  const sourceSpan = clip.sourceOut - clip.sourceIn;
+  const previousDuration = clip.durationSeconds;
+  if (Object.hasOwn(speed, 'playbackRate')) {
+    const playbackRate = speed.playbackRate === null ? 1 : speed.playbackRate;
+    if (!Number.isFinite(playbackRate) || playbackRate < 0.1 || playbackRate > 5) {
+      throw new TypeError('Playback rate must be from 0.1 to 5, or null to reset to normal speed.');
+    }
+    delete clip.speedRamp;
+    if (playbackRate === 1) delete clip.playbackRate;
+    else clip.playbackRate = playbackRate;
+    clip.durationSeconds = sourceSpan / playbackRate;
+  } else if (speed.speedRamp === null) {
+    delete clip.speedRamp;
+    delete clip.playbackRate;
+    clip.durationSeconds = sourceSpan;
+  } else {
+    if (clip.reverse) throw new TypeError('Reverse playback cannot be combined with a speed ramp.');
+    if (!Array.isArray(speed.speedRamp) || speed.speedRamp.length < 2) throw new TypeError('Speed ramp must contain at least two points.');
+    clip.speedRamp = structuredClone(speed.speedRamp);
+    delete clip.playbackRate;
+    clip.durationSeconds = speedRampDuration(clip.speedRamp);
+  }
+  scaleClipLocalTiming(clip, previousDuration, clip.durationSeconds);
+  next.project.durationSeconds = Math.max(next.project.durationSeconds, clip.timelineStart + clip.durationSeconds);
+  return validateTimeline(next);
+}
+
+function scaleClipLocalTiming(clip, previousDuration, nextDuration) {
+  const scale = nextDuration / previousDuration;
+  for (const frame of clip.keyframes ?? []) frame.time *= scale;
+  for (const keyframe of clip.volumeKeyframes ?? []) keyframe.time *= scale;
+  for (const word of clip.wordTimings ?? []) {
+    word.start *= scale;
+    word.end *= scale;
+  }
+  for (const field of ['fadeInSeconds', 'fadeOutSeconds']) {
+    if (clip[field] !== undefined) clip[field] *= scale;
+  }
+  for (const field of ['transitionIn', 'transitionOut']) {
+    if (clip[field] !== undefined) clip[field].durationSeconds *= scale;
+  }
+}
+
 export function trimTimelineClip(timeline, trackId, clipId, sourceIn, sourceOut) {
   if (!Number.isFinite(sourceIn) || !Number.isFinite(sourceOut)) throw new TypeError('Trim source bounds must be finite numbers.');
   const next = structuredClone(timeline);
@@ -242,13 +352,16 @@ export function trimTimelineClip(timeline, trackId, clipId, sourceIn, sourceOut)
   if (sourceIn < clip.sourceIn || sourceOut > clip.sourceOut || sourceOut <= sourceIn) throw new TypeError('Trim bounds must be a positive subrange of the existing source range.');
   const sourceOffset = sourceIn - clip.sourceIn;
   const sourceEndOffset = sourceOut - clip.sourceIn;
-  const trimBefore = clip.speedRamp
+  const trimBefore = clip.reverse
+    ? (clip.sourceOut - sourceOut) / (clip.playbackRate ?? 1)
+    : clip.speedRamp
     ? speedRampDuration(clip.speedRamp, 0, sourceOffset)
     : sourceOffset / (clip.playbackRate ?? 1);
   const durationSeconds = clip.speedRamp
     ? speedRampDuration(clip.speedRamp, sourceOffset, sourceEndOffset)
     : (sourceOut - sourceIn) / (clip.playbackRate ?? 1);
   clip.keyframes = sliceVisualKeyframes(clip.keyframes, trimBefore, trimBefore + durationSeconds);
+  clip.volumeKeyframes = sliceAudioVolumeKeyframes(clip.volumeKeyframes, trimBefore, trimBefore + durationSeconds);
   if (clip.speedRamp) clip.speedRamp = sliceSpeedRamp(clip.speedRamp, sourceOffset, sourceEndOffset);
   clip.timelineStart += trimBefore;
   clip.sourceIn = sourceIn;
@@ -282,17 +395,23 @@ export function splitTimelineClip(timeline, trackId, clipId, splitAt, rightClipI
 
   const originalDuration = clip.durationSeconds;
   const originalKeyframes = clip.keyframes;
+  const originalVolumeKeyframes = clip.volumeKeyframes;
   const originalSpeedRamp = clip.speedRamp;
-  const sourceSplit = clip.sourceIn + (originalSpeedRamp
-    ? speedRampSourceAtTime(originalSpeedRamp, splitOffset)
-    : splitOffset * (clip.playbackRate ?? 1));
+  const originalStart = clip.sourceIn;
   const originalEnd = clip.sourceOut;
+  const sourceSplit = clip.reverse
+    ? originalEnd - splitOffset * (clip.playbackRate ?? 1)
+    : originalStart + (originalSpeedRamp
+      ? speedRampSourceAtTime(originalSpeedRamp, splitOffset)
+      : splitOffset * (clip.playbackRate ?? 1));
   const originalFadeOut = clip.fadeOutSeconds ?? 0;
   const originalFadeIn = clip.fadeInSeconds ?? 0;
   const originalTransitionOut = clip.transitionOut;
-  clip.sourceOut = sourceSplit;
+  if (clip.reverse) clip.sourceIn = sourceSplit;
+  else clip.sourceOut = sourceSplit;
   clip.durationSeconds = splitOffset;
   clip.keyframes = sliceVisualKeyframes(originalKeyframes, 0, splitOffset);
+  clip.volumeKeyframes = sliceAudioVolumeKeyframes(originalVolumeKeyframes, 0, splitOffset);
   if (originalSpeedRamp) clip.speedRamp = sliceSpeedRamp(originalSpeedRamp, 0, sourceSplit - clip.sourceIn);
   clip.fadeInSeconds = Math.min(originalFadeIn, splitOffset);
   clip.fadeOutSeconds = 0;
@@ -300,11 +419,12 @@ export function splitTimelineClip(timeline, trackId, clipId, splitAt, rightClipI
   const right = {
     ...clip,
     id: rightClipId,
-    sourceIn: sourceSplit,
-    sourceOut: originalEnd,
+    sourceIn: clip.reverse ? originalStart : sourceSplit,
+    sourceOut: clip.reverse ? sourceSplit : originalEnd,
     timelineStart: splitAt,
     durationSeconds: originalDuration - splitOffset,
     keyframes: sliceVisualKeyframes(originalKeyframes, splitOffset, originalDuration),
+    volumeKeyframes: sliceAudioVolumeKeyframes(originalVolumeKeyframes, splitOffset, originalDuration),
     ...(originalSpeedRamp ? { speedRamp: sliceSpeedRamp(originalSpeedRamp, sourceSplit - clip.sourceIn, originalSpeedRamp.at(-1).sourceOffset) } : {}),
     fadeInSeconds: 0,
     fadeOutSeconds: Math.min(originalFadeOut, originalDuration - splitOffset),
@@ -346,6 +466,166 @@ export function setTimelineTransition(timeline, trackId, clipId, edge, transitio
   return validateTimeline(next);
 }
 
+export function setTimelineClipReverse(timeline, trackId, clipId, reverse) {
+  if (typeof reverse !== 'boolean') throw new TypeError('reverse must be a boolean.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'video' && track.kind !== 'audio') throw new TypeError(`Reverse playback is supported on video and audio tracks, not ${track.kind}.`);
+  if (reverse) clip.reverse = true;
+  else delete clip.reverse;
+  return validateTimeline(next);
+}
+
+export function setTimelineClipAudioEffects(timeline, trackId, clipId, effects) {
+  if (effects !== null && !Array.isArray(effects)) throw new TypeError('audioEffects must be an array or null.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'audio') throw new TypeError(`Audio effects are supported on audio tracks, not ${track.kind}.`);
+  if (effects === null || effects.length === 0) delete clip.audioEffects;
+  else clip.audioEffects = structuredClone(effects);
+  return validateTimeline(next);
+}
+
+export function setTimelineClipVolumeKeyframes(timeline, trackId, clipId, keyframes) {
+  if (keyframes !== null && !Array.isArray(keyframes)) throw new TypeError('volumeKeyframes must be an array or null.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'audio') throw new TypeError(`Volume keyframes are supported on audio tracks, not ${track.kind}.`);
+  if (keyframes === null || keyframes.length === 0) delete clip.volumeKeyframes;
+  else clip.volumeKeyframes = structuredClone(keyframes);
+  return validateTimeline(next);
+}
+
+export function setTimelineClipAudioState(timeline, trackId, clipId, state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('Audio state must be an object.');
+  const fields = Object.keys(state);
+  const allowed = ['volume', 'fadeInSeconds', 'fadeOutSeconds', 'audioStreamIndex'];
+  if (fields.length === 0 || fields.some((field) => !allowed.includes(field))) {
+    throw new TypeError(`Audio state must set one or more of: ${allowed.join(', ')}.`);
+  }
+  if (fields.some((field) => state[field] === undefined)) throw new TypeError('Audio state values must not be undefined; use null to clear an override.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'audio') throw new TypeError(`Audio state is supported on audio tracks, not ${track.kind}.`);
+  for (const field of fields) {
+    if (state[field] === null) delete clip[field];
+    else clip[field] = state[field];
+  }
+  return validateTimeline(next);
+}
+
+export function setTimelineClipKeyframes(timeline, trackId, clipId, keyframes) {
+  if (keyframes !== null && !Array.isArray(keyframes)) throw new TypeError('keyframes must be an array or null.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'video' && track.kind !== 'overlay') throw new TypeError(`Visual keyframes are supported on video and overlay tracks, not ${track.kind}.`);
+  if (keyframes === null || keyframes.length === 0) delete clip.keyframes;
+  else clip.keyframes = structuredClone(keyframes);
+  return validateTimeline(next);
+}
+
+export function setTimelineClipFraming(timeline, trackId, clipId, framing) {
+  if (!framing || typeof framing !== 'object' || Array.isArray(framing)) throw new TypeError('framing must be an object.');
+  const fields = Object.keys(framing);
+  if (fields.length === 0 || fields.some((field) => !['fit', 'x', 'y', 'width', 'height'].includes(field))) {
+    throw new TypeError('framing must set one or more of fit, x, y, width, or height.');
+  }
+  if (fields.some((field) => framing[field] === undefined)) throw new TypeError('framing values must not be undefined; use null to clear an override.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'video') throw new TypeError(`Static framing is supported on video tracks, not ${track.kind}.`);
+  for (const field of fields) {
+    if (framing[field] === null) delete clip[field];
+    else clip[field] = framing[field];
+  }
+  return validateTimeline(next);
+}
+
+export function setTimelineTrackState(timeline, trackId, state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('Track state must be an object.');
+  const next = structuredClone(timeline);
+  validateTimeline(next);
+  const track = next.tracks.find((candidate) => candidate.id === trackId);
+  if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  const allowed = track.kind === 'audio' ? ['muted', 'volume', 'volumeKeyframes', 'audioEffects'] : ['visible'];
+  const fields = Object.keys(state);
+  if (fields.length === 0 || fields.some((field) => !allowed.includes(field))) {
+    throw new TypeError(`Track ${trackId} state must set one or more of: ${allowed.join(', ')}.`);
+  }
+  if (fields.some((field) => state[field] === undefined)) throw new TypeError('Track state values must not be undefined; use null to clear an override.');
+  for (const field of fields) {
+    if (state[field] === null) delete track[field];
+    else track[field] = state[field];
+  }
+  return validateTimeline(next);
+}
+
+export function setTimelineTrackAudioEffects(timeline, trackId, effects) {
+  if (effects !== null && !Array.isArray(effects)) throw new TypeError('Track audioEffects must be an array or null.');
+  const next = structuredClone(timeline);
+  validateTimeline(next);
+  const track = next.tracks.find((candidate) => candidate.id === trackId);
+  if (!track) throw new TypeError(`Unknown timeline track: ${trackId}`);
+  if (track.kind !== 'audio') throw new TypeError(`Track audio effects are supported on audio tracks, not ${track.kind}.`);
+  if (effects === null || effects.length === 0) delete track.audioEffects;
+  else track.audioEffects = structuredClone(effects);
+  return validateTimeline(next);
+}
+
+export function setTimelineAudioMix(timeline, audioMix) {
+  if (audioMix === undefined) throw new TypeError('audioMix must be an object or null.');
+  const next = structuredClone(timeline);
+  if (audioMix === null) delete next.audioMix;
+  else next.audioMix = structuredClone(audioMix);
+  return validateTimeline(next);
+}
+
+export function setTimelineAudioMastering(timeline, audioMastering) {
+  if (audioMastering === undefined) throw new TypeError('audioMastering must be an object or null.');
+  const next = structuredClone(timeline);
+  if (audioMastering === null) delete next.audioMastering;
+  else next.audioMastering = structuredClone(audioMastering);
+  return validateTimeline(next);
+}
+
+export function setTimelineProjectState(timeline, state) {
+  if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('Project state must be an object.');
+  const fields = Object.keys(state);
+  if (fields.length === 0 || fields.some((field) => !['durationSeconds', 'sourceFit'].includes(field))) {
+    throw new TypeError('Project state must set one or more of: durationSeconds, sourceFit.');
+  }
+  if (fields.some((field) => state[field] === undefined)) throw new TypeError('Project state values must not be undefined; use null to clear sourceFit.');
+  const next = structuredClone(timeline);
+  for (const field of fields) {
+    if (field === 'sourceFit' && state[field] === null) delete next.project.sourceFit;
+    else next.project[field] = structuredClone(state[field]);
+  }
+  return validateTimeline(next);
+}
+
+export function setTimelineOverlay(timeline, trackId, clipId, properties) {
+  if (!properties || typeof properties !== 'object' || Array.isArray(properties)) throw new TypeError('Overlay properties must be an object.');
+  const allowed = [
+    'text', 'composition', 'x', 'y', 'width', 'height', 'fontSize', 'fontFamily', 'fontWeight',
+    'lineHeight', 'verticalAlign', 'paddingPixels', 'color', 'backgroundColor', 'textAlign',
+    'wordWrap', 'wordsPerLine', 'wordTimings', 'wordHighlightColor', 'wordHighlightAnimation',
+    'textOutline', 'textShadow',
+  ];
+  const fields = Object.keys(properties);
+  if (fields.length === 0 || fields.some((field) => !allowed.includes(field))) {
+    throw new TypeError(`Overlay properties must set one or more of: ${allowed.join(', ')}.`);
+  }
+  if (fields.some((field) => properties[field] === undefined)) throw new TypeError('Overlay property values must not be undefined; use null to clear an override.');
+  const next = structuredClone(timeline);
+  const { track, clip } = findClipEntry(next, trackId, clipId);
+  if (track.kind !== 'overlay') throw new TypeError(`Overlay properties are supported on overlay tracks, not ${track.kind}.`);
+  for (const field of fields) {
+    if (properties[field] === null) delete clip[field];
+    else clip[field] = structuredClone(properties[field]);
+  }
+  return validateTimeline(next);
+}
+
 export function editTimeline(timeline, operation) {
   if (!operation || typeof operation !== 'object') throw new TypeError('Timeline edit operation must be an object.');
   const { type, trackId, clipId } = operation;
@@ -360,12 +640,33 @@ export function editTimeline(timeline, operation) {
   if (type === 'insert-gap') return insertTimelineGap(timeline, operation.timelineStart, operation.durationSeconds);
   if (type === 'move') return moveTimelineClip(timeline, trackId, clipId, operation.timelineStart);
   if (type === 'move-track') return moveTimelineClipToTrack(timeline, trackId, clipId, operation.targetTrackId, operation.timelineStart);
+  if (type === 'set-speed') return setTimelineClipSpeed(timeline, trackId, clipId, operation.speed);
+  if (type === 'replace-asset') return replaceTimelineClipAsset(timeline, trackId, clipId, operation.assetId, {
+    ...(operation.sourceIn === undefined ? {} : { sourceIn: operation.sourceIn }),
+    ...(operation.sourceOut === undefined ? {} : { sourceOut: operation.sourceOut }),
+    ...(operation.audioStreamIndex === undefined ? {} : { audioStreamIndex: operation.audioStreamIndex }),
+    ...(operation.playbackRate === undefined ? {} : { playbackRate: operation.playbackRate }),
+    ...(operation.reverse === undefined ? {} : { reverse: operation.reverse }),
+    ...(operation.speedRamp === undefined ? {} : { speedRamp: operation.speedRamp }),
+  });
   if (type === 'trim') return trimTimelineClip(timeline, trackId, clipId, operation.sourceIn, operation.sourceOut);
   if (type === 'slip') return slipTimelineClip(timeline, trackId, clipId, operation.sourceDelta);
   if (type === 'split') return splitTimelineClip(timeline, trackId, clipId, operation.splitAt, operation.rightClipId);
   if (type === 'crossfade') return crossfadeTimelineClips(timeline, trackId, clipId, operation.incomingClipId, operation.durationSeconds);
   if (type === 'transition') return setTimelineTransition(timeline, trackId, clipId, operation.edge, operation.transition);
-  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, trim, slip, split, crossfade, or transition.');
+  if (type === 'set-reverse') return setTimelineClipReverse(timeline, trackId, clipId, operation.reverse);
+  if (type === 'set-audio-effects') return setTimelineClipAudioEffects(timeline, trackId, clipId, operation.audioEffects);
+  if (type === 'set-volume-keyframes') return setTimelineClipVolumeKeyframes(timeline, trackId, clipId, operation.volumeKeyframes);
+  if (type === 'set-audio-state') return setTimelineClipAudioState(timeline, trackId, clipId, operation.state);
+  if (type === 'set-keyframes') return setTimelineClipKeyframes(timeline, trackId, clipId, operation.keyframes);
+  if (type === 'set-framing') return setTimelineClipFraming(timeline, trackId, clipId, operation.framing);
+  if (type === 'set-track-state') return setTimelineTrackState(timeline, trackId, operation.state);
+  if (type === 'set-track-audio-effects') return setTimelineTrackAudioEffects(timeline, trackId, operation.audioEffects);
+  if (type === 'set-audio-mix') return setTimelineAudioMix(timeline, operation.audioMix);
+  if (type === 'set-audio-mastering') return setTimelineAudioMastering(timeline, operation.audioMastering);
+  if (type === 'set-project-state') return setTimelineProjectState(timeline, operation.state);
+  if (type === 'set-overlay') return setTimelineOverlay(timeline, trackId, clipId, operation.properties);
+  throw new TypeError('Timeline edit type must be add-track, remove-track, reorder-track, add-clip, duplicate-clip, detach-audio, remove-clip, ripple-delete, insert-gap, move, move-track, replace-asset, set-speed, trim, slip, split, crossfade, transition, set-reverse, set-audio-effects, set-track-audio-effects, set-audio-mix, set-audio-mastering, set-project-state, set-volume-keyframes, set-audio-state, set-keyframes, set-framing, set-track-state, or set-overlay.');
 }
 
 /** Apply a non-empty edit plan in order, returning one validated result or no changes. */
@@ -431,6 +732,9 @@ function sliceTimelineClip(clip, kind, localStart, localEnd, timelineStart) {
   const keyframes = sliceVisualKeyframes(clip.keyframes, localStart, localEnd);
   if (keyframes) segment.keyframes = keyframes;
   else delete segment.keyframes;
+  const volumeKeyframes = sliceAudioVolumeKeyframes(clip.volumeKeyframes, localStart, localEnd);
+  if (volumeKeyframes) segment.volumeKeyframes = volumeKeyframes;
+  else delete segment.volumeKeyframes;
 
   if (kind !== 'overlay') {
     const sourceStartOffset = clip.speedRamp
@@ -439,8 +743,8 @@ function sliceTimelineClip(clip, kind, localStart, localEnd, timelineStart) {
     const sourceEndOffset = clip.speedRamp
       ? speedRampSourceAtTime(clip.speedRamp, localEnd)
       : localEnd * (clip.playbackRate ?? 1);
-    segment.sourceIn = clip.sourceIn + sourceStartOffset;
-    segment.sourceOut = clip.sourceIn + sourceEndOffset;
+    segment.sourceIn = clip.reverse ? clip.sourceOut - sourceEndOffset : clip.sourceIn + sourceStartOffset;
+    segment.sourceOut = clip.reverse ? clip.sourceOut - sourceStartOffset : clip.sourceIn + sourceEndOffset;
     if (clip.speedRamp) segment.speedRamp = sliceSpeedRamp(clip.speedRamp, sourceStartOffset, sourceEndOffset);
   }
 

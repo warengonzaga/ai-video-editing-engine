@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, rmSync, unlinkSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { probeMedia } from '../media/probe.mjs';
+import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
+import { runProcess } from '../render/process.mjs';
 
 const DEFAULTS = Object.freeze({
   integratedLoudnessLUFS: -16,
@@ -72,6 +73,55 @@ export function masterAudioFile(outputPath, format, settings, fps) {
     ], { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
     if (encode.error || encode.status !== 0) throw new Error(`Could not apply rendered audio mastering: ${encode.error?.message ?? encode.stderr.trim()}`);
     const mastered = probeMedia(temporaryPath);
+    const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
+    if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
+        || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
+        || Math.abs(mastered.durationSeconds - input.durationSeconds) > Math.max(0.15, 1 / frameRateNumber(fps))) {
+      throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
+    }
+    unlinkSync(outputPath);
+    renameSync(temporaryPath, outputPath);
+    return {
+      ...mastered,
+      loudnessMode: loudness.measured ? 'two-pass-linear' : loudness.silent ? 'silent-bypass' : 'single-pass-dynamic',
+    };
+  } catch (error) {
+    if (existsSync(temporaryPath)) rmSync(temporaryPath, { force: true });
+    throw error;
+  }
+}
+
+export async function masterAudioFileAsync(outputPath, format, settings, fps, signal) {
+  const input = await probeMediaAsync(outputPath, { signal });
+  if (!input.hasAudio) throw new Error('Cannot master loudness because the rendered output has no audio stream.');
+  const baseFilter = `loudnorm=I=${settings.integratedLoudnessLUFS}:TP=${settings.truePeakDBTP}:LRA=${settings.loudnessRangeLU}`;
+  const channelFilter = settings.channelLayout ? [`aresample=ochl=${settings.channelLayout}`] : [];
+  const equalizerFilters = buildEqualizerFilters(settings.equalizer);
+  const preLoudnessFilters = [...channelFilter, ...equalizerFilters];
+  const preLoudnessPrefix = preLoudnessFilters.length ? `${preLoudnessFilters.join(',')},` : '';
+  const analysis = await runProcess('ffmpeg', [
+    '-nostdin', '-hide_banner', '-v', 'info', '-i', outputPath,
+    '-map', '0:a:0', '-af', `${preLoudnessPrefix}${baseFilter}:print_format=json`, '-f', 'null', nullDevice(),
+  ], { signal, stdio: 'capture' });
+  const loudness = parseLoudnessAnalysis(analysis.stderr);
+  const loudnessFilter = loudness.measured
+    ? `${baseFilter}:measured_I=${loudness.measured.input_i}:measured_TP=${loudness.measured.input_tp}:measured_LRA=${loudness.measured.input_lra}:measured_thresh=${loudness.measured.input_thresh}:offset=${loudness.measured.target_offset}:linear=true:print_format=summary`
+    : loudness.silent ? undefined : `${baseFilter}:print_format=summary`;
+  const limiterFilter = settings.limiter ? buildLimiterFilter(settings.limiter) : undefined;
+  const filter = [...preLoudnessFilters, loudnessFilter, limiterFilter].filter(Boolean).join(',') || undefined;
+  const extension = extname(outputPath);
+  const temporaryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`);
+  try {
+    const audioCodec = format === 'webm' ? ['-c:a', 'libopus', '-b:a', '192k'] : ['-c:a', 'aac', '-b:a', '256k'];
+    await runProcess('ffmpeg', [
+      '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', outputPath,
+      '-map', '0:v:0', '-map', '0:a:0', '-c:v', 'copy', ...audioCodec,
+      ...(filter ? ['-af', filter] : []), '-ar', '48000',
+      ...(settings.channelLayout ? ['-ac', settings.channelLayout === 'mono' ? '1' : '2', '-channel_layout', settings.channelLayout] : []),
+      ...(format === 'mp4' || format === 'mov' ? ['-movflags', '+faststart'] : []),
+      temporaryPath,
+    ], { signal });
+    const mastered = await probeMediaAsync(temporaryPath, { signal });
     const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
     if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
         || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
