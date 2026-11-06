@@ -52,6 +52,11 @@ Browser runtime availability is intentionally reported as unchecked; run
 The JavaScript API also exposes `listFfmpegDecoders()` and
 `listFfmpegDemuxers()` plus `has` and `assert` helpers for checking a specific
 input capability before accepting media.
+To inspect an audio/video source against the local FFmpeg build before ingesting
+it, run `node src/cli.mjs media support <media>` or call
+`inspectMediaCompatibility(mediaPath)` from the JavaScript API. The report
+checks the container and every detected audio/video stream, but does not decode
+the full file. Still images use the image asset-ingest path.
 Consumers can read the required A-H mouth shapes, X
 rest shape, shared-canvas and distinct-image requirements, the default GHX
 extended-shape setting, and whether the Rhubarb adapter is installed instead

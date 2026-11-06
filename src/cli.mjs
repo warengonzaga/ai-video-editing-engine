@@ -9,6 +9,7 @@ import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
 import { createAssetProxyAsync, listProjectAssets, registerMediaAssetAsync, relinkProjectAssetAsync, unregisterProjectAsset, verifyProjectAssets } from './project/assets.mjs';
 import { probeMediaAsync } from './media/probe.mjs';
+import { inspectMediaCompatibility } from './media/compatibility.mjs';
 import { generateAssetPreview } from './media/preview-assets.mjs';
 import { analyzeMediaWithProvider } from './media/analysis-provider.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
@@ -350,6 +351,12 @@ async function main(args) {
     console.log(JSON.stringify(media, null, 2));
     return;
   }
+  if (command === 'media' && commandArgs[0] === 'support' && commandArgs.length === 2) {
+    const report = await runWithInterrupt((signal) => inspectMediaCompatibility(commandArgs[1], { signal }), 'Media support inspection');
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.compatible) process.exitCode = 1;
+    return;
+  }
   if (command === 'apply-edl' && commandArgs.length === 3) {
     const [videoPath, edlPath, outputPath] = commandArgs;
     const result = renderCuts(videoPath, readJson(resolve(edlPath)), outputPath);
@@ -435,7 +442,7 @@ async function main(args) {
   throw new Error(`Usage: node src/cli.mjs
   project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>]
   project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]
-  presets list | probe <media>
+  presets list | probe <media> | media support <media>
   asset register <project> <media> [assetId] | asset unregister <project> <asset-id>
   asset verify <project>
   asset relink <project> <assetId> <replacement-media>

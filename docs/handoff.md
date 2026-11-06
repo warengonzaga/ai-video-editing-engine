@@ -1280,3 +1280,8 @@ smoke render alone.
 - Exported `list`, `has`, and `assert` APIs for FFmpeg input decoders and
   demuxers so consumers can preflight a specific media path without parsing the
   capability JSON. Syntax and CLI checks only; no test suite or render was run.
+- Added `inspectMediaCompatibility` and `media support <path>` to check the
+  probed container and every audio/video stream against local FFmpeg demuxers
+  and decoders before ingest. Probe results now retain the input format aliases
+  and video stream codec metadata. Syntax and CLI checks only; no full decode,
+  test suite, or render was run.

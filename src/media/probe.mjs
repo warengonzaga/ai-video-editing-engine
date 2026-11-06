@@ -48,6 +48,17 @@ export function parseProbeOutput(output, path = '', { requireVideo = true } = {}
   const durationSeconds = Number.isFinite(formatDuration) && formatDuration > 0
     ? formatDuration
     : streamDuration;
+  const videoStreams = streams.filter((stream) => stream.codec_type === 'video').map((stream) => ({
+    index: Number.isSafeInteger(stream.index) ? stream.index : null,
+    codec: stream.codec_name ?? null,
+    width: Number(stream.width) || null,
+    height: Number(stream.height) || null,
+    pixelFormat: stream.pix_fmt ?? null,
+    frameRate: parseFrameRate(stream.avg_frame_rate || stream.r_frame_rate),
+    timeBase: stream.time_base ?? null,
+    startSeconds: parseOptionalNumber(stream.start_time),
+    durationSeconds: parseStreamDuration(stream) || null,
+  }));
   const video = streams.find((stream) => stream.codec_type === 'video');
   const audioStreams = streams.filter((stream) => stream.codec_type === 'audio').map((stream, index) => ({
     index,
@@ -71,6 +82,8 @@ export function parseProbeOutput(output, path = '', { requireVideo = true } = {}
   return {
     path,
     durationSeconds,
+    formatName: typeof info.format?.format_name === 'string' ? info.format.format_name : null,
+    videoStreams,
     width: Number(video?.width) || null,
     height: Number(video?.height) || null,
     frameRate: parseFrameRate(video?.avg_frame_rate || video?.r_frame_rate),

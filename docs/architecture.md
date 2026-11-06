@@ -375,7 +375,9 @@ encoder is installed. It does not guarantee that every input codec or
 media-specific render operation is supported.
 For operation-specific input checks, the JavaScript API exposes
 `listFfmpegDecoders()`, `listFfmpegDemuxers()`, their boolean `has` helpers, and
-their throwing `assert` helpers.
+their throwing `assert` helpers. `inspectMediaCompatibility(path)` probes a
+source and checks its container plus every reported audio/video stream against
+the local FFmpeg inventory before ingest; it does not decode the full file.
 
 Pinned package versions are an initial baseline from the installed Herk Edit Kit
 setup, not a promise of compatibility with future releases. Recheck versions and

@@ -29,6 +29,7 @@ export { detectAcousticSilence, parseSilenceIntervals } from './edits/detect-sil
 export { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
 export { applyTranscriptCorrections } from './transcript/corrections.mjs';
 export { parseProbeOutput, probeMedia, probeMediaAsync } from './media/probe.mjs';
+export { inspectMediaCompatibility } from './media/compatibility.mjs';
 export { analyzeMediaWithProvider, normalizeMediaFindings } from './media/analysis-provider.mjs';
 export { generateAssetPreview } from './media/preview-assets.mjs';
 export { normalizeFrameRate, frameRateNumber } from './media/frame-rate.mjs';
