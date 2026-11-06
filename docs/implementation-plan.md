@@ -220,12 +220,12 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;
   assert whether each output includes an audio stream.
-- [ ] Validate these media modes and unsupported codec behavior across Windows,
-  macOS, and Linux; Windows local smoke now covers MP4, VP9/WebM, ProRes/MOV,
-  GIF, 48-frame PNG sequences, and audio-only/video-only output. Hosted runs
-  remain pending. Explicit final encoders are now
-  checked against the local FFmpeg encoder registry before browser rendering,
-  with unit coverage for encoder-list parsing and missing-codec errors.
+- [x] Validate these media modes and unsupported codec behavior across Windows,
+  macOS, and Linux. Local Windows and hosted three-OS smoke cover MP4, VP9/WebM,
+  ProRes/MOV, GIF, PNG sequences, and audio-only/video-only output. Explicit
+  final encoders are checked against the local FFmpeg encoder registry before
+  browser rendering, with unit coverage for encoder-list parsing and missing-
+  codec errors.
 
 **Acceptance:** reproducible preview and export with recorded technical and
 human review evidence on each claimed supported environment.

@@ -661,5 +661,5 @@ smoke render alone.
   full render smoke also passed its audio-only/video-only, caption, timeline,
   color-profile, and 12-second A/V sync checks. `npm test`: 117 passed, 2
   optional OpenTimelineIO skips, 0 failed. `npm audit --omit=dev --offline`
-  reported 0 vulnerabilities. Hosted Linux/macOS/Windows CI for this change
-  has not yet completed.
+  reported 0 vulnerabilities. Hosted CI run 42168696652 passed the full test,
+  render-smoke, and dependency-audit jobs on Linux, Windows, and macOS.
