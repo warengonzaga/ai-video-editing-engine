@@ -431,14 +431,19 @@ Last updated: 2026-11-07
   | Workflow | Wall time | Peak process-tree working set | Peak processes | Output |
   | --- | ---: | ---: | ---: | --- |
   | Avatar composition + narration | 22.40 s | 4,257.1 MiB | 52 | H.264/AAC MP4 |
-  | Generic video + narration timeline | 21.56 s | 6,240.7 MiB | 51 | H.264/AAC MP4 |
+  | Generic video + narration timeline, default | 21.56 s | 6,240.7 MiB | 51 | H.264/AAC MP4 |
+  | Generic video + narration, one worker + low-memory mode | 29.96 s | 1,141.8 MiB | 14 | H.264/AAC MP4 |
 
   `ffprobe` confirms both outputs are 11.133333 seconds, 1920×1080 at 30 fps,
   with stereo 48 kHz AAC. The sampled video is an existing avatar clip, not
   varied camera footage; it demonstrates the separate timeline render path but
   is insufficient to characterize general-footage performance. Working-set
-  sampling may miss peaks shorter than the interval. Audio and image quality
-  still need human review.
+  sampling may miss peaks shorter than the interval. The default and low-memory
+  timeline outputs have identical decoded video-frame and audio MD5s. On this
+  sample, low-memory mode reduced the sampled peak working set by 81.7% and
+  increased wall time by 38.9%. Do not treat this single-source result as a
+  universal performance promise. Audio and image quality still need human
+  review.
 - HyperFrames synthetic render review on Windows verified MP4, WebM, MOV, and
   GIF exports at 320×180, 25 fps, and 2 seconds. ffprobe confirmed each output's
   dimensions, duration, frame rate, and absent audio stream.

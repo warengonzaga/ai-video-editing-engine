@@ -310,8 +310,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   synthetic-suite baseline and three settings profiles on an 11-second
   1080p/30 fps avatar project are recorded there. Two fresh 11-second draft
   profiles now cover avatar composition and the generic video+audio timeline
-  path at 22.40 and 21.56 seconds, with 4,257.1 and 6,240.7 MiB sampled
-  process-tree working sets respectively.
+  path. The generic timeline's one-worker low-memory mode preserves identical
+  decoded video/audio samples while reducing sampled peak working set from
+  6,240.7 to 1,141.8 MiB and increasing wall time from 21.56 to 29.96 seconds.
   The source remains avatar footage, so varied camera footage, isolated render
   estimates, and cross-platform measurements remain open.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
