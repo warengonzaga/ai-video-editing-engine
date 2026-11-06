@@ -58,6 +58,7 @@ export function getEngineCapabilities(options = {}) {
       rhubarb,
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
+      browserRuntime: { available: null, checked: false, checkCommand: 'npm run doctor' },
     },
     avatar: {
       phoneticLipSync: {
@@ -75,6 +76,7 @@ export function getEngineCapabilities(options = {}) {
       },
     },
     render: {
+      requirementsAvailable: renderRuntimeAvailable,
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
       outputs: {
         mp4: {

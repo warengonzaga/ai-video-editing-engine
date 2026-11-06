@@ -362,9 +362,11 @@ runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
 `ai-video-engine capabilities` CLI command to discover required tools, common
 FFmpeg encoders, output formats and detected codec/color-profile support,
 predefined canvas presets, and optional render filters without relying on
-doctor output parsing. Output availability reflects the local FFmpeg, ffprobe,
-HyperFrames, encoder, and filter inventory; it does not guarantee that every
-input codec or media-specific render operation is supported.
+doctor output parsing. Format availability reflects the relevant local FFmpeg,
+ffprobe, HyperFrames, encoder, and filter inventory. The browser runtime is
+reported as unchecked and must be verified with `npm run doctor`. The report
+does not guarantee that every input codec or media-specific render operation
+is supported.
 
 Pinned package versions are an initial baseline from the installed Herk Edit Kit
 setup, not a promise of compatibility with future releases. Recheck versions and

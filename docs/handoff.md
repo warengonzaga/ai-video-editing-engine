@@ -1267,3 +1267,7 @@ smoke render alone.
   formats, codec and color-profile support, and the predefined canvas presets.
   This gives generic consumers preflight data without parsing `doctor` output.
   Syntax and CLI response inspection only; no test suite or render was run.
+- The capability report now explicitly marks browser runtime availability as
+  unchecked and points consumers to `npm run doctor`, avoiding a false claim
+  that package and encoder discovery fully proves render readiness. Syntax and
+  CLI response inspection only; no test suite or render was run.
