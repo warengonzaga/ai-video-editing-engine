@@ -3,19 +3,37 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "ai-video-engine": "src/cli.mjs"
+  },
   "exports": {
     ".": "./src/index.mjs"
   },
-  "description": "A local-first engine for transcript-driven AI video editing.",
+  "files": [
+    "src/",
+    "README.md",
+    "docs/architecture.md",
+    "docs/aspect-ratio-presets.md",
+    "docs/handoff.md",
+    "docs/implementation-plan.md",
+    "requirements-otio.txt"
+  ],
+  "description": "A local-first video editing engine with a versioned timeline, media tools, and render adapters.",
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "gsap": "3.14.2",
-    "hyperframes": "0.7.109"
+    "hyperframes": "0.9.17"
+  },
+  "overrides": {
+    "hyperframes": {
+      "undici": "7.30.2"
+    }
   },
   "scripts": {
     "test": "node --test",
+    "test:render-smoke": "node scripts/render-smoke.mjs",
     "doctor": "node src/doctor.mjs",
     "new-video": "node src/cli.mjs project create",
     "retime": "node src/cli.mjs retime"

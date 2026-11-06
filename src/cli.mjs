@@ -1,14 +1,33 @@
 #!/usr/bin/env node
-import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
-import { basename, dirname, resolve } from 'node:path';
+import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { retimeTranscript } from './edits/retime-transcript.mjs';
+import { detectAcousticSilence } from './edits/detect-silence.mjs';
 import { createVideoProject } from './project/create.mjs';
+import { listCanvasPresets } from './project/presets.mjs';
+import { createAssetProxy, registerMediaAsset, relinkProjectAsset, verifyProjectAssets } from './project/assets.mjs';
 import { probeMedia } from './media/probe.mjs';
+import { generateAssetPreview } from './media/preview-assets.mjs';
+import { analyzeMediaWithProvider } from './media/analysis-provider.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
-import { importProjectTranscript, lintProject, previewProject, renderProject, transcribeProject } from './render/hyperframes.mjs';
+import { audioLevelCues } from './animation/audio-cues.mjs';
+import { rhubarbLipSyncCues } from './animation/rhubarb.mjs';
+import { createAvatarComposition } from './animation/avatar.mjs';
+import { validateTimeline } from './timeline/validate.mjs';
+import { timelineFromEdl } from './timeline/from-edl.mjs';
+import { renderTimelineAsync } from './timeline/render.mjs';
+import { editTimeline, editTimelineBatch } from './timeline/edit.mjs';
+import { createCaptionTrack } from './timeline/captions.mjs';
+import { applyTranscriptCorrections } from './transcript/corrections.mjs';
+import { formatSubtitleText } from './transcript/subtitles.mjs';
+import { renderEditedProjectAsync } from './timeline/assemble.mjs';
+import { importProjectTranscript, lintProject, previewProject, renderProjectAsync, transcribeProject } from './render/hyperframes.mjs';
+import { normalizeFrameRate } from './media/frame-rate.mjs';
+import { exportTimelineToOtio, importTimelineFromOtio } from './interchange/otio.mjs';
+import { getEngineCapabilities } from './capabilities.mjs';
 
 function readJson(path) {
   try {
@@ -19,19 +38,180 @@ function readJson(path) {
 }
 
 function writeNewFile(path, data) {
-  if (existsSync(path)) throw new Error(`Output already exists: ${path}`);
-  const tempPath = resolve(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  writeExclusiveFile(path, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+function writeNewTextFile(path, data) {
+  writeExclusiveFile(path, data);
+}
+
+function writeExclusiveFile(path, data) {
+  let descriptor;
   try {
-    writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { flag: 'wx' });
-    renameSync(tempPath, path);
+    descriptor = openSync(path, 'wx');
+    writeFileSync(descriptor, data);
+    closeSync(descriptor);
+    descriptor = undefined;
   } catch (error) {
-    if (existsSync(tempPath)) unlinkSync(tempPath);
+    if (descriptor !== undefined) {
+      try { closeSync(descriptor); } catch {}
+      try { unlinkSync(path); } catch {}
+    }
+    if (error.code === 'EEXIST') throw new Error(`Output already exists: ${path}`);
     throw new Error(`Could not write output ${path}: ${error.message}`);
   }
 }
 
-function main(args) {
+async function renderWithInterrupt(run) {
+  const controller = new AbortController();
+  const onInterrupt = () => {
+    const error = new Error('Render cancelled by Ctrl+C.');
+    error.name = 'AbortError';
+    controller.abort(error);
+  };
+  process.once('SIGINT', onInterrupt);
+  try {
+    return await run(controller.signal);
+  } finally {
+    process.removeListener('SIGINT', onInterrupt);
+  }
+}
+
+function parseProjectOptions(args) {
+  const positional = [];
+  const flags = {};
+  for (let index = 0; index < args.length; index++) {
+    const token = args[index];
+    if (token === '--preset' || token === '--fit') {
+      if (flags[token]) throw new Error(`${token} can only be specified once.`);
+      const value = args[++index];
+      if (!value || value.startsWith('--')) throw new Error(`${token} requires a value.`);
+      flags[token] = value;
+    } else if (token.startsWith('--')) {
+      throw new Error(`Unknown project option: ${token}`);
+    } else {
+      positional.push(token);
+    }
+  }
+
+  if (flags['--preset']) {
+    if (positional.length > 2 || (positional[0] && !/^\d+(?:\.\d+|\/\d+)?$/.test(positional[0]))) {
+      throw new Error('Usage: project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]');
+    }
+    return {
+      preset: flags['--preset'],
+      fps: normalizeFrameRate(positional[0] ?? '30'),
+      durationSeconds: Number(positional[1] ?? 10),
+      ...(flags['--fit'] ? { sourceFit: flags['--fit'] } : {}),
+    };
+  }
+
+  if (positional.length > 3) {
+    throw new Error('Usage: project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>]');
+  }
+  const [size = '1920x1080', fps = '30', durationSeconds = '10'] = positional;
+  const match = /^(\d+)x(\d+)$/i.exec(size);
+  if (!match) throw new Error('Canvas size must use WIDTHxHEIGHT, such as 1080x1920.');
+  return {
+    width: Number(match[1]),
+    height: Number(match[2]),
+    fps: normalizeFrameRate(fps),
+    durationSeconds: Number(durationSeconds),
+    ...(flags['--fit'] ? { sourceFit: flags['--fit'] } : {}),
+  };
+}
+
+async function main(args) {
   const [command, ...commandArgs] = args;
+  if (command === 'capabilities' && commandArgs.length === 0) {
+    console.log(JSON.stringify(getEngineCapabilities(), null, 2));
+    return;
+  }
+  if (command === 'presets' && commandArgs.length === 1 && commandArgs[0] === 'list') {
+    console.log(JSON.stringify(listCanvasPresets(), null, 2));
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'validate' && commandArgs.length === 2) {
+    validateTimeline(readJson(resolve(commandArgs[1])));
+    console.log('Timeline valid.');
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'export-otio' && commandArgs.length === 4) {
+    const [, project, timelinePath, outputPath] = commandArgs;
+    writeNewTextFile(resolve(outputPath), exportTimelineToOtio(resolve(project), readJson(resolve(timelinePath))));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'import-otio' && commandArgs.length === 4) {
+    const [, project, inputPath, outputPath] = commandArgs;
+    if (existsSync(resolve(outputPath))) throw new Error(`Output already exists: ${resolve(outputPath)}`);
+    writeNewFile(resolve(outputPath), importTimelineFromOtio(resolve(project), resolve(inputPath)));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'edit' && commandArgs.length === 4) {
+    const [, inputPath, operationPath, outputPath] = commandArgs;
+    const timeline = readJson(resolve(inputPath));
+    const operation = readJson(resolve(operationPath));
+    const edited = Array.isArray(operation)
+      ? editTimelineBatch(timeline, operation)
+      : editTimeline(timeline, operation);
+    writeNewFile(resolve(outputPath), edited);
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'captions' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [, transcriptPath, outputPath, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    writeNewFile(resolve(outputPath), createCaptionTrack(readJson(resolve(transcriptPath)), options));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'edit' && commandArgs.length >= 4 && commandArgs.length <= 6) {
+    const [project, assetId, transcriptPath, edlPath, requestedOutputPath, requestedQuality] = commandArgs;
+    const qualityOnly = commandArgs.length === 5 && ['draft', 'standard', 'high'].includes(requestedOutputPath);
+    const outputPath = qualityOnly ? undefined : requestedOutputPath;
+    const quality = qualityOnly ? requestedOutputPath : requestedQuality ?? 'draft';
+    const result = await renderWithInterrupt((signal) => renderEditedProjectAsync(resolve(project), assetId, readJson(resolve(transcriptPath)), readJson(resolve(edlPath)), {
+      ...(outputPath ? { outputPath: resolve(outputPath) } : {}),
+      quality,
+      signal,
+    }));
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'render' && commandArgs.length >= 3 && commandArgs.length <= 6) {
+    const [, project, timelinePath, outputPath, quality = 'draft', optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    console.log(JSON.stringify(await renderWithInterrupt((signal) => renderTimelineAsync(resolve(project), readJson(resolve(timelinePath)), outputPath ? resolve(outputPath) : undefined, quality, { ...options, signal })), null, 2));
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'from-edl' && commandArgs.length >= 4 && commandArgs.length <= 5) {
+    const [, edlPath, assetId, outputPath, optionsPath] = commandArgs;
+    const edl = readJson(resolve(edlPath));
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    writeNewFile(resolve(outputPath), timelineFromEdl(edl, assetId, options));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'audio-cues' && commandArgs.length === 2) {
+    const [audio, output] = commandArgs;
+    writeNewFile(resolve(output), audioLevelCues(resolve(audio)));
+    console.log(`Wrote ${resolve(output)}`);
+    return;
+  }
+  if (command === 'lip-sync' && (commandArgs.length === 2 || commandArgs.length === 3)) {
+    const [audio, output, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    writeNewFile(resolve(output), rhubarbLipSyncCues(resolve(audio), options));
+    console.log(`Wrote ${resolve(output)}`);
+    return;
+  }
+  if (command === 'avatar-compose' && commandArgs.length === 2) {
+    const [project, spec] = commandArgs;
+    console.log(JSON.stringify(createAvatarComposition(resolve(project), readJson(resolve(spec))), null, 2));
+    return;
+  }
   if (command === 'retime') {
     const [transcriptPath, edlPath, outputPath, ...extra] = commandArgs;
     if (!transcriptPath || !edlPath || !outputPath || extra.length) {
@@ -45,21 +225,46 @@ function main(args) {
     console.log(`Wrote ${destination}`);
     return;
   }
-  if (command === 'project' && commandArgs[0] === 'create' && commandArgs.length >= 2 && commandArgs.length <= 5) {
-    const [, slug, size = '1920x1080', fps = '30', durationSeconds = '10'] = commandArgs;
-    const match = /^(\d+)x(\d+)$/i.exec(size);
-    if (!match) throw new Error('Canvas size must use WIDTHxHEIGHT, such as 1080x1920.');
-    const projectPath = createVideoProject(process.cwd(), slug, {
-      width: Number(match[1]),
-      height: Number(match[2]),
-      fps: Number(fps),
-      durationSeconds: Number(durationSeconds),
-    });
+  if (command === 'project' && commandArgs[0] === 'create' && commandArgs.length >= 2) {
+    const [, slug, ...tokens] = commandArgs;
+    const options = parseProjectOptions(tokens);
+    const projectPath = createVideoProject(process.cwd(), slug, options);
     console.log(`Created ${projectPath}`);
     return;
   }
+  if (command === 'asset' && commandArgs[0] === 'register' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [, project, media, id] = commandArgs;
+    console.log(JSON.stringify(registerMediaAsset(resolve(project), media, { ...(id ? { id } : {}) }), null, 2));
+    return;
+  }
+  if (command === 'asset' && commandArgs[0] === 'verify' && commandArgs.length === 2) {
+    const results = verifyProjectAssets(resolve(commandArgs[1]));
+    console.log(JSON.stringify(results, null, 2));
+    if (results.some((asset) => asset.status !== 'ok')) process.exitCode = 1;
+    return;
+  }
+  if (command === 'asset' && commandArgs[0] === 'relink' && commandArgs.length === 4) {
+    const [, project, assetId, media] = commandArgs;
+    console.log(JSON.stringify(relinkProjectAsset(resolve(project), assetId, resolve(media)), null, 2));
+    return;
+  }
+  if (command === 'asset' && commandArgs[0] === 'proxy' && commandArgs[1] === 'create' && commandArgs.length >= 4 && commandArgs.length <= 7) {
+    const [, , project, assetId, maxDimension, crf, frameRate] = commandArgs;
+    console.log(JSON.stringify(createAssetProxy(resolve(project), assetId, {
+      ...(maxDimension ? { maxDimension: Number(maxDimension) } : {}),
+      ...(crf ? { crf: Number(crf) } : {}),
+      ...(frameRate ? { frameRate: normalizeFrameRate(frameRate) } : {}),
+    }), null, 2));
+    return;
+  }
+  if (command === 'asset' && commandArgs[0] === 'preview' && (commandArgs.length === 3 || commandArgs.length === 4)) {
+    const [, project, assetId, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    console.log(JSON.stringify(await generateAssetPreview(resolve(project), assetId, options), null, 2));
+    return;
+  }
   if (command === 'probe' && commandArgs.length === 1) {
-    console.log(JSON.stringify(probeMedia(commandArgs[0]), null, 2));
+    console.log(JSON.stringify(probeMedia(commandArgs[0], { requireVideo: false }), null, 2));
     return;
   }
   if (command === 'apply-edl' && commandArgs.length === 3) {
@@ -71,6 +276,35 @@ function main(args) {
   if (command === 'plan-silence' && commandArgs.length === 2) {
     const [transcriptPath, outputPath] = commandArgs;
     writeNewFile(resolve(outputPath), planSilenceCuts(readJson(resolve(transcriptPath))));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'detect-silence' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [mediaPath, outputPath, optionsPath] = commandArgs;
+    writeNewFile(resolve(outputPath), detectAcousticSilence(resolve(mediaPath), optionsPath ? readJson(resolve(optionsPath)) : {}));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'analyze' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [mediaPath, providerPath, outputPath, optionsPath] = commandArgs;
+    const providerModule = await import(pathToFileURL(resolve(providerPath)).href);
+    const provider = providerModule.default ?? providerModule.mediaAnalysisProvider ?? providerModule.provider;
+    const result = await analyzeMediaWithProvider(resolve(mediaPath), provider, {
+      ...(optionsPath ? { providerOptions: readJson(resolve(optionsPath)) } : {}),
+    });
+    writeNewFile(resolve(outputPath), result);
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'transcript' && commandArgs[0] === 'correct' && commandArgs.length === 4) {
+    const [, transcriptPath, correctionsPath, outputPath] = commandArgs;
+    writeNewFile(resolve(outputPath), applyTranscriptCorrections(readJson(resolve(transcriptPath)), readJson(resolve(correctionsPath))));
+    console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'transcript' && commandArgs[0] === 'export' && commandArgs.length === 4) {
+    const [, transcriptPath, format, outputPath] = commandArgs;
+    writeNewTextFile(resolve(outputPath), formatSubtitleText(readJson(resolve(transcriptPath)), format));
     console.log(`Wrote ${resolve(outputPath)}`);
     return;
   }
@@ -86,9 +320,10 @@ function main(args) {
     previewProject(commandArgs[0]);
     return;
   }
-  if (command === 'render' && commandArgs.length >= 1 && commandArgs.length <= 3) {
-    const [projectPath, outputPath, quality = 'draft'] = commandArgs;
-    console.log(JSON.stringify(renderProject(projectPath, outputPath, quality), null, 2));
+  if (command === 'render' && commandArgs.length >= 1 && commandArgs.length <= 4) {
+    const [projectPath, outputPath, quality = 'draft', optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    console.log(JSON.stringify(await renderWithInterrupt((signal) => renderProjectAsync(projectPath, outputPath, quality, { ...options, signal })), null, 2));
     return;
   }
   if (command === 'transcribe' && commandArgs.length >= 2 && commandArgs.length <= 4) {
@@ -101,11 +336,33 @@ function main(args) {
     console.log(JSON.stringify(importProjectTranscript(projectPath, mediaPath, transcriptPath), null, 2));
     return;
   }
-  throw new Error('Usage: node src/cli.mjs project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] | probe <video> | transcribe <project> <video> [model] [language] | import-transcript <project> <video> <transcript> | plan-silence <transcript.json> <new-edl.json> | mistake-candidates <transcript.json> | apply-edl <video> <approved-edl.json> <output.mp4> | retime <transcript.json> <approved-edl.json> <new-output.json> | lint <project> | preview <project> | render <project> [output.mp4] [draft|standard]');
+  throw new Error(`Usage: node src/cli.mjs
+  project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>]
+  project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]
+  presets list | probe <media>
+  asset register <project> <media> [assetId]
+  asset verify <project>
+  asset relink <project> <assetId> <replacement-media>
+  asset proxy create <project> <assetId> [maxDimension] [crf] [frameRate]
+  edit <project> <assetId> <transcript.json> <approved-edl.json> [output.mp4] [draft|standard|high]
+  timeline validate <timeline.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
+  timeline export-otio <project> <timeline.json> <new-output.otio>
+  timeline import-otio <project> <input.otio> <new-timeline.json>
+  timeline captions <transcript.json> <new-track.json> [options.json]
+  timeline from-edl <approved-edl.json> <assetId> <new-timeline.json> [options.json]
+  timeline render <project> <timeline.json> [output.mp4] [draft|standard|high]
+  transcribe <project> <media> [model] [language] | import-transcript <project> <media> <transcript>
+  plan-silence <transcript.json> <new-edl.json> | detect-silence <media> <new-edl.json> [options.json]
+  analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
+  mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>
+  transcript export <transcript.json> <srt|vtt> <new-subtitles-file>
+  apply-edl <media> <approved-edl.json> <output.mp4> | retime <transcript.json> <approved-edl.json> <new-output.json>
+  asset preview <project> <asset-id> [options.json] |
+  lint <project> | preview <project> | render <project> [output.mp4|output.webm|output.mov|output.gif] [draft|standard|high]`);
 }
 
 try {
-  main(process.argv.slice(2));
+  await main(process.argv.slice(2));
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

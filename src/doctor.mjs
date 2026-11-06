@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { hasFfmpegFilter, listFfmpegEncoders } from './media/ffmpeg-capabilities.mjs';
 import { doctorHyperframes } from './render/hyperframes.mjs';
 
 const nodeVersion = process.versions.node.split('.').map(Number);
@@ -42,6 +43,29 @@ if (results.find((result) => result.name === 'HyperFrames')?.ok) {
   }
 }
 console.log(ready ? 'Required engine tools are ready.' : 'Some required engine tools are missing.');
+try {
+  const hasRubberband = hasFfmpegFilter('rubberband');
+  console.log(`${hasRubberband ? '✓' : '⚠'} FFmpeg rubberband filter: ${hasRubberband ? 'available' : 'not available; required for pitch-preserving audio speed ramps'}`);
+} catch (error) {
+  console.log(`⚠ FFmpeg rubberband filter: could not verify (${error.message})`);
+}
+try {
+  const hasColorspace = hasFfmpegFilter('colorspace');
+  console.log(`${hasColorspace ? '✓' : '⚠'} FFmpeg colorspace filter: ${hasColorspace ? 'available' : 'not available; required for Rec.709 and Rec.2020 SDR output profiles'}`);
+} catch (error) {
+  console.log(`⚠ FFmpeg colorspace filter: could not verify (${error.message})`);
+}
+if (results.find((result) => result.name === 'FFmpeg')?.ok) {
+  try {
+    const encoders = listFfmpegEncoders();
+    for (const [name, encoder] of [['H.264', 'libx264'], ['H.265', 'libx265'], ['VP9', 'libvpx-vp9'], ['ProRes', 'prores_ks']]) {
+      const available = encoders.has(encoder);
+      console.log(`${available ? '✓' : '⚠'} FFmpeg ${name} encoder: ${available ? 'available' : `not available (${encoder})`}`);
+    }
+  } catch (error) {
+    console.log(`⚠ FFmpeg encoders: could not verify (${error.message})`);
+  }
+}
 if (!ready) process.exitCode = 1;
 
 function checkCommand(label, command) {

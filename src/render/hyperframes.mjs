@@ -1,10 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { probeMedia } from '../media/probe.mjs';
 import { normalizeTranscript } from '../transcript/normalize.mjs';
+import { parseSubtitleText } from '../transcript/subtitles.mjs';
+import { frameRateNumber } from '../media/frame-rate.mjs';
+import { resolveColorProfile, resolveEncoderArgs, resolveProfileEncoder, resolveRenderControlArgs, resolveRenderFormat, resolveVideoEncoder } from './formats.mjs';
+import { hasFfmpegEncoder, hasFfmpegFilter } from '../media/ffmpeg-capabilities.mjs';
+import { runProcess } from './process.mjs';
+import { fingerprintRenderProject, prepareRenderCheckpoint, removeRenderCheckpoint, restoreRenderCheckpoint, saveRenderCheckpoint } from './checkpoints.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -23,7 +29,21 @@ export function doctorHyperframes(projectPath = process.cwd()) {
 export function importProjectTranscript(projectPath, mediaPath, transcriptPath) {
   const project = resolve(projectPath);
   const media = probeMedia(mediaPath, { requireVideo: false });
-  return processTranscript(project, resolve(transcriptPath), media.durationSeconds);
+  const inputPath = resolve(transcriptPath);
+  const inputExtension = extname(inputPath).toLowerCase();
+  if (!existsSync(join(project, 'meta.json')) || !existsSync(join(project, 'index.html'))) throw new Error(`Not a video project: ${project}`);
+  const rawPath = join(project, 'transcript.json');
+  const outputPath = join(project, 'transcripts', 'transcript.json');
+  if (existsSync(rawPath) || existsSync(outputPath)) {
+    throw new Error('This project already has a transcript; create a new project to preserve the existing edit.');
+  }
+  const granularity = ['.srt', '.vtt'].includes(inputExtension) ? 'cue' : 'word';
+  const raw = granularity === 'cue'
+    ? parseSubtitleText(readFileSync(inputPath, 'utf8'), inputExtension.slice(1))
+    : JSON.parse(readFileSync(inputPath, 'utf8'));
+  const transcript = normalizeTranscript(raw, media.durationSeconds, granularity);
+  writeFileSync(outputPath, `${JSON.stringify(transcript, null, 2)}\n`, { flag: 'wx' });
+  return { transcriptPath: outputPath, wordCount: transcript.words.length, durationSeconds: transcript.durationSeconds };
 }
 
 export function transcribeProject(projectPath, mediaPath, options = {}) {
@@ -35,40 +55,291 @@ export function transcribeProject(projectPath, mediaPath, options = {}) {
   return processTranscript(project, resolve(mediaPath), media.durationSeconds, args);
 }
 
-export function renderProject(projectPath, outputPath, quality = 'draft') {
+export function renderProject(projectPath, outputPath, quality = 'draft', options = {}) {
+  if (options.resumeCheckpoint === true) throw new TypeError('Resumable checkpoints require renderProjectAsync.');
+  if (options.signal !== undefined || options.timeoutSeconds !== undefined) {
+    throw new TypeError('Cancellation and render timeouts require renderProjectAsync.');
+  }
   const project = resolve(projectPath);
   const indexPath = join(project, 'index.html');
   const metaPath = join(project, 'meta.json');
   if (!existsSync(indexPath) || !existsSync(metaPath)) {
     throw new Error(`Not a video project: ${project}`);
   }
-  if (!['draft', 'standard'].includes(quality)) {
-    throw new TypeError('Quality must be draft or standard.');
+  if (!['draft', 'standard', 'high'].includes(quality)) {
+    throw new TypeError('Quality must be draft, standard, or high.');
   }
   const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
-  const output = resolve(outputPath ?? join(project, 'renders', 'draft.mp4'));
-  if (extname(output).toLowerCase() !== '.mp4') throw new Error('Render output must use the .mp4 extension.');
+  const output = resolve(outputPath ?? join(project, `renders/draft.${options.format ?? 'mp4'}`));
+  const format = resolveRenderFormat(output, options.format);
+  const encoderSettings = options.encoder ?? {};
+  const videoEncoder = resolveVideoEncoder(format, encoderSettings);
+  const colorProfile = resolveColorProfile(options.colorProfile, format);
+  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder) : videoEncoder;
+  if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
+  if (colorProfile && !hasFfmpegFilter('colorspace')) throw new Error('Color-profile rendering requires an FFmpeg build with the colorspace filter.');
+  const encoderArgs = resolveEncoderArgs(format, encoderSettings);
+  const renderControlArgs = resolveRenderControlArgs(options);
   if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
   const outputDir = dirname(output);
   mkdirSync(outputDir, { recursive: true });
-  const temporaryOutput = join(outputDir, `.${basename(output, '.mp4')}.${randomUUID()}.tmp.mp4`);
+  const pngSequence = format === 'png-sequence';
+  const temporaryOutput = pngSequence
+    ? join(outputDir, `.${basename(output)}.${randomUUID()}.tmp`)
+    : join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.tmp.${format}`);
+  const encodedOutput = finalEncoder.codec
+    ? join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.encoded.${format}`)
+    : undefined;
   let outputCreated = false;
 
   try {
-    runHyperframes(['render', '--quality', quality, '--output', temporaryOutput], project);
-    const rendered = probeMedia(temporaryOutput);
-    if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / (meta.fps || 30))) {
+    runHyperframes(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...renderControlArgs, ...encoderArgs, '--output', temporaryOutput], project);
+    if (pngSequence) {
+      const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'));
+      const expectedFrames = Math.round(meta.durationSeconds * frameRateNumber(meta.fps ?? 30));
+      if (frames.length !== expectedFrames || frames.length === 0) throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
+      for (const frame of frames) {
+        const data = readFileSync(join(temporaryOutput, frame.name));
+        if (data.length < 24 || data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
+            || data.readUInt32BE(16) !== meta.width || data.readUInt32BE(20) !== meta.height) {
+          throw new Error(`PNG sequence frame ${frame.name} has an invalid signature or dimensions.`);
+        }
+      }
+      if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
+      renameSync(temporaryOutput, output);
+      return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
+    }
+    if (finalEncoder.codec) encodeVideoFile(temporaryOutput, encodedOutput, format, finalEncoder, colorProfile);
+    const rendered = probeMedia(encodedOutput ?? temporaryOutput);
+    const expectedFps = frameRateNumber(meta.fps ?? 30);
+    if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / expectedFps)) {
       throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`);
     }
+    if (rendered.width !== meta.width || rendered.height !== meta.height) {
+      throw new Error(`Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`);
+    }
+    if (rendered.frameRate && Math.abs(rendered.frameRate - expectedFps) > 0.001) {
+      throw new Error(`Rendered frame rate ${rendered.frameRate} fps does not match project frame rate ${meta.fps} fps.`);
+    }
+    const expectedCodec = { h264: 'h264', h265: 'hevc', vp9: 'vp9', prores: 'prores' }[finalEncoder.codecId];
+    if (expectedCodec && rendered.videoCodec !== expectedCodec) {
+      throw new Error(`Rendered video codec ${rendered.videoCodec} does not match requested codec ${finalEncoder.codecId}.`);
+    }
+    validateColorProfile(rendered, colorProfile);
     closeSync(openSync(output, 'wx'));
     outputCreated = true;
-    copyFileSync(temporaryOutput, output);
-    return { project, output, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height };
+    copyFileSync(encodedOutput ?? temporaryOutput, output);
+    return { project, output, format, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height, frameRate: rendered.frameRate, videoCodec: rendered.videoCodec, ...(colorProfile ? { colorProfile: colorProfile.id } : {}) };
   } catch (error) {
     if (outputCreated && existsSync(output)) unlinkSync(output);
     throw error;
   } finally {
-    rmSync(temporaryOutput, { force: true });
+    cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput);
+  }
+}
+
+export async function renderProjectAsync(projectPath, outputPath, quality = 'draft', options = {}) {
+  const project = resolve(projectPath);
+  const indexPath = join(project, 'index.html');
+  const metaPath = join(project, 'meta.json');
+  if (!existsSync(indexPath) || !existsSync(metaPath)) throw new Error(`Not a video project: ${project}`);
+  if (!['draft', 'standard', 'high'].includes(quality)) throw new TypeError('Quality must be draft, standard, or high.');
+
+  const { signal: externalSignal, ...renderOptions } = options;
+  if (externalSignal !== undefined && (typeof externalSignal.aborted !== 'boolean' || typeof externalSignal.addEventListener !== 'function')) {
+    throw new TypeError('Render signal must be an AbortSignal.');
+  }
+  const controls = resolveRenderControlArgs(renderOptions);
+  const resumeCheckpoint = renderOptions.resumeCheckpoint === true;
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+  const output = resolve(outputPath ?? join(project, `renders/draft.${renderOptions.format ?? 'mp4'}`));
+  const format = resolveRenderFormat(output, renderOptions.format);
+  const encoderSettings = renderOptions.encoder ?? {};
+  const videoEncoder = resolveVideoEncoder(format, encoderSettings);
+  const colorProfile = resolveColorProfile(renderOptions.colorProfile, format);
+  const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder) : videoEncoder;
+  if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
+  if (colorProfile && !hasFfmpegFilter('colorspace')) throw new Error('Color-profile rendering requires an FFmpeg build with the colorspace filter.');
+  const encoderArgs = resolveEncoderArgs(format, encoderSettings);
+  if (resumeCheckpoint && format === 'png-sequence') throw new TypeError('Resumable checkpoints do not support PNG sequence output.');
+  if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
+  const outputDir = dirname(output);
+  mkdirSync(outputDir, { recursive: true });
+  const pngSequence = format === 'png-sequence';
+  const temporaryOutput = pngSequence
+    ? join(outputDir, `.${basename(output)}.${randomUUID()}.tmp`)
+    : join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.tmp.${format}`);
+  const encodedOutput = finalEncoder.codec
+    ? join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.encoded.${format}`)
+    : undefined;
+  let checkpoint;
+  let checkpointArtifact;
+  let resumedFromCheckpoint = false;
+  if (resumeCheckpoint) {
+    const fingerprint = await fingerprintRenderProject(project, {
+      quality,
+      format,
+      fps: meta.fps,
+      width: meta.width,
+      height: meta.height,
+      durationSeconds: meta.durationSeconds,
+      encoder: encoderSettings,
+      colorProfile: colorProfile?.id,
+      workers: renderOptions.workers ?? 'auto',
+      lowMemoryMode: renderOptions.lowMemoryMode ?? process.env.PRODUCER_LOW_MEMORY_MODE ?? 'default',
+      platform: process.platform,
+      arch: process.arch,
+      node: process.version,
+      hyperframes: JSON.parse(readFileSync(resolveHyperframesPackage(), 'utf8')).version,
+    });
+    checkpoint = await prepareRenderCheckpoint(output, fingerprint, {
+      ...(renderOptions.checkpointMaxBytes !== undefined ? { maxBytes: renderOptions.checkpointMaxBytes } : {}),
+      ...(renderOptions.checkpointMaxAgeHours !== undefined ? { maxAgeHours: renderOptions.checkpointMaxAgeHours } : {}),
+    });
+    checkpointArtifact = await restoreRenderCheckpoint(checkpoint);
+    resumedFromCheckpoint = Boolean(checkpointArtifact);
+  }
+  let outputCreated = false;
+  let completed = false;
+  const control = createRenderControl(externalSignal, renderOptions.timeoutSeconds);
+
+  try {
+    if (!checkpointArtifact) {
+      await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal);
+      if (checkpoint) {
+        validateRenderedMedia(probeMedia(temporaryOutput), meta);
+        checkpointArtifact = await saveRenderCheckpoint(checkpoint, temporaryOutput);
+      }
+    }
+    if (pngSequence) {
+      const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'));
+      const expectedFrames = Math.round(meta.durationSeconds * frameRateNumber(meta.fps ?? 30));
+      if (frames.length !== expectedFrames || frames.length === 0) throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
+      for (const frame of frames) {
+        const data = readFileSync(join(temporaryOutput, frame.name));
+        if (data.length < 24 || data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
+            || data.readUInt32BE(16) !== meta.width || data.readUInt32BE(20) !== meta.height) {
+          throw new Error(`PNG sequence frame ${frame.name} has an invalid signature or dimensions.`);
+        }
+      }
+      if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
+      renameSync(temporaryOutput, output);
+      return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
+    }
+    const renderArtifact = checkpointArtifact ?? temporaryOutput;
+    if (finalEncoder.codec) await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile);
+    const rendered = probeMedia(encodedOutput ?? renderArtifact);
+    validateRenderedMedia(rendered, meta, finalEncoder.codecId);
+    validateColorProfile(rendered, colorProfile);
+    closeSync(openSync(output, 'wx'));
+    outputCreated = true;
+    copyFileSync(encodedOutput ?? renderArtifact, output);
+    completed = true;
+    return { project, output, format, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height, frameRate: rendered.frameRate, videoCodec: rendered.videoCodec, ...(colorProfile ? { colorProfile: colorProfile.id } : {}), ...(resumeCheckpoint ? { resumedFromCheckpoint } : {}) };
+  } catch (error) {
+    if (outputCreated && existsSync(output)) unlinkSync(output);
+    if (checkpointArtifact) error.message += ' The completed capture is preserved for resume; retry the same render options to reuse it.';
+    throw error;
+  } finally {
+    cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput);
+    if (checkpoint && completed) {
+      await removeRenderCheckpoint(checkpoint).catch((error) => process.emitWarning(`Could not remove completed render checkpoint: ${error.message}`));
+    }
+    control.dispose();
+  }
+}
+
+function validateRenderedMedia(rendered, meta, codecId) {
+  const expectedFps = frameRateNumber(meta.fps ?? 30);
+  if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / expectedFps)) throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`);
+  if (rendered.width !== meta.width || rendered.height !== meta.height) throw new Error(`Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`);
+  if (rendered.frameRate && Math.abs(rendered.frameRate - expectedFps) > 0.001) throw new Error(`Rendered frame rate ${rendered.frameRate} fps does not match project frame rate ${meta.fps} fps.`);
+  const expectedCodec = { h264: 'h264', h265: 'hevc', vp9: 'vp9', prores: 'prores' }[codecId];
+  if (expectedCodec && rendered.videoCodec !== expectedCodec) throw new Error(`Rendered video codec ${rendered.videoCodec} does not match requested codec ${codecId}.`);
+}
+
+function validateColorProfile(rendered, colorProfile) {
+  if (!colorProfile) return;
+  for (const field of ['colorSpace', 'colorTransfer', 'colorPrimaries', 'colorRange']) {
+    if (rendered[field] !== colorProfile[field]) {
+      throw new Error(`Rendered ${field} ${rendered[field] ?? 'unknown'} does not match requested ${colorProfile.id} profile (${colorProfile[field]}).`);
+    }
+  }
+}
+
+function cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput) {
+  rmSync(temporaryOutput, { recursive: true, force: true });
+  const outputName = basename(temporaryOutput);
+  const transactionStem = outputName.replace(/\.(?:mp4|webm|mov|gif)$/i, '');
+  const transactionPrefix = `.${transactionStem}.hf-transaction-`;
+  if (existsSync(outputDir)) {
+    for (const entry of readdirSync(outputDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith(transactionPrefix)) {
+        rmSync(join(outputDir, entry.name), { recursive: true, force: true });
+      }
+    }
+  }
+  if (encodedOutput) rmSync(encodedOutput, { force: true });
+}
+
+function createRenderControl(externalSignal, timeoutSeconds) {
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort(externalSignal.reason);
+  if (externalSignal?.aborted) relayAbort();
+  else externalSignal?.addEventListener('abort', relayAbort, { once: true });
+  const timer = timeoutSeconds === undefined ? undefined : setTimeout(() => {
+    const error = new Error(`Render exceeded the configured timeout of ${timeoutSeconds} seconds.`);
+    error.name = 'TimeoutError';
+    controller.abort(error);
+  }, timeoutSeconds * 1000);
+  timer?.unref();
+  return {
+    signal: controller.signal,
+    dispose() {
+      if (timer) clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', relayAbort);
+    },
+  };
+}
+
+async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, signal, colorProfile) {
+  const args = [
+    '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
+    '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
+  ];
+  if (encoder.codecId === 'prores') args.push('-profile:v', '3', '-pix_fmt', 'yuv422p10le');
+  else args.push('-pix_fmt', 'yuv420p');
+  if (encoder.crf !== undefined) {
+    args.push('-crf', String(encoder.crf));
+    if (encoder.codecId === 'vp9') args.push('-b:v', '0');
+  }
+  if (encoder.videoBitrate !== undefined) args.push('-b:v', encoder.videoBitrate);
+  if (colorProfile) args.push('-vf', colorProfile.filter, '-color_primaries', colorProfile.colorPrimaries, '-color_trc', colorProfile.colorTransfer, '-colorspace', colorProfile.colorSpace, '-color_range', colorProfile.colorRange);
+  args.push('-c:a', 'copy');
+  if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
+  args.push(outputPath);
+  await runProcess('ffmpeg', args, { signal });
+}
+
+function encodeVideoFile(inputPath, outputPath, format, encoder, colorProfile) {
+  const args = [
+    '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
+    '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
+  ];
+  if (encoder.codecId === 'prores') args.push('-profile:v', '3', '-pix_fmt', 'yuv422p10le');
+  else args.push('-pix_fmt', 'yuv420p');
+  if (encoder.crf !== undefined) {
+    args.push('-crf', String(encoder.crf));
+    if (encoder.codecId === 'vp9') args.push('-b:v', '0');
+  }
+  if (encoder.videoBitrate !== undefined) args.push('-b:v', encoder.videoBitrate);
+  if (colorProfile) args.push('-vf', colorProfile.filter, '-color_primaries', colorProfile.colorPrimaries, '-color_trc', colorProfile.colorTransfer, '-colorspace', colorProfile.colorSpace, '-color_range', colorProfile.colorRange);
+  args.push('-c:a', 'copy');
+  if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
+  args.push(outputPath);
+  const result = spawnSync('ffmpeg', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
+  if (result.error || result.status !== 0) {
+    throw new Error(`Could not encode ${encoder.codecId} video: ${result.error?.message ?? result.stderr.trim()}`);
   }
 }
 
@@ -86,6 +357,26 @@ function runHyperframes(args, projectPath) {
   });
   if (result.error || result.status !== 0) {
     throw new Error(`HyperFrames ${args[0]} failed: ${result.error?.message ?? `exit code ${result.status}`}`);
+  }
+  return true;
+}
+
+async function runHyperframesAsync(args, projectPath, signal) {
+  const project = resolve(projectPath);
+  const packagePath = resolveHyperframesPackage();
+  const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
+  const bin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.hyperframes;
+  if (!bin) throw new Error('Installed HyperFrames package has no CLI entry point.');
+  const cliPath = resolve(dirname(packagePath), bin);
+  try {
+    await runProcess(process.execPath, [cliPath, ...args], {
+      cwd: project,
+      signal,
+      windowsHide: false,
+    });
+  } catch (error) {
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') throw error;
+    throw new Error(`HyperFrames ${args[0]} failed: ${error.message}`);
   }
   return true;
 }

@@ -1,0 +1,47 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { animationStateAt, validateAnimationCues } from '../src/animation/cues.mjs';
+import { normalizeRhubarbOutput } from '../src/animation/rhubarb.mjs';
+
+test('selects timed states with explicit gaps and exclusive ends', () => {
+  const track = { schemaVersion: 1, durationSeconds: 2, cues: [
+    { start: 0, end: 0.5, state: 'closed' },
+    { start: 1, end: 2, state: 'open' },
+  ] };
+  assert.equal(animationStateAt(track, 0), 'closed');
+  assert.equal(animationStateAt(track, 0.5, 'rest'), 'rest');
+  assert.equal(animationStateAt(track, 1), 'open');
+  assert.equal(animationStateAt(track, 2), null);
+});
+
+test('rejects overlapping, malformed and out-of-bounds cues', () => {
+  const track = { schemaVersion: 1, durationSeconds: 2, cues: [
+    { start: 0, end: 1, state: 'a' }, { start: 0.9, end: 2, state: 'b' },
+  ] };
+  assert.throws(() => validateAnimationCues(track));
+  assert.throws(() => validateAnimationCues({ ...track, cues: [{ start: 0, end: 3, state: 'a' }] }));
+  assert.throws(() => validateAnimationCues({ ...track, cues: [{ start: 0, end: 1, state: '' }] }));
+  assert.throws(() => animationStateAt({ ...track, cues: [] }, -1));
+});
+
+test('normalizes Rhubarb shapes to lowercase cues and clamps rounded final timestamps', () => {
+  const track = normalizeRhubarbOutput({ mouthCues: [
+    { start: 0, end: 0.23, value: 'X' },
+    { start: 0.23, end: 0.47, value: 'D' },
+    { start: 0.47, end: 1.12, value: 'A' },
+  ] }, 1.115);
+  assert.deepEqual(track, { schemaVersion: 1, durationSeconds: 1.115, cues: [
+    { start: 0, end: 0.23, state: 'x' },
+    { start: 0.23, end: 0.47, state: 'd' },
+    { start: 0.47, end: 1.115, state: 'a' },
+  ] });
+});
+
+test('rejects unsupported Rhubarb shapes, overlapping cues, and malformed JSON', () => {
+  assert.throws(() => normalizeRhubarbOutput('{invalid', 1), /invalid JSON/);
+  assert.throws(() => normalizeRhubarbOutput({ mouthCues: [{ start: 0, end: 0.5, value: 'I' }] }, 1), /supported shapes/);
+  assert.throws(() => normalizeRhubarbOutput({ mouthCues: [
+    { start: 0, end: 0.6, value: 'A' }, { start: 0.5, end: 1, value: 'B' },
+  ] }, 1));
+  assert.throws(() => normalizeRhubarbOutput({ mouthCues: [{ start: 0, end: 1.1, value: 'A' }] }, 1), /within the audio duration/);
+});
