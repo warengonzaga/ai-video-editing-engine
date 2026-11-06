@@ -293,8 +293,10 @@ try {
   const captionRender = await renderTimelineAsync(captionProjectPath, captionTimeline, captionOutputPath, 'draft', { timeoutSeconds: 180 });
   const captionMedia = probeMedia(captionRender.output);
   assert.equal(captionMedia.hasAudio, false);
-  assert.ok(maxRedPixelsInRange(captionRender.output, Math.round(0.3 * 24), Math.round(0.7 * 24)) > 20, 'The first word highlight was not visible during its timed interval.');
-  assert.ok(maxRedPixelsInRange(captionRender.output, Math.round(1.3 * 24), Math.round(1.7 * 24)) > 20, 'The second word highlight was not visible during its timed interval.');
+  const firstHighlightPixels = maxRedPixelsInRange(captionRender.output, Math.round(0.3 * 24), Math.round(0.7 * 24));
+  const secondHighlightPixels = maxRedPixelsInRange(captionRender.output, Math.round(1.3 * 24), Math.round(1.7 * 24));
+  assert.ok(firstHighlightPixels > 20, `The first word highlight was not visible during its timed interval (${firstHighlightPixels} red pixels).`);
+  assert.ok(secondHighlightPixels > 20, `The second word highlight was not visible during its timed interval (${secondHighlightPixels} red pixels).`);
   assert.equal(countRedPixels(captionRender.output, Math.round(0.1 * 24)), 0, 'Word highlight appeared before its timed interval.');
   assert.equal(countRedPixels(captionRender.output, Math.round(1.9 * 24)), 0, 'Word highlight remained after its timed interval.');
 

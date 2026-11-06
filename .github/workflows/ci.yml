@@ -75,7 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: render-smoke-caption-${{ runner.os }}
-          path: ${{ runner.temp }}/aive-render-smoke-*/video-projects/word-highlight-smoke/renders/word-highlight.mp4
+          path: ${{ runner.temp }}/aive-render-smoke-*/video-projects/word-highlight-smoke
           if-no-files-found: ignore
           retention-days: 3
 
