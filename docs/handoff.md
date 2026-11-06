@@ -684,8 +684,12 @@ smoke render alone.
   preflight for asset-generation workflows. Sprite paths resolve relative to
   the specification file, and the result reports the A-H/X state mapping and
   shared canvas dimensions without creating a project. Capability discovery
-  now advertises the canvas and image-content invariants. No test suite or
-  runtime preflight was run for this change.
+  now advertises the canvas and image-content invariants. Ran the CLI against
+  the current Voice 015 A-H/X sprite pack; it reported valid and a shared
+  280×171 canvas. The generated mouth-pack JSON is ignored under
+  `video-projects/`. `npm pack --dry-run` includes the CLI, validator, shared
+  PNG helper, README, and architecture docs (68 files, 168,743 packed bytes).
+  No tarball was published, and no test suite or GitHub Actions run was started.
 
 - Added `insertTimelineGap` / `editTimeline({ type: 'insert-gap', ... })` as a
   generic synchronized timeline operation. It shifts clips after the insertion
