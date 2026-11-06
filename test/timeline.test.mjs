@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
 import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
+import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
@@ -62,6 +62,28 @@ test('timeline edit batches apply atomically and occupy one history entry', () =
   assert.throws(() => history.applyBatch([operations[0], { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 5 }]), /Unknown clip/);
   assert.equal(history.undoDepth, 1);
   assert.equal(history.current.tracks[0].clips[1].timelineStart, 4);
+});
+
+test('timeline edit preview reports exact clip and duration changes without mutation', () => {
+  const original = structuredClone(valid);
+  const preview = previewTimelineEdit(valid, [
+    { type: 'insert-gap', timelineStart: 1.5, durationSeconds: 2 },
+    { type: 'move', trackId: 'video-main', clipId: 'clip-two', timelineStart: 7 },
+  ]);
+
+  assert.equal(preview.schemaVersion, 1);
+  assert.equal(preview.operationCount, 2);
+  assert.equal(preview.durationBeforeSeconds, 8);
+  assert.equal(preview.durationAfterSeconds, 12);
+  assert.equal(preview.durationDeltaSeconds, 4);
+  assert.ok(preview.changes.some((change) => change.entity === 'clip' && change.change === 'added'));
+  assert.ok(preview.changes.some((change) => change.entity === 'clip' && change.clipId === 'clip-two' && change.after.timelineStart === 7));
+  assert.deepEqual(valid, original);
+  assert.throws(() => previewTimelineEdit(valid, [
+    { type: 'move', trackId: 'video-main', clipId: 'clip-two', timelineStart: 7 },
+    { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 9 },
+  ]), /Unknown clip/);
+  assert.deepEqual(valid, original);
 });
 
 test('validates a generic timeline with clips, audio, and composition overlays', () => assert.equal(validateTimeline(valid), valid));

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util';
 import { validateTimeline } from './validate.mjs';
 import { sliceVisualKeyframes } from './keyframes.mjs';
 import { sliceSpeedRamp, speedRampDuration, speedRampSourceAtTime } from './speed-ramp.mjs';
@@ -318,6 +319,49 @@ export function editTimelineBatch(timeline, operations) {
   let next = timeline;
   for (const operation of operations) next = editTimeline(next, operation);
   return next;
+}
+
+/** Describe the exact result of an edit plan without changing the source timeline. */
+export function previewTimelineEdit(timeline, operationOrOperations) {
+  const operations = Array.isArray(operationOrOperations) ? operationOrOperations : [operationOrOperations];
+  const edited = editTimelineBatch(timeline, operations);
+  const changes = [];
+  const beforeTracks = new Map(timeline.tracks.map((track) => [track.id, track]));
+  const afterTracks = new Map(edited.tracks.map((track) => [track.id, track]));
+
+  for (const trackId of new Set([...beforeTracks.keys(), ...afterTracks.keys()])) {
+    const beforeTrack = beforeTracks.get(trackId);
+    const afterTrack = afterTracks.get(trackId);
+    const beforeMetadata = beforeTrack && withoutClips(beforeTrack);
+    const afterMetadata = afterTrack && withoutClips(afterTrack);
+    if (!isDeepStrictEqual(beforeMetadata, afterMetadata)) {
+      changes.push({ entity: 'track', change: beforeTrack ? (afterTrack ? 'updated' : 'removed') : 'added', trackId, before: beforeMetadata ?? null, after: afterMetadata ?? null });
+    }
+
+    const beforeClips = new Map((beforeTrack?.clips ?? []).map((clip) => [clip.id, clip]));
+    const afterClips = new Map((afterTrack?.clips ?? []).map((clip) => [clip.id, clip]));
+    for (const clipId of new Set([...beforeClips.keys(), ...afterClips.keys()])) {
+      const before = beforeClips.get(clipId);
+      const after = afterClips.get(clipId);
+      if (!isDeepStrictEqual(before, after)) {
+        changes.push({ entity: 'clip', change: before ? (after ? 'updated' : 'removed') : 'added', trackId, clipId, before: before ?? null, after: after ?? null });
+      }
+    }
+  }
+
+  return {
+    schemaVersion: 1,
+    operationCount: operations.length,
+    durationBeforeSeconds: timeline.project.durationSeconds,
+    durationAfterSeconds: edited.project.durationSeconds,
+    durationDeltaSeconds: edited.project.durationSeconds - timeline.project.durationSeconds,
+    changes,
+  };
+}
+
+function withoutClips(track) {
+  const { clips, ...metadata } = track;
+  return metadata;
 }
 
 function sliceTimelineClip(clip, kind, localStart, localEnd, timelineStart) {

@@ -19,7 +19,7 @@ import { createAvatarComposition } from './animation/avatar.mjs';
 import { validateTimeline } from './timeline/validate.mjs';
 import { timelineFromEdl } from './timeline/from-edl.mjs';
 import { renderTimelineAsync } from './timeline/render.mjs';
-import { editTimeline, editTimelineBatch } from './timeline/edit.mjs';
+import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
 import { applyTranscriptCorrections } from './transcript/corrections.mjs';
 import { formatSubtitleText } from './transcript/subtitles.mjs';
@@ -158,6 +158,11 @@ async function main(args) {
       : editTimeline(timeline, operation);
     writeNewFile(resolve(outputPath), edited);
     console.log(`Wrote ${resolve(outputPath)}`);
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'preview-edit' && commandArgs.length === 3) {
+    const [, inputPath, operationPath] = commandArgs;
+    console.log(JSON.stringify(previewTimelineEdit(readJson(resolve(inputPath)), readJson(resolve(operationPath))), null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'captions' && commandArgs.length >= 3 && commandArgs.length <= 4) {
@@ -345,7 +350,7 @@ async function main(args) {
   asset relink <project> <assetId> <replacement-media>
   asset proxy create <project> <assetId> [maxDimension] [crf] [frameRate]
   edit <project> <assetId> <transcript.json> <approved-edl.json> [output.mp4] [draft|standard|high]
-  timeline validate <timeline.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
+  timeline validate <timeline.json> | timeline preview-edit <timeline.json> <operation.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
   timeline export-otio <project> <timeline.json> <new-output.otio>
   timeline import-otio <project> <input.otio> <new-timeline.json>
   timeline captions <transcript.json> <new-track.json> [options.json]

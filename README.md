@@ -366,8 +366,16 @@ trims or splits clips that straddle the cut, retimes later clips, and shortens
 the project. Adding a clip or inserting a gap can extend project duration;
 ordinary removal leaves it unchanged so existing downstream timing is preserved.
 
-Apply a timeline edit from JSON files with the CLI. For example, save this as
-`edits/insert-gap.json`:
+Review the exact result before writing an edit. `preview-edit` prints the
+duration change and each added, removed, or updated track and clip as JSON; it
+does not write a timeline file:
+
+```sh
+node src/cli.mjs timeline preview-edit timeline.json edits/insert-gap.json
+```
+
+After reviewing the preview, apply the same operation plan to a new timeline
+file. For example, save this as `edits/insert-gap.json`:
 
 ```json
 {
@@ -396,7 +404,8 @@ if the entire batch succeeds:
 
 Single-operation files remain supported. Existing output files are never
 overwritten. The JavaScript API exposes the same behavior through
-`editTimelineBatch(timeline, operations)`.
+`editTimelineBatch(timeline, operations)`. `previewTimelineEdit(timeline,
+operations)` returns the same validated change plan without modifying the input.
 
 Detach the selected video clip's source audio into a synchronized audio clip.
 This creates an audio track when the requested one does not exist and keeps

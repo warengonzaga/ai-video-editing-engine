@@ -11,7 +11,7 @@ export { SPEED_RAMP_EASES, speedRampDuration } from './timeline/speed-ramp.mjs';
 export { timelineFromEdl } from './timeline/from-edl.mjs';
 export { renderTimeline, renderTimelineAsync } from './timeline/render.mjs';
 export { DEFAULT_SOURCE_FIT, SOURCE_FIT_MODES, resolveSourceFit, validateSourceFit } from './timeline/source-fit.mjs';
-export { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from './timeline/edit.mjs';
+export { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, editTimeline, editTimelineBatch, insertTimelineGap, moveTimelineClip, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from './timeline/edit.mjs';
 export { createTimelineHistory } from './timeline/history.mjs';
 export { createCaptionTrack } from './timeline/captions.mjs';
 export { CAPTION_LAYOUT_PRESETS, listCaptionLayoutPresets, resolveCaptionLayoutPreset } from './timeline/caption-layouts.mjs';

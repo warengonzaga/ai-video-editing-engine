@@ -308,7 +308,7 @@ in this order:
   gaps, with explicit rejection for unsupported constructs. API/CLI round-trip
   coverage runs in CI on Windows and Linux.
 5. **Workflow quality:** visual preview/review artifacts, richer caption
-   layout templates, undoable edit operations, injected transcription and
+   layout templates, undoable and dry-run reviewable edit operations, injected transcription and
    media-analysis provider APIs, and CLI-loaded analysis provider modules are
    implemented.
 6. **Real-world acceptance:** render varied footage and audio on Windows,
@@ -333,6 +333,9 @@ CLI-loaded provider modules return normalized time-coded findings with
 source-bound validation and do not apply edit decisions automatically.
 Timeline editing supports adding and removing validated tracks and clips; a
 new clip extends project duration while removals preserve the existing duration.
+Timeline edit plans can now be previewed through the API or CLI before writing:
+the dry run reports exact track and clip changes plus before/after project
+duration, and leaves the source timeline untouched.
 
 ## Current starting point
 

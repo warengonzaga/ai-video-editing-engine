@@ -62,6 +62,9 @@ Last updated: 2026-11-06
 - The API's `editTimelineBatch` and history's `applyBatch` apply ordered edit
   plans all-or-nothing; a completed batch is one undo/redo action. The CLI also
   accepts an operation array and writes no output if any operation fails.
+- `previewTimelineEdit` and `timeline preview-edit` dry-run the same validated
+  operations and report exact track/clip changes plus project duration before
+  and after; previews do not mutate the source or write a timeline file.
 - Caption generation provides generic `subtitle`, `social`, `socialPop`, and
   `lowerThird` layout presets with explicit style overrides. The `socialPop`
   preset enables word-timed highlighting with a brief GSAP pop on the active

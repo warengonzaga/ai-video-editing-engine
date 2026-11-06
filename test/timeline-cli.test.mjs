@@ -61,6 +61,28 @@ test('timeline CLI slips source media without changing timeline placement', () =
   }
 });
 
+test('timeline CLI previews an edit plan without writing or changing the timeline', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
+  try {
+    const inputPath = join(root, 'timeline.json');
+    const operationPath = join(root, 'operation.json');
+    const outputPath = join(root, 'preview.json');
+    const originalText = JSON.stringify(timeline, null, 2);
+    writeFileSync(inputPath, originalText);
+    writeFileSync(operationPath, JSON.stringify({ type: 'move', trackId: 'video-main', clipId: 'clip-two', timelineStart: 4 }));
+
+    const stdout = execFileSync(process.execPath, [cliPath, 'timeline', 'preview-edit', inputPath, operationPath], { encoding: 'utf8' });
+    const preview = JSON.parse(stdout);
+    assert.equal(preview.durationBeforeSeconds, 8);
+    assert.equal(preview.durationAfterSeconds, 9);
+    assert.ok(preview.changes.some((change) => change.clipId === 'clip-two' && change.after.timelineStart === 4));
+    assert.equal(readFileSync(inputPath, 'utf8'), originalText);
+    assert.equal(existsSync(outputPath), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('timeline CLI applies an edit plan as one atomic batch', () => {
   const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
   try {
