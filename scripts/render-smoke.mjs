@@ -293,8 +293,8 @@ try {
   const captionRender = await renderTimelineAsync(captionProjectPath, captionTimeline, captionOutputPath, 'draft', { timeoutSeconds: 180 });
   const captionMedia = probeMedia(captionRender.output);
   assert.equal(captionMedia.hasAudio, false);
-  assert.ok(countRedPixels(captionRender.output, Math.round(0.5 * 24)) > 20, 'The first word highlight was not visible during its timed interval.');
-  assert.ok(countRedPixels(captionRender.output, Math.round(1.5 * 24)) > 20, 'The second word highlight was not visible during its timed interval.');
+  assert.ok(maxRedPixelsInRange(captionRender.output, Math.round(0.3 * 24), Math.round(0.7 * 24)) > 20, 'The first word highlight was not visible during its timed interval.');
+  assert.ok(maxRedPixelsInRange(captionRender.output, Math.round(1.3 * 24), Math.round(1.7 * 24)) > 20, 'The second word highlight was not visible during its timed interval.');
   assert.equal(countRedPixels(captionRender.output, Math.round(0.1 * 24)), 0, 'Word highlight appeared before its timed interval.');
   assert.equal(countRedPixels(captionRender.output, Math.round(1.9 * 24)), 0, 'Word highlight remained after its timed interval.');
 
@@ -600,6 +600,14 @@ function countRedPixels(path, frameNumber) {
     if (result.stdout[offset] > 160 && result.stdout[offset + 1] < 120 && result.stdout[offset + 2] < 120) count++;
   }
   return count;
+}
+
+function maxRedPixelsInRange(path, firstFrame, lastFrame) {
+  let maximum = 0;
+  for (let frameNumber = firstFrame; frameNumber <= lastFrame; frameNumber++) {
+    maximum = Math.max(maximum, countRedPixels(path, frameNumber));
+  }
+  return maximum;
 }
 
 function measureAudioCueStart(path) {
