@@ -652,3 +652,14 @@ smoke render alone.
   human audio review. The artifact remains in ignored `video-projects/`.
 - `npm audit --omit=dev --offline` reported 0 production dependency
   vulnerabilities using the local npm audit cache.
+- The 2026-11-06 Windows render smoke now exercises all advertised export
+  modes against a two-second 320×180/24 fps video-only timeline: MP4/H.264,
+  WebM/VP9, MOV/ProRes, GIF, and a 48-frame PNG sequence. The GIF validator
+  checks nominal frame rate because GIF's 10 ms frame-delay time base can make
+  ffprobe's average rate differ from the authored cadence. All output format,
+  dimensions, codec/audio-stream, and PNG frame-count assertions passed; the
+  full render smoke also passed its audio-only/video-only, caption, timeline,
+  color-profile, and 12-second A/V sync checks. `npm test`: 117 passed, 2
+  optional OpenTimelineIO skips, 0 failed. `npm audit --omit=dev --offline`
+  reported 0 vulnerabilities. Hosted Linux/macOS/Windows CI for this change
+  has not yet completed.

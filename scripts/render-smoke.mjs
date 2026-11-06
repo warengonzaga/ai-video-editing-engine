@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -348,6 +348,42 @@ try {
   assert.equal(videoOnlyMedia.hasAudio, false, 'Video-only timeline should not gain an audio stream.');
   assert.equal(videoOnlyMedia.width, 320);
   assert.equal(videoOnlyMedia.height, 180);
+  const webmOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-vp9.webm');
+  const webmRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, webmOutputPath, 'draft', {
+    format: 'webm', encoder: { codec: 'vp9', crf: 40 }, workers: 1, timeoutSeconds: 180,
+  });
+  const webmMedia = probeMedia(webmRender.output);
+  assert.equal(webmMedia.videoCodec, 'vp9', 'WebM export should encode VP9.');
+  assert.equal(webmMedia.width, 320);
+  assert.equal(webmMedia.height, 180);
+  assert.equal(webmMedia.hasAudio, false);
+
+  const movOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-prores.mov');
+  const movRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, movOutputPath, 'draft', {
+    format: 'mov', encoder: { codec: 'prores' }, workers: 1, timeoutSeconds: 180,
+  });
+  const movMedia = probeMedia(movRender.output);
+  assert.equal(movMedia.videoCodec, 'prores', 'MOV export should encode ProRes.');
+  assert.equal(movMedia.width, 320);
+  assert.equal(movMedia.height, 180);
+
+  const gifOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke.gif');
+  const gifRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, gifOutputPath, 'draft', {
+    format: 'gif', workers: 1, timeoutSeconds: 180,
+  });
+  const gifMedia = probeMedia(gifRender.output);
+  assert.equal(gifMedia.videoCodec, 'gif', 'GIF export should produce a GIF video stream.');
+  assert.equal(gifMedia.width, 320);
+  assert.equal(gifMedia.height, 180);
+  assert.equal(gifMedia.hasAudio, false, 'GIF export should not contain audio.');
+
+  const pngSequenceOutputPath = join(videoOnlyProjectPath, 'renders', 'smoke-png-sequence');
+  const pngSequenceRender = await renderTimelineAsync(videoOnlyProjectPath, videoOnlyTimeline, pngSequenceOutputPath, 'draft', {
+    format: 'png-sequence', workers: 1, timeoutSeconds: 180,
+  });
+  const pngFrames = readdirSync(pngSequenceRender.output).filter((file) => file.toLowerCase().endsWith('.png'));
+  assert.equal(pngFrames.length, 48, 'PNG image-sequence export should contain one frame per timeline frame.');
+
   const detachedAudioProjectPath = createVideoProject(root, 'detached-audio-smoke', { width: 320, height: 180, fps: 24, durationSeconds: 2 });
   const detachedAudioOutputPath = join(detachedAudioProjectPath, 'renders', 'smoke-detached-audio.mp4');
   const detachableAsset = registerMediaAsset(detachedAudioProjectPath, sourceVideoWithAudioPath, { id: 'camera-with-audio' });

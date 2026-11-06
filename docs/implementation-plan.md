@@ -221,7 +221,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;
   assert whether each output includes an audio stream.
 - [ ] Validate these media modes and unsupported codec behavior across Windows,
-  macOS, and Linux; hosted runs remain pending. Explicit final encoders are now
+  macOS, and Linux; Windows local smoke now covers MP4, VP9/WebM, ProRes/MOV,
+  GIF, 48-frame PNG sequences, and audio-only/video-only output. Hosted runs
+  remain pending. Explicit final encoders are now
   checked against the local FFmpeg encoder registry before browser rendering,
   with unit coverage for encoder-list parsing and missing-codec errors.
 

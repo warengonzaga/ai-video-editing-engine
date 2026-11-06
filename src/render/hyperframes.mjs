@@ -118,8 +118,11 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
     if (rendered.width !== meta.width || rendered.height !== meta.height) {
       throw new Error(`Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`);
     }
-    if (rendered.frameRate && Math.abs(rendered.frameRate - expectedFps) > 0.001) {
-      throw new Error(`Rendered frame rate ${rendered.frameRate} fps does not match project frame rate ${meta.fps} fps.`);
+    const renderedFrameRate = rendered.videoCodec === 'gif'
+      ? rendered.nominalFrameRate ?? rendered.frameRate
+      : rendered.frameRate;
+    if (renderedFrameRate && Math.abs(renderedFrameRate - expectedFps) > 0.001) {
+      throw new Error(`Rendered frame rate ${renderedFrameRate} fps does not match project frame rate ${meta.fps} fps.`);
     }
     const expectedCodec = { h264: 'h264', h265: 'hevc', vp9: 'vp9', prores: 'prores' }[finalEncoder.codecId];
     if (expectedCodec && rendered.videoCodec !== expectedCodec) {
@@ -253,7 +256,10 @@ function validateRenderedMedia(rendered, meta, codecId) {
   const expectedFps = frameRateNumber(meta.fps ?? 30);
   if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / expectedFps)) throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`);
   if (rendered.width !== meta.width || rendered.height !== meta.height) throw new Error(`Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`);
-  if (rendered.frameRate && Math.abs(rendered.frameRate - expectedFps) > 0.001) throw new Error(`Rendered frame rate ${rendered.frameRate} fps does not match project frame rate ${meta.fps} fps.`);
+  const renderedFrameRate = rendered.videoCodec === 'gif'
+    ? rendered.nominalFrameRate ?? rendered.frameRate
+    : rendered.frameRate;
+  if (renderedFrameRate && Math.abs(renderedFrameRate - expectedFps) > 0.001) throw new Error(`Rendered frame rate ${renderedFrameRate} fps does not match project frame rate ${meta.fps} fps.`);
   const expectedCodec = { h264: 'h264', h265: 'hevc', vp9: 'vp9', prores: 'prores' }[codecId];
   if (expectedCodec && rendered.videoCodec !== expectedCodec) throw new Error(`Rendered video codec ${rendered.videoCodec} does not match requested codec ${codecId}.`);
 }
