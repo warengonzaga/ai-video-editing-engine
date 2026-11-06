@@ -99,13 +99,23 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
         const paddingPixels = clip.paddingPixels ?? 0;
         const outline = clip.textOutline ? `-webkit-text-stroke:${clip.textOutline.widthPixels}px ${escapeAttr(clip.textOutline.color)};` : '';
         const shadow = clip.textShadow ? `text-shadow:${clip.textShadow.offsetXPixels}px ${clip.textShadow.offsetYPixels}px ${clip.textShadow.blurPixels}px ${escapeAttr(clip.textShadow.color)};` : '';
-        const textMarkup = clip.wordTimings
-          ? clip.wordTimings.map((word) => `<span class="caption-word" data-word-start="${clip.timelineStart + word.start}" data-word-end="${clip.timelineStart + word.end}">${escapeAttr(word.text)}</span>`).join(' ')
-          : escapeAttr(clip.text);
+        const words = clip.wordTimings ?? clip.text.trim().split(/\s+/).map((text) => ({ text }));
+        const wordMarkup = (word) => clip.wordTimings
+          ? `<span class="caption-word" data-word-start="${clip.timelineStart + word.start}" data-word-end="${clip.timelineStart + word.end}">${escapeAttr(word.text)}</span>`
+          : escapeAttr(word.text);
+        const lines = clip.wordsPerLine === undefined
+          ? [words]
+          : Array.from({ length: Math.ceil(words.length / clip.wordsPerLine) }, (_, index) => words.slice(index * clip.wordsPerLine, (index + 1) * clip.wordsPerLine));
+        const textMarkup = clip.wordsPerLine === undefined
+          ? (clip.wordTimings ? words.map(wordMarkup).join(' ') : escapeAttr(clip.text))
+          : lines.map((line) => `<span class="caption-line" style="display:block;width:100%;text-align:${textAlign}">${line.map(wordMarkup).join(' ')}</span>`).join('');
         const highlightAttributes = clip.wordTimings
           ? ` data-word-base-color="${color}" data-word-highlight-color="${escapeAttr(clip.wordHighlightColor)}" data-word-highlight-animation="${escapeAttr(clip.wordHighlightAnimation ?? 'scale')}"`
           : '';
-        return `<div ${common}${fadeAttributes(clip)}${highlightAttributes} role="text" aria-label="${escapeAttr(clip.text)}" style="position:absolute;display:flex;flex-wrap:${clip.wordWrap ? 'wrap' : 'nowrap'};align-items:${alignItems};align-content:${alignContent};column-gap:${clip.wordWrap ? '0.25em' : '0'};justify-content:${textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center'};left:${x}%;top:${y}%;width:${width}%;height:${height}%;padding:${paddingPixels}px;font-family:${fontFamily};font-size:${fontSize}px;font-weight:${fontWeight};line-height:${lineHeight};color:${color};background:${backgroundColor};text-align:${textAlign};white-space:${whiteSpace};${outline}${shadow}${maskStyle}${transitionStyle}${blendStyle}">${textMarkup}</div>`;
+        const display = clip.wordsPerLine === undefined ? 'flex' : 'flex;flex-direction:column;row-gap:0.08em';
+        const flexWrap = clip.wordsPerLine !== undefined ? 'nowrap' : clip.wordWrap ? 'wrap' : 'nowrap';
+        const itemAlignment = clip.wordsPerLine !== undefined ? 'stretch' : alignItems;
+        return `<div ${common}${fadeAttributes(clip)}${highlightAttributes} role="text" aria-label="${escapeAttr(clip.text)}" style="position:absolute;display:${display};flex-wrap:${flexWrap};align-items:${itemAlignment};align-content:${alignContent};column-gap:${clip.wordWrap ? '0.25em' : '0'};justify-content:${textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center'};left:${x}%;top:${y}%;width:${width}%;height:${height}%;padding:${paddingPixels}px;font-family:${fontFamily};font-size:${fontSize}px;font-weight:${fontWeight};line-height:${lineHeight};color:${color};background:${backgroundColor};text-align:${textAlign};white-space:${whiteSpace};${outline}${shadow}${maskStyle}${transitionStyle}${blendStyle}">${textMarkup}</div>`;
       }
       const comp = assetPath(clip.composition);
       return `<div ${common}${fadeAttributes(clip)} data-composition-id="${escapeAttr(clip.id)}" data-composition-src="${escapeAttr(comp)}" style="position:absolute;left:0;top:0;width:100%;height:100%;${maskStyle}${transitionStyle}${blendStyle}"></div>`;

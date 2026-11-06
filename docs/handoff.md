@@ -65,12 +65,16 @@ Last updated: 2026-11-06
 - `previewTimelineEdit` and `timeline preview-edit` dry-run the same validated
   operations and report exact track/clip changes plus project duration before
   and after; previews do not mutate the source or write a timeline file.
-- Caption generation provides generic `subtitle`, `social`, `socialPop`, and
-  `lowerThird` layout presets with explicit style overrides. The `socialPop`
+- Caption generation provides generic `subtitle`, `social`, `socialPop`,
+  `socialStack`, and `lowerThird` layout presets with explicit style overrides.
+  The `socialStack` preset creates deterministic two-line captions with a
+  configurable number of words per line and caption. The `socialPop`
   preset enables word-timed highlighting with a brief GSAP pop on the active
   word; other layouts can select `scale` or `pop`. A pixel-sampled render smoke
   verifies the timed highlight. Preset captions wrap at word boundaries;
-  richer branded multi-line templates remain open.
+  consumer-branded templates remain consumer-owned. The new stack layout has
+  not been run through the test or render-smoke suites per the user's request
+  to defer tests until manual debugging.
 - `transcribeWithProvider` accepts an injected JavaScript provider, supplies
   probed media duration, validates and normalizes returned word/cue timing, and
   writes the result without persisting provider credentials. Media-analysis
@@ -771,6 +775,10 @@ smoke render alone.
   `workflow_dispatch` remains available for manual runs. This keeps the full
   three-OS matrix before merge without automatic duplicate runs on branch and
   merge pushes.
+- At the user's direction, the automatic `pull_request` trigger is temporarily
+  disabled while the remaining Engine capabilities are implemented. The full
+  matrix remains available through `workflow_dispatch`; restore automatic PR
+  checks when the user is ready to resume validation.
 - The latest Windows render-smoke run also covers an MP4 whose video stream
   starts at 1.0 second. The rendered clip shows its red source frame at timeline
   0.25 seconds; the output records source start time 1.0 second. The complete

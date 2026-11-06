@@ -186,7 +186,8 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   outline, shadow, padding, line-height, and vertical alignment controls are
   implemented. Caption presets wrap text at word boundaries, including
   word-timed active-word highlighting. `socialPop` adds a short scale pop;
-  richer multi-line template designs remain open.
+  `socialStack` adds deterministic multi-line captions with configurable words
+  per line and caption. Consumer-branded templates stay consumer-owned.
 - [x] Provide a generic layered composition API and optional experimental
   avatar helpers; the latter are not yet a supported speech-animation feature.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
@@ -284,6 +285,12 @@ through the documented engine interface; Studio retains its review gates.
 - [x] Update the handoff with current status, evidence, blockers, and the next
   concrete task. Avoid claiming completion from test results alone.
 
+At the user's direction, automatic test, render-smoke, and dependency-audit
+workflows are temporarily disabled during implementation. The workflow remains
+available through manual dispatch; restore automatic checks for the manual
+debugging phase. Do not treat earlier green runs as verification of current
+unverified changes.
+
 ## Full-editor capability backlog
 
 The Engine is a headless editing runtime and API for AI workflows; it does not
@@ -334,10 +341,10 @@ avatar art, and narration policy belong to Explainer Studio.
 JavaScript API. It supports undo/redo, reset, safe cloned snapshots, invalid
 operation isolation, and clearing redo history when a new edit is applied.
 Caption generation also offers reusable subtitle, social, social-pop, and
-lower-third layouts with per-option overrides. These presets wrap text at word
-boundaries and keep active word highlighting aligned across lines. Word
-highlighting supports a steady scale or short pop entrance. Complex branded
-multi-line templates remain open.
+lower-third layouts with per-option overrides. The `socialStack` layout adds
+deterministic two-line captions with configurable words per line and caption;
+word-timed highlights remain attached to each word when the caption is split
+into lines. Complex consumer-branded templates remain consumer-owned.
 The JavaScript API also accepts injected transcription adapters, validates and
 normalizes their output against probed source duration, and stores normalized
 transcripts without writing provider credentials. Media-analysis adapters and

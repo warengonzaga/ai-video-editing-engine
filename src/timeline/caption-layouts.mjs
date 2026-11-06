@@ -18,6 +18,12 @@ const LAYOUTS = {
     ...SOCIAL_LAYOUT,
     wordHighlight: true, wordHighlightColor: '#ffe45c', wordHighlightAnimation: 'pop',
   },
+  socialStack: {
+    ...SOCIAL_LAYOUT,
+    y: 0.64, height: 0.3, fontSize: 58, lineHeight: 1.02,
+    wordsPerCaption: 6, wordsPerLine: 3,
+    wordHighlight: true, wordHighlightColor: '#ffe45c', wordHighlightAnimation: 'pop',
+  },
   lowerThird: {
     x: 0.08, y: 0.72, width: 0.76, height: 0.18, fontSize: 48,
     fontWeight: 600, verticalAlign: 'bottom', paddingPixels: 12, wordWrap: true,

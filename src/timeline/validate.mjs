@@ -172,6 +172,7 @@ function validateTextClip(clip) {
   const position = { x: clip.x ?? 0.08, y: clip.y ?? 0.76, width: clip.width ?? 0.84, height: clip.height ?? 0.16 };
   if (!Object.values(position).every(Number.isFinite) || position.x < 0 || position.y < 0 || position.width <= 0 || position.height <= 0 || position.x + position.width > 1 || position.y + position.height > 1) throw new TypeError(`Text overlay ${clip.id} has invalid normalized placement.`);
   if (clip.wordWrap !== undefined && typeof clip.wordWrap !== 'boolean') throw new TypeError(`Text overlay ${clip.id} wordWrap must be a boolean.`);
+  if (clip.wordsPerLine !== undefined && (!Number.isSafeInteger(clip.wordsPerLine) || clip.wordsPerLine < 1 || clip.wordsPerLine > 20)) throw new TypeError(`Text overlay ${clip.id} wordsPerLine must be an integer from 1 to 20.`);
   if (clip.wordTimings !== undefined) {
     if (!Array.isArray(clip.wordTimings) || clip.wordTimings.length === 0) throw new TypeError(`Text overlay ${clip.id} wordTimings must be a non-empty array.`);
     let previousStart = -Infinity;

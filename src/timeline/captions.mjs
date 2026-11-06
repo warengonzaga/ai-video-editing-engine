@@ -15,8 +15,12 @@ export function createCaptionTrack(transcript, options = {}) {
   const wordHighlightAnimation = options.wordHighlightAnimation ?? layout.wordHighlightAnimation ?? 'scale';
   if (!['scale', 'pop'].includes(wordHighlightAnimation)) throw new TypeError('wordHighlightAnimation must be scale or pop.');
   if (!wordHighlight && options.wordHighlightAnimation !== undefined) throw new TypeError('wordHighlightAnimation requires wordHighlight: true.');
-  const wordsPerCaption = options.wordsPerCaption ?? 6;
+  const wordsPerCaption = options.wordsPerCaption ?? layout.wordsPerCaption ?? 6;
   if (!Number.isSafeInteger(wordsPerCaption) || wordsPerCaption < 1 || wordsPerCaption > 20) throw new TypeError('wordsPerCaption must be an integer from 1 to 20.');
+  const wordsPerLine = options.wordsPerLine ?? layout.wordsPerLine;
+  if (wordsPerLine !== undefined && (!Number.isSafeInteger(wordsPerLine) || wordsPerLine < 1 || wordsPerLine > 20)) {
+    throw new TypeError('wordsPerLine must be an integer from 1 to 20.');
+  }
   const wordWrap = options.wordWrap ?? layout.wordWrap ?? false;
   if (typeof wordWrap !== 'boolean') throw new TypeError('wordWrap must be a boolean.');
   const maxGapSeconds = options.maxGapSeconds ?? 0.8;
@@ -38,6 +42,7 @@ export function createCaptionTrack(transcript, options = {}) {
     timelineStart: words[0].start,
     durationSeconds: words.at(-1).end - words[0].start,
     text: words.map(({ text }) => text).join(' '),
+    ...(wordsPerLine !== undefined ? { wordsPerLine } : {}),
     ...(wordHighlight ? {
       wordTimings: words.map((word) => ({
         text: word.text,

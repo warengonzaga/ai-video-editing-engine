@@ -183,11 +183,14 @@ APIs do not support checkpoints.
 `textOutline`, and `textShadow`. These settings compile to validated CSS values;
 raw CSS is not accepted. `textOutline` uses `{ color, widthPixels }`, while
 `textShadow` uses `{ color, blurPixels, offsetXPixels, offsetYPixels }`.
-Choose `layoutPreset: 'subtitle' | 'social' | 'socialPop' | 'lowerThird'`
+Choose `layoutPreset: 'subtitle' | 'social' | 'socialPop' | 'socialStack' | 'lowerThird'`
 for reusable placement and styling defaults; explicit options override the
 selected preset.
 `socialPop` enables timed word highlighting by default, with a brief pop when
-each word becomes active. For other layouts, word-timed transcripts can set
+each word becomes active. `socialStack` provides a two-line social caption
+layout with three words per line and six words per caption by default. Set
+`wordsPerLine` and `wordsPerCaption` to customize line and caption lengths.
+For other layouts, word-timed transcripts can set
 `wordHighlight: true` and choose `wordHighlightAnimation: 'scale' | 'pop'`;
 `wordHighlightColor` customizes the highlight. Explicit options override preset
 defaults. Caption presets wrap long text at word boundaries by default; set
