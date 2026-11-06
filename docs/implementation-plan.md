@@ -428,7 +428,11 @@ in this order:
   timeline duration. Import expands `SMPTE_Dissolve` transitions into video
   opacity fades or audio crossfades; custom transitions, other overlaps,
   retiming, trimmed tracks/stacks, effects, disabled clips, and nested
-  compositions inside tracks are explicitly rejected. Export converts
+  compositions inside tracks are explicitly rejected. Retiming support needs
+  explicit source-time and parent-timeline mapping: OTIO `LinearTimeWarp`
+  changes the media time mapping without changing the item's stored duration,
+  so its `time_scalar` cannot be copied directly to Engine `playbackRate`.
+  Export converts
   explicitly faded two-clip overlaps into `SMPTE_Dissolve` transitions and
   rejects unmarked/chained overlaps, standalone fades, clip-edge transitions,
   and retiming. Tests remain deferred until the user resumes manual validation.
