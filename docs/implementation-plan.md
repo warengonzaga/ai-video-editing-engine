@@ -258,9 +258,11 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   `avatar-compose` specification, while retaining the standalone `lip-sync`
   command for reusable cue files. A separate Windows Engine render combines
   consumer-provided body, mouth, and blink sprites with Voice 015. Representative
-  frames verify mouth placement and full-body framing. Human audiovisual review
-  and Taglish phoneme alignment remain outstanding; Rhubarb is an optional
-  external runtime and is not bundled.
+  frames verify mouth placement and full-body framing. A new local 1920x1080,
+  30 fps Voice 015 render uses distinct A-F sprites plus X rest and fixed-canvas
+  blink assets; spot-checked states B/C/E/F/X/A and a simultaneous blink retain
+  the mouth anchor and body size. Human speech-alignment review remains
+  outstanding; Rhubarb is an optional external runtime and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
 optional talking-avatar scene; inspect animation and listen to the actual audio.

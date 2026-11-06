@@ -192,6 +192,26 @@ Last updated: 2026-11-07
   Existing assertions in `test/animation-cues.test.mjs` still expect the former
   five-state adapter default; update those assertions when the deferred test
   work resumes. Tests remain unrun per user direction.
+- Created an ignored, local-only fixture at
+  `video-projects/waren-avatar-viseme-v2/` using the existing Waren body and
+  Voice 015. The fixture has seven distinct A-F/X mouth images on identical
+  280x171 transparent canvases; generated B/E/F shapes were aligned to the
+  existing A/C/D/X art. The prior blink image was resampled to the body's
+  420x620 canvas so the blink no longer changes the body box. `avatar-compose`
+  accepted the complete pack and generated 59 Rhubarb cues; the 11.133-second
+  1920x1080/30 fps MP4 is
+  `video-projects/waren-avatar-viseme-v2/renders/waren-voice015-viseme-v2.mp4`.
+  FFprobe confirms H.264 video and 48 kHz stereo AAC narration.
+  Frame spot-checks at B, C, E+blink, F, X, and A confirm a stable mouth anchor,
+  centered rounded/pursed variants, and no body-size blink flicker. The contact
+  sheet is `video-projects/waren-avatar-viseme-v2/renders/avatar-viseme-contact-sheet.png`.
+  This is a visual spot-check only: the recording was not listened through for
+  Taglish phoneme accuracy, and D was not selected by this recording's cues.
+- The standard fixture render completed in 18.8s (setup 5.2s, browser capture
+  12.2s, encode 0.1s) on Windows 10.0.26300, AMD Ryzen 7 7840HS, 16 logical
+  cores, and 29.8 GiB RAM, using hardware-GPU browser capture. This is one
+  11-second avatar sample, not a general render benchmark; peak memory and GPU
+  utilization were not measured.
 - Sidechain audio-proxy FFmpeg filter graphs now use one filter thread each to
   limit nested thread fan-out during parallel renders. After this change, the
   full parallel local suite passed 128 tests, skipped 3 optional OTIO tests,
