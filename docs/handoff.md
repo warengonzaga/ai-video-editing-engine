@@ -1340,9 +1340,11 @@ smoke render alone.
   detached/audio-only media, Rec.2020 SDR, track state, layered composition,
   captions, and long A/V synchronization. The 12-second sync cues measured
   0.000021 seconds late at both ends, with effectively zero measured drift.
-  The serial `node --test --test-concurrency=1` run passes 130 tests, skips 3
+  The serial `node --test --test-concurrency=1` run passes 131 tests, skips 3
   optional OpenTimelineIO tests because `requirements-otio.txt` is unavailable,
-  and has 0 failures. Temporary smoke projects were removed automatically;
-  the earlier failed debug directory was also cleaned up. No hosted workflow was
-  started. Human review of the Voice 015 avatar's phoneme timing and visual
+  and has 0 failures. A sandboxed run failed six file-publication cases with
+  Windows hard-link `EPERM`; the same serial suite passes outside the sandbox.
+  Temporary smoke projects were removed automatically; the earlier failed
+  debug directory was also cleaned up. No hosted workflow was started. Human
+  review of the Voice 015 avatar's phoneme timing and visual
   quality, real-footage coverage, and cross-platform runs remain open.
