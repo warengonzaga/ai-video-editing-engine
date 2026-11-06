@@ -238,8 +238,6 @@ def import_timeline(request):
         }
         cursor = 0.0
         expanded_items = otio.algorithms.track_with_expanded_transitions(track)
-        if track_range is not None and any(isinstance(item, tuple) for item in expanded_items):
-            raise ValueError(f"Track {track.name!r} trims content containing transitions; transition-boundary trims are not supported.")
 
         def clip_record(item, timeline_start, crossfade=None, source_window=None):
             if not isinstance(item, otio.schema.Clip):
@@ -290,21 +288,29 @@ def import_timeline(request):
         for item in expanded_items:
             if isinstance(item, tuple):
                 outgoing, transition, incoming = item
-                if transition.transition_type != "SMPTE_Dissolve":
-                    raise ValueError(
-                        f"Transition {transition.name!r} uses unsupported type {transition.transition_type!r}; only SMPTE_Dissolve is supported."
-                    )
                 duration = (transition.in_offset + transition.out_offset).to_seconds()
                 if duration <= 0:
                     raise ValueError(f"Transition {transition.name!r} must have a positive duration.")
-                pair_id = f"otio-transition-{len(imported['clips']) + 1:04d}"
-                for item_clip, role, suffix in ((outgoing, "outgoing", "a-out"), (incoming, "incoming", "b-in")):
-                    crossfade = {"role": role, "durationSeconds": duration}
-                    record = clip_record(item_clip, cursor, crossfade)
-                    record["name"] = f"{pair_id}-{suffix}"
-                    if abs(record["durationSeconds"] - duration) > 1e-6:
-                        raise ValueError(f"Transition {transition.name!r} does not expand to equal-duration clip segments.")
-                    imported["clips"].append(record)
+                selected_start = max(cursor, range_start)
+                selected_end = min(cursor + duration, range_end)
+                if selected_end > selected_start:
+                    if selected_start > cursor + 1e-6 or selected_end < cursor + duration - 1e-6:
+                        raise ValueError(f"Track {track.name!r} trims through transition {transition.name!r}; transition-boundary trims are not supported.")
+                if transition.transition_type != "SMPTE_Dissolve":
+                    if selected_end > selected_start:
+                        raise ValueError(
+                            f"Transition {transition.name!r} uses unsupported type {transition.transition_type!r}; only SMPTE_Dissolve is supported."
+                        )
+                if selected_end > selected_start:
+                    pair_id = f"otio-transition-{len(imported['clips']) + 1:04d}"
+                    timeline_start = selected_start - range_start
+                    for item_clip, role, suffix in ((outgoing, "outgoing", "a-out"), (incoming, "incoming", "b-in")):
+                        crossfade = {"role": role, "durationSeconds": duration}
+                        record = clip_record(item_clip, timeline_start, crossfade)
+                        record["name"] = f"{pair_id}-{suffix}"
+                        if abs(record["durationSeconds"] - duration) > 1e-6:
+                            raise ValueError(f"Transition {transition.name!r} does not expand to equal-duration clip segments.")
+                        imported["clips"].append(record)
                 cursor += duration
                 continue
             if isinstance(item, otio.schema.Gap):

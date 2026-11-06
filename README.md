@@ -1226,7 +1226,7 @@ video opacity fades or audio crossfades. Constant-rate retiming uses OTIO's
 `LinearTimeWarp`; imported clip duration is calculated from the source span and
 playback rate. Variable speed ramps and retimed crossfades remain unsupported.
 Import applies a trimmed track's source range to its clips and gaps; it rejects
-trims that intersect transitions. Trimmed stacks are applied to direct tracks;
+trims that partially cut transitions. Trimmed stacks are applied to direct tracks;
 nested or combined stack/track trims remain unsupported. Import also rejects
 custom transition types, other overlaps, effects, disabled clips, nested
 compositions inside tracks, and remote media references. Export converts explicitly faded

@@ -576,7 +576,7 @@ references project media externally, and stores Engine timeline data in
 namespaced OTIO metadata for Engine round trips. Its current interchange
 profile supports video/audio cuts, gaps, constant-rate `LinearTimeWarp`
 retiming, and standard two-clip dissolves; variable speed ramps, retimed
-crossfades, transition-boundary track trims, nested or combined stack trims,
+crossfades, trims that cut through transitions, nested or combined stack trims,
 nested compositions, and remote references are rejected. Trimmed track ranges
 are applied to clips and gaps; trimmed stacks apply their range to direct
 tracks. Install it with
