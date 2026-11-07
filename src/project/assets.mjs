@@ -1031,7 +1031,10 @@ function readAssetManifest(root) {
       if (!proxy || asset.type !== 'video' || !/^[\da-f]{64}$/.test(proxy.sha256 ?? '') || !/^[\da-f]{64}$/.test(proxy.sourceSha256 ?? '')
           || !Number.isSafeInteger(proxy.maxDimension) || proxy.maxDimension < 160 || proxy.maxDimension > 3840
           || !Number.isSafeInteger(proxy.crf) || proxy.crf < 18 || proxy.crf > 40
-          || (proxy.targetFrameRate !== undefined && String(normalizeFrameRate(proxy.targetFrameRate)) !== proxy.targetFrameRate)) {
+          || (proxy.targetFrameRate !== undefined && String(normalizeFrameRate(proxy.targetFrameRate)) !== proxy.targetFrameRate)
+          || (proxy.profileVersion !== undefined && (!Number.isSafeInteger(proxy.profileVersion) || proxy.profileVersion < 1))
+          || (proxy.keyframeIntervalSeconds !== undefined && (!Number.isSafeInteger(proxy.keyframeIntervalSeconds)
+            || proxy.keyframeIntervalSeconds < 1 || proxy.keyframeIntervalSeconds > 60))) {
         throw new TypeError(`Asset ${asset.id} contains invalid proxy metadata.`);
       }
       resolveProjectProxy(root, proxy.path);

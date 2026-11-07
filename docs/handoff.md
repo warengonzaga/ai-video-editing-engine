@@ -1735,4 +1735,7 @@ smoke render alone.
   timeline render completed at 640×360/30 fps H.264 with 48 kHz stereo AAC,
   and the second generation hit the v2 cache. Capability discovery reports
   profile v2, no upscaling, and the one-second keyframe interval. Syntax and
-  whitespace checks passed; no automated test suite ran.
+  whitespace checks passed; no automated test suite ran. Sync and async
+  profile migrations were manually exercised from v1 manifests. The manifest
+  reader remains backward-compatible with profile-less proxies and validates
+  profile-version and keyframe-interval fields when present.
