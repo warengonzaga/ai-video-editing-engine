@@ -1683,6 +1683,10 @@ smoke render alone.
   stereo AAC. The extracted 2.10-second frame confirms the new F/"oo" sprite is
   composited without the old heavy border. Artifacts remain ignored under
   `video-projects/waren-avatar-engine-v11/renders/`.
+- The user confirmed the borderless F/"oo" mouth as the desired visual
+  baseline: the opening feels natural without a separate outline. This feedback
+  covers this mouth shape only; overall speech timing, transitions, and audio
+  still need review.
 - Refined the public mouth-art guidance: the open F/"oo" shape should read from
   the cavity itself, without an added outline or skin halo.
 - `npm run doctor` confirms the core Windows runtime is available: Node.js 22,
