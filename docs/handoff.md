@@ -1593,3 +1593,11 @@ smoke render alone.
   package. Its 73-file manifest includes the new `src/files.mjs` publisher and
   all source modules. `package.json` still marks the Engine package private;
   dry-run only, with no tarball written, registry request, or publication.
+- Packed the current source to a local tarball and unpacked it into a fresh
+  disposable consumer. `npm install --offline` stopped with `ENOTCACHED` because
+  the local npm cache lacks registry metadata for `gsap`; offline mode made no
+  network request. Running the unpacked package's CLI returned its capability
+  report, and its ESM API created a project, registered the supplied narration,
+  and validated the resulting timeline. The copied asset is 89,643 bytes. This
+  verifies packed-file runtime behavior, not npm dependency resolution or a
+  registry install; no package was published.
