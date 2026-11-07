@@ -1793,3 +1793,7 @@ smoke render alone.
   8.1–8.6s peaked at zero offset (0.947529 correlation). The render-level scan
   reports -29.0 dB mean and -6.1 dB peak. This checks one manual cut seam on
   one Windows source; it does not replace varied media or human review.
+- Re-ran `npm pack --dry-run --json --ignore-scripts` after the real-footage
+  work. The private 0.1.0 package contains 74 files (219,508 packed bytes) and
+  no source clip, rendered video, audio recording, or `video-projects` artifact.
+  This was a dry run only: no tarball was written and no registry was contacted.
