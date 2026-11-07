@@ -402,7 +402,11 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   19.35 seconds and 1,144.5 MiB with one worker and low-memory mode. The audio
   decode hashes matched; video was not pixel-identical (overall SSIM 0.997783).
   These inputs are synthetic, so varied camera footage, isolated render
-  estimates, and cross-platform measurements remain open.
+  estimates, and cross-platform measurements remain open. A user-provided
+  10-second 1080×1920/30 fps DJI camera clip was also profiled: Windows automatic
+  workers used 7,821.1 MiB and took 36.01 seconds; one-worker low-memory mode
+  used 1,835.7 MiB and took 49.11 seconds, with identical decoded video and
+  audio. Broader source and platform coverage remain open.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;

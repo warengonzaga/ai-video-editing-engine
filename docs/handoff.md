@@ -1753,3 +1753,12 @@ smoke render alone.
   canvas. The render and user recording stay local and are not versioned.
   Automated tests remain deferred; human listening and review of the full
   audiovisual output remain open.
+- Profiled two fresh high-quality 10-second renders of that 1080×1920/30 fps
+  camera timeline on the Windows AMD Ryzen 7 7840HS/32 GB host, sampling the
+  process tree every 250 ms. Automatic workers took 36.01 seconds and peaked at
+  7,821.1 MiB across 66 processes; one worker with low-memory mode took 49.11
+  seconds and peaked at 1,835.7 MiB across 16 processes. The outputs have
+  identical decoded video (SSIM 1.0) and audio (PCM MD5 match). On this single
+  clip, low-memory mode reduced sampled peak memory by 76.5% for 36.4% more
+  render time. These results do not characterize other footage, hardware, or
+  operating systems, and the sample interval can miss short peaks.
