@@ -71,7 +71,8 @@ audio policy, cross-platform and broader format coverage remain open.
   `registerMediaAssetAsync` and the CLI add cancellation during staged copy,
   hashing, and probing without exposing a partial asset. Batch registration
   adds multiple sources sequentially and reports per-source outcomes without
-  adding clips to the timeline.
+  adding clips to the timeline. Sync and async publication fall back from
+  unsupported hard links to exclusive copies.
 - [x] Expose the registered media catalog through a read-only API and CLI
   command, including assets not yet referenced by the active timeline.
 - [x] Unregister unused media assets from the manifest and timeline catalog,

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
-import { copyFile, link, open, rename, rm } from 'node:fs/promises';
+import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
+import { copyFile, rename, rm } from 'node:fs/promises';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
@@ -12,6 +12,7 @@ import { validateTimeline } from '../timeline/validate.mjs';
 import { resetTimelineFileHistory } from '../timeline/history-store.mjs';
 import { runProcess } from '../render/process.mjs';
 import { createFfmpegProgressParser, emitRenderProgress } from '../render/progress.mjs';
+import { linkOrCopyAsync, linkOrCopySync } from '../files.mjs';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
@@ -41,7 +42,7 @@ export function registerMediaAsset(projectPath, sourcePath, options = {}) {
   try {
     copyFileSync(source, stagedPath, fsConstants.COPYFILE_EXCL);
     const probe = image ? probeImage(stagedPath) : probeMedia(stagedPath, { requireVideo: false });
-    linkSync(stagedPath, destination);
+    linkOrCopySync(stagedPath, destination);
     copied = true;
     const asset = {
       id,
@@ -151,19 +152,15 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
     };
     activeStage = 'asset-publish';
     emitRenderProgress(onProgress, activeStage, 'started', { assetId: id });
-    try {
-      await link(stagedPath, destination);
-    } catch (error) {
-      if (!['EPERM', 'EXDEV', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP'].includes(error.code)) throw error;
-      await copyFileExclusiveAsync(stagedPath, destination, signal, (completed, total) => {
-        emitRenderProgress(onProgress, activeStage, 'progress', {
-          assetId: id,
-          completed,
-          total,
-          percent: total > 0 ? Math.min(99, completed / total * 100) : 0,
-        });
-      });
-    }
+    await linkOrCopyAsync(stagedPath, destination, {
+      signal,
+      onCopyProgress: (completed, total) => emitRenderProgress(onProgress, activeStage, 'progress', {
+        assetId: id,
+        completed,
+        total,
+        percent: total > 0 ? Math.min(99, completed / total * 100) : 0,
+      }),
+    });
     destinationLinked = true;
     const latestManifest = readAssetManifest(root);
     if (latestManifest.assets.some((entry) => entry.id === id)) throw new Error(`Asset already registered: ${id}`);
@@ -1123,31 +1120,6 @@ async function copyFileAndHash(source, destination, signal, onProgress) {
   });
   await pipeline(createReadStream(source), hasher, createWriteStream(destination, { flags: 'wx' }), { signal });
   return hash.digest('hex');
-}
-
-async function copyFileExclusiveAsync(source, destination, signal, onProgress) {
-  const totalBytes = statSync(source).size;
-  let copiedBytes = 0;
-  let lastPercent = -1;
-  const progress = new Transform({
-    transform(chunk, encoding, callback) {
-      copiedBytes += chunk.length;
-      const percent = totalBytes > 0 ? Math.floor(copiedBytes / totalBytes * 100) : 100;
-      if (percent > lastPercent || copiedBytes >= totalBytes) {
-        lastPercent = percent;
-        onProgress?.(copiedBytes, totalBytes);
-      }
-      callback(null, chunk);
-    },
-  });
-  const destinationHandle = await open(destination, 'wx');
-  try {
-    await pipeline(createReadStream(source, { signal }), progress, destinationHandle.createWriteStream(), { signal });
-  } catch (error) {
-    await destinationHandle.close().catch(() => {});
-    await rm(destination, { force: true }).catch(() => {});
-    throw error;
-  }
 }
 
 function hashFile(path) {

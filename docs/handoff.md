@@ -1557,3 +1557,18 @@ smoke render alone.
   media; cue counts do not establish phoneme alignment, visual continuity, or
   perceived audio quality. The comparison render remains available for human
   audiovisual review. No new dependency was installed and no test suite ran.
+- Synchronous media registration had one remaining hard-link-only path despite
+  its asynchronous counterpart already falling back to exclusive copies.
+  Under the current Windows sandbox, a direct same-directory hard-link probe
+  returned `EPERM`; the sync registration API then successfully registered
+  Voice 015 through the fallback. The resulting 89,643-byte asset matched its
+  manifest record and file size. A disposable project was removed afterward.
+  Node syntax and diff checks passed; automated tests remain deferred.
+- Consolidated hard-link publication and its exclusive-copy fallback in
+  `src/files.mjs`, shared by sync/async asset registration and avatar
+  composition. The local hard-link probe still returned `EPERM`; one manual API
+  pass then registered the 89,643-byte narration through both media APIs and
+  composed the supplied avatar through both sync and async paths. Each avatar
+  mounted successfully with all 11 PNG sprites, and async media registration
+  reported copy, probe, and publish progress. The three disposable projects
+  were removed. Node syntax and diff checks passed; no test suite was run.

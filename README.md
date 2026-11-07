@@ -530,9 +530,10 @@ to receive byte-based copy progress plus probe and publish stages. The CLI print
 copy progress to stderr and keeps the registered asset JSON on stdout.
 Both synchronous and asynchronous registration now probe and fingerprint the
 staged copy, so the recorded metadata describes the bytes committed to the
-project. Async registration prefers atomic hard-link publication and falls
-back to a cancellable exclusive copy when the filesystem does not support
-hard links; fallback copy progress is reported through the publish stage.
+project. Registration prefers hard-link publication and falls back to an
+exclusive copy when the filesystem does not support hard links; the async path
+supports cancellation and reports fallback copy progress through the publish
+stage.
 `asset register-many` and `registerMediaAssetsAsync(projectPath, sources, {
 signal, onProgress })` add multiple sources sequentially. Each source is an
 independent transaction; the batch continues after per-source errors and
