@@ -262,9 +262,10 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   confirmed temporary master files are removed. A 10-second real DJI render
   with a -18 LUFS/-1 dBTP target exposed and fixed a 100 ms audio tail: mastered
   output now pads or trims audio to the copied video stream duration and rejects
-  stream-duration differences greater than one frame. `ffprobe` confirms exact
-  10.000-second video, audio, and container durations; EBU R128 measures
-  -18.0 LUFS and -1.0 dBFS true peak. Human listening review remains open.
+  output video/audio stream-duration differences greater than one frame.
+  `ffprobe` confirms exact 10.000-second video, audio, and container durations;
+  EBU R128 measures -18.0 LUFS and -1.0 dBFS true peak. Human listening review
+  remains open.
 - [x] Validate mixed audio against source samples and document frame/sample
   alignment. The Windows integration smoke measures a 220 Hz music bed at
   0.2499 peak in the mono source and 0.1763 per channel after center mapping to

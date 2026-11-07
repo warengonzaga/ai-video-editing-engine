@@ -75,12 +75,7 @@ export function masterAudioFile(outputPath, format, settings, fps) {
     ], { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
     if (encode.error || encode.status !== 0) throw new Error(`Could not apply rendered audio mastering: ${encode.error?.message ?? encode.stderr.trim()}`);
     const mastered = probeMedia(temporaryPath);
-    const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
-    if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
-        || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
-        || Math.abs((mastered.streamTiming.audioDurationSeconds ?? mastered.durationSeconds) - targetDuration) > 1 / frameRateNumber(fps)) {
-      throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
-    }
+    validateMasteredOutput(mastered, input, settings, targetDuration, fps);
     unlinkSync(outputPath);
     renameSync(temporaryPath, outputPath);
     return {
@@ -140,12 +135,7 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
     emitRenderProgress(onProgress, 'mastering-encode', 'completed', { codec: audioCodec[1] });
     emitRenderProgress(onProgress, 'mastering-validation', 'started');
     const mastered = await probeMediaAsync(temporaryPath, { signal });
-    const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
-    if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
-        || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
-        || Math.abs((mastered.streamTiming.audioDurationSeconds ?? mastered.durationSeconds) - targetDuration) > 1 / frameRateNumber(fps)) {
-      throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
-    }
+    validateMasteredOutput(mastered, input, settings, targetDuration, fps);
     emitRenderProgress(onProgress, 'mastering-validation', 'completed');
     emitRenderProgress(onProgress, 'mastering-publish', 'started');
     unlinkSync(outputPath);
@@ -211,6 +201,19 @@ function buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter,
   return [...preLoudnessFilters, loudnessFilter, limiterFilter, `apad=whole_dur=${duration}`, `atrim=duration=${duration}`]
     .filter(Boolean)
     .join(',');
+}
+
+function validateMasteredOutput(mastered, input, settings, targetDuration, fps) {
+  const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
+  const frameTolerance = 1 / frameRateNumber(fps);
+  const videoDuration = mastered.streamTiming.videoDurationSeconds ?? mastered.durationSeconds;
+  const audioDuration = mastered.streamTiming.audioDurationSeconds ?? mastered.durationSeconds;
+  if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
+      || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
+      || Math.abs(videoDuration - targetDuration) > frameTolerance
+      || Math.abs(audioDuration - videoDuration) > frameTolerance) {
+    throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
+  }
 }
 
 function parseLoudnessAnalysis(stderr) {

@@ -1809,7 +1809,8 @@ smoke render alone.
   separate 10-second DJI project. The first mastered render exposed a 100 ms
   audio tail beyond the video. Both synchronous and asynchronous mastering now
   pad or trim the audio to the actual video-stream duration, and validation
-  rejects a stream-duration mismatch greater than one frame. The corrected
+  compares the output video/audio streams directly and rejects a duration
+  mismatch greater than one frame. The corrected
   local render is `video-projects/dji-audio-master-review-20261107/renders/dji-audio-fade-master-review-fixed.mp4`;
   `ffprobe` confirms exact 10.000-second 1080×1920/30 fps H.264 video, 48 kHz
   stereo AAC audio, and container duration. FFmpeg EBU R128 measures
