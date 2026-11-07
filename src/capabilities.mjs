@@ -107,6 +107,16 @@ export function getEngineCapabilities(options = {}) {
         audioDecoders: Object.fromEntries(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le']
           .map((name) => [name, decoders.has(name)])),
       },
+      proxyGeneration: {
+        available: ffmpeg.available && ffprobe.available,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['proxy-preflight', 'proxy-generation', 'proxy-validation', 'proxy-publish'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'reason'],
+        },
+      },
     },
     avatar: {
       phoneticLipSync: {

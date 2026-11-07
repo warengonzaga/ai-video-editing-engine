@@ -1108,8 +1108,10 @@ smoke render alone.
 - Added `createAssetProxyAsync` with AbortSignal-aware FFmpeg proxy creation and
   async output probing. The `asset proxy create` CLI command now routes through
   it, reports Ctrl+C cancellation accurately, and cleans staged files. The
-  synchronous API remains available. README and the implementation plan
-  describe the API/CLI workflow. No tests or proxy renders were run.
+  API and CLI now report source preflight, FFmpeg encoding percentage, proxy
+  validation, and publication progress. The CLI writes progress to stderr and
+  keeps the final proxy record on stdout. The synchronous API remains
+  available. README and the implementation plan describe the API/CLI workflow.
 - Extended asset preview cancellation across async media probing, thumbnail
   extraction, and streamed waveform decoding. The CLI `asset preview` command
   now forwards Ctrl+C through the same cancellation path. Added a 120-second
@@ -1485,3 +1487,9 @@ smoke render alone.
   FFmpeg progress invocation reports `out_time_us` and `progress=end`. The full
   downstream callback summary was not retained by the command output, so
   encoding and mastering event delivery still need end-to-end confirmation.
+- Async proxy creation reports preflight, encoding progress, output validation,
+  and publication. A manual API call generated a 200×112/30 fps proxy from the
+  synthetic B-roll and observed all nine events, including FFmpeg encoding
+  percentage. The proxy fingerprint and manifest update completed. This also
+  exposed and fixed an existing undefined asset ID in proxy staging. Syntax
+  checks only; automated tests remain deferred.

@@ -592,6 +592,9 @@ renders continue using the original assets unless proxy use is explicitly
 requested. The CLI uses cancellable FFmpeg processing; Ctrl+C stops proxy
 generation and removes its staged output. JavaScript consumers can call
 `await createAssetProxyAsync(projectPath, assetId, { signal, ...options })`.
+Pass `onProgress(event)` to receive proxy preflight, FFmpeg encoding percentage,
+integrity validation, and publication events. The CLI reports proxy progress on
+stderr while keeping the final proxy record as JSON on stdout.
 
 `asset preview` creates cached thumbnails and/or an audio waveform for a
 registered asset. It returns source-relative thumbnail timestamps and paths,

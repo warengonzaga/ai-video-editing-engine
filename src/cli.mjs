@@ -342,11 +342,27 @@ async function main(args) {
   }
   if (command === 'asset' && commandArgs[0] === 'proxy' && commandArgs[1] === 'create' && commandArgs.length >= 4 && commandArgs.length <= 7) {
     const [, , project, assetId, maxDimension, crf, frameRate] = commandArgs;
+    let reportedProxyPercent = -1;
     const proxy = await runWithInterrupt((signal) => createAssetProxyAsync(resolve(project), assetId, {
       ...(maxDimension ? { maxDimension: Number(maxDimension) } : {}),
       ...(crf ? { crf: Number(crf) } : {}),
       ...(frameRate ? { frameRate: normalizeFrameRate(frameRate) } : {}),
       signal,
+      onProgress(event) {
+        if (event.stage === 'proxy-generation' && event.phase === 'progress') {
+          const percent = Math.floor(event.percent);
+          if (percent > reportedProxyPercent) {
+            reportedProxyPercent = percent;
+            process.stderr.write(`Proxy encoding: ${percent}%\n`);
+          }
+        } else if (event.phase === 'started') {
+          process.stderr.write(`${event.stage}: started\n`);
+        } else if (event.phase === 'completed') {
+          process.stderr.write(`${event.stage}: complete\n`);
+        } else if (event.phase === 'skipped') {
+          process.stderr.write(`${event.stage}: skipped (${event.reason})\n`);
+        }
+      },
     }), 'Proxy generation');
     console.log(JSON.stringify(proxy, null, 2));
     return;

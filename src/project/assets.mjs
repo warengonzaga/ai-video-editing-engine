@@ -11,6 +11,7 @@ import { normalizeFrameRate } from '../media/frame-rate.mjs';
 import { validateTimeline } from '../timeline/validate.mjs';
 import { resetTimelineFileHistory } from '../timeline/history-store.mjs';
 import { runProcess } from '../render/process.mjs';
+import { createFfmpegProgressParser, emitRenderProgress } from '../render/progress.mjs';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
@@ -523,24 +524,57 @@ export function createAssetProxy(projectPath, assetId, options = {}) {
 }
 
 export async function createAssetProxyAsync(projectPath, assetId, options = {}) {
-  const { signal, ...proxyOptions } = options;
+  const { signal, onProgress, ...proxyOptions } = options;
   if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
     throw new TypeError('Proxy signal must be an AbortSignal.');
   }
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Proxy onProgress must be a function.');
   if (signal?.aborted) throw signal.reason ?? new DOMException('Proxy generation was aborted.', 'AbortError');
-  const context = await prepareAssetProxyAsync(projectPath, assetId, proxyOptions, signal);
+  emitRenderProgress(onProgress, 'proxy-preflight', 'started');
+  let context;
+  try {
+    context = await prepareAssetProxyAsync(projectPath, assetId, proxyOptions, signal);
+  } catch (error) {
+    emitRenderProgress(onProgress, 'proxy-preflight', 'failed', { assetId });
+    throw error;
+  }
+  emitRenderProgress(onProgress, 'proxy-preflight', 'completed');
   if (context.cached) {
     signal?.throwIfAborted();
+    emitRenderProgress(onProgress, 'proxy-generation', 'skipped', { reason: 'valid-proxy-cache' });
     return context.cached;
   }
+  let activeStage = 'proxy-generation';
   try {
-    await runProcess('ffmpeg', context.args, { signal, stdio: 'capture' });
+    emitRenderProgress(onProgress, 'proxy-generation', 'started', { assetId });
+    const progressParser = onProgress
+      ? createFfmpegProgressParser(onProgress, 'proxy-generation', context.asset.durationSeconds, { assetId })
+      : undefined;
+    const args = onProgress ? [...context.args.slice(0, -1), '-progress', 'pipe:1', '-nostats', context.args.at(-1)] : context.args;
+    await runProcess('ffmpeg', args, {
+      signal,
+      ...(progressParser ? {
+        stdio: 'capture',
+        onStdout: progressParser.push,
+        onStderr: (chunk) => process.stderr.write(chunk),
+      } : {}),
+    });
+    progressParser?.flush();
+    emitRenderProgress(onProgress, 'proxy-generation', 'completed', { assetId });
+    activeStage = 'proxy-validation';
+    emitRenderProgress(onProgress, 'proxy-validation', 'started', { assetId });
     const probe = await probeMediaAsync(context.stagedPath, { signal });
     signal?.throwIfAborted();
     const sha256 = await hashFileAsync(context.stagedPath, signal);
     signal?.throwIfAborted();
-    return await storeAssetProxyAsync(context, probe, sha256, signal);
+    emitRenderProgress(onProgress, 'proxy-validation', 'completed', { assetId });
+    activeStage = 'proxy-publish';
+    emitRenderProgress(onProgress, 'proxy-publish', 'started', { assetId });
+    const result = await storeAssetProxyAsync(context, probe, sha256, signal);
+    emitRenderProgress(onProgress, 'proxy-publish', 'completed', { assetId });
+    return result;
   } catch (error) {
+    emitRenderProgress(onProgress, activeStage, 'failed', { assetId });
     rollbackAssetProxy(context);
     throw error;
   } finally {
@@ -607,6 +641,7 @@ function assetProxyOutput(details, sourceHash) {
 
 function finalizeAssetProxyPreparation(details, output, sourceHash, existing, cachedProxyHash) {
   const { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate } = details;
+  const assetId = asset.id;
   const { relativePath, destination, destinationExists } = output;
   if (sourceHash !== asset.sha256) throw new Error(`Asset ${asset.id} failed integrity verification; relink it before generating a proxy.`);
   if (existing && existing.path === relativePath && destinationExists && cachedProxyHash === existing.sha256) return { cached: existing };
