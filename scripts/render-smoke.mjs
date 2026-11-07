@@ -281,9 +281,11 @@ try {
   assert.equal(trackStateRenderTimeline.audioMix.sidechain.length, 0);
   const trackStateRender = await renderSavedTimelineAsync(trackStateProjectPath, trackStateTimeline, trackStateOutputPath, 'draft', { timeoutSeconds: 180 });
   const trackStateMedia = probeMedia(trackStateRender.output);
-  const hiddenLayerPixel = readCenterPixel(trackStateRender.output, visualCueFrame);
+  const hiddenLayerPixel = readPixelAt(trackStateRender.output, visualCueFrame, 160, 90);
+  const expectedBackgroundPixel = parseHexRgb(trackStateProject.backgroundColor ?? '#000000');
   assert.equal(trackStateMedia.hasAudio, false, 'Muted audio tracks must not create an output audio stream.');
-  assert.ok(hiddenLayerPixel < 10, `Hidden video and overlay tracks must not appear in output; center luma was ${hiddenLayerPixel}.`);
+  assert.ok(hiddenLayerPixel.every((channel, index) => Math.abs(channel - expectedBackgroundPixel[index]) <= 5),
+    `Hidden video and overlay tracks must leave the configured project background visible; expected ${expectedBackgroundPixel}, got ${hiddenLayerPixel}.`);
 
   const captionProjectPath = createVideoProject(root, 'word-highlight-smoke', { width: 320, height: 180, fps: 24, durationSeconds: 2 });
   const captionOutputPath = join(captionProjectPath, 'renders', 'word-highlight.mp4');
@@ -684,6 +686,11 @@ function measureToneAmplitude(samples, frequency, startSeconds, endSeconds) {
 function readCenterPixel(path, frameNumber) {
   const [red, green, blue] = readPixelAt(path, frameNumber, 160, 90);
   return Math.round((red + green + blue) / 3);
+}
+
+function parseHexRgb(color) {
+  if (!/^#[\da-f]{6}$/i.test(color)) throw new TypeError(`Smoke render expected an opaque six-digit RGB color, got ${color}.`);
+  return [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
 }
 
 function readPixelAt(path, frameNumber, x, y) {

@@ -22,11 +22,12 @@ test('creates a generic timed layered avatar composition and rejects overwrite',
     const spec = {
       durationSeconds: 2,
       layers: [
-        { name: 'body', role: 'body', image, states: { blink: image }, width: 0.5, track: track([{ start: 0.3, end: 0.4, state: 'blink' }]) },
+        { name: 'body', role: 'body', image, width: 0.5, track: track([]) },
         { name: 'mouth', role: 'mouth', image, states: { open: image }, relativeTo: 'body', anchor: [0.5, 0.31], width: 0.13, track: track([{ start: 0.5, end: 0.7, state: 'open' }]) },
       ],
     };
-    const invalidSpec = { ...spec, layers: [{ ...spec.layers[0], states: { blink: mismatchedImage } }, spec.layers[1]] };
+    const eyes = { name: 'eyes', role: 'eyes', image, states: { blink: mismatchedImage }, width: 0.5, track: track([{ start: 0.3, end: 0.4, state: 'blink' }]) };
+    const invalidSpec = { ...spec, layers: [spec.layers[0], eyes, spec.layers[1]] };
     assert.throws(() => createAvatarComposition(root, invalidSpec), /matching canvas dimensions/);
     const result = createAvatarComposition(root, spec);
     const html = readFileSync(result.compositionPath, 'utf8');
@@ -42,7 +43,7 @@ test('creates a generic timed layered avatar composition and rejects overwrite',
     const index = readFileSync(join(root, 'index.html'), 'utf8');
     assert.doesNotMatch(index, /id="title"/);
     assert.doesNotMatch(index, /timeline\.from\('#title'/);
-    assert.match(html, /tl\.set\(el,\{attr:\{src:t\.states\.default\}\},c\.end\)/);
+    assert.match(html, /tl\.set\(el,\{attr:\{src:t\.restState\? t\.states\[t\.restState\]:t\.states\.default\}\},c\.end\)/);
     assert.equal(result.layers, 2);
     assert.throws(() => createAvatarComposition(root, spec), /already exists/);
   } finally {

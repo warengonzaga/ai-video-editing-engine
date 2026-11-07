@@ -1863,9 +1863,10 @@ smoke render alone.
   Rhubarb timing is acceptable while the mouth artwork needs a borderless,
   lip-free style. An ignored v12 avatar preview with distinct A-H/X mouth
   sprites renders at 1920x1080/30 fps with matching 11.133-second H.264/AAC
-  streams; its sprite pack passes structural validation. Visual and audio
-  review of that new render remain open, and no user avatar assets are part of
-  the Engine package.
+  streams; its sprite pack passes structural validation. The user confirms the
+  lip-sync timing and visual direction are good; the remaining mouth-size
+  correction is specific to the consumer sprite scale and is deferred. No user
+  avatar assets are part of the Engine package.
 - Added `scene-review <media> <new-output-directory>` to package a JSON shot map,
   representative 320px JPEG thumbnails, and a contact sheet for AI/human visual
   inspection. Schema v2 fingerprints the analyzed source with SHA-256, and the
@@ -1878,8 +1879,7 @@ smoke render alone.
   checks validate this workflow on the synthetic source and one Windows DJI
   clip; they do not establish semantic shot understanding or broad platform
   support. A manual cancellation during thumbnail generation left no final pack
-  or staging directory. Automated tests remain deferred per the user's
-  direction.
+  or staging directory.
 - Added `planSceneReviewPlacements` and `timeline plan-broll` to convert explicit
   scene-review shot selections into validated `add-clip` operations plus a
   before/after diff. The plan is review-required, fingerprints the source
@@ -1892,7 +1892,7 @@ smoke render alone.
   left the input timeline unchanged. An unknown shot index was rejected. The
   existing DJI project also produced a valid one-shot plan from camera source
   seconds 10–11.5 to timeline seconds 8–9.5 on its B-roll track, without
-  changing the project. Automated tests remain deferred. A manual real-DJI run
+  changing the project. A manual real-DJI run
   regenerated a schema v2 pack and verified its SHA-256 against the registered
   camera asset; the matching asset produced a plan and a deliberately changed
   pack fingerprint was rejected. A synthetic CLI workflow saved and explicitly
@@ -1911,3 +1911,13 @@ smoke render alone.
   sprites, and timing; the v12 render remains available for comparison. The
   v13 MP4 is 1920×1080 H.264, 30 fps, 11.133 seconds. Further mouth-size work
   is deferred at the user's direction.
+- Latest local validation on the active branch: `npm test` passes 132 tests with
+  0 failures and 3 skips because optional OpenTimelineIO is not installed. The
+  source-bound scene-review plan has a focused test for SHA mismatch rejection,
+  explicit application, stale-plan rejection, and undo. `npm run doctor` passes
+  required tool checks; `npm audit --omit=dev --offline` reports 0
+  vulnerabilities. The Windows render smoke passes after correcting its hidden-track assertion to
+  compare output pixels to the configured project background (`#10141c`). The
+  first smoke attempt was blocked by sandbox localhost restrictions; the
+  authorized local-render run completed all render scenarios successfully.
+  Neither command invoked GitHub Actions.

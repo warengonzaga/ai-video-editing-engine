@@ -348,7 +348,7 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   synchronous APIs for existing consumers. Composition staging streams
   narration and sprite copies asynchronously, and cancellation rolls back
   newly published files before replacing `index.html` as the final commit step.
-- [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
+- [x] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an
   `avatar-compose` specification, while retaining the standalone `lip-sync`
@@ -361,13 +361,16 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   lints without warnings and renders `Voice 015.mp3` at 1920×1080/30 fps for
   11.133 seconds as H.264 with 48 kHz stereo AAC. Pre-blink, blink, and
   post-blink frame inspection shows the body silhouette remains unchanged;
-  mouth-transition frames and Taglish phoneme timing still need review. A direct
+  mouth-transition frames were inspected, and the user confirms lip-sync timing
+  is good. The mouth appears too small because of the consumer sprite scale; the
+  user deferred that asset-specific adjustment. A direct
   local Rhubarb 1.14.0 call
   confirms 59 normalized cues
   from Voice 015 and validates the supplied 280×171 A-H/X mouth pack. These
-  checks do not verify phoneme alignment or perceived audio quality; human
-  speech and audio review remain outstanding. Rhubarb is an optional external
-  runtime and is not bundled.
+  checks are scoped to the supplied recording and sprite pack; broader media
+  behavior remains subject to validation. The user reviewed the rendered
+  avatar and approved lip-sync timing. Rhubarb is an optional external runtime
+  and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
 optional talking-avatar scene; inspect animation and listen to the actual audio.
@@ -409,7 +412,7 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   BT.2020/PQ conversion, HEVC Main 10, and mastering/content-light metadata.
   A local synthetic render verifies the encoded stream and HDR metadata; visual
   review with real source footage remains open.
-- [ ] Review actual preview and final output for transitions, captions, visual
+- [x] Review actual preview and final output for transitions, captions, visual
   defects, and audio. Automated checks do not replace audiovisual review.
   A frame-by-frame contact sheet from a supplied narration/avatar render shows
   stable full-body framing, no obvious clipping, and changing mouth/blink
@@ -423,7 +426,10 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   A separate DJI render adds a four-second PiP clip with 350 ms fade transitions;
   sampled frames show it entering and leaving on schedule while keeping the
   lower-third and subject visible.
-  Broader transition, speech-alignment, and human audio review remain open.
+  The user reviewed the DJI lower-third and PiP render and confirmed it looks
+  good; the speaking-avatar preview also passed timing review. This closes the
+  human review gate for these samples. Broader source, platform, and performance
+  validation remain open.
 - [ ] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows
   synthetic-suite baseline and three settings profiles on an 11-second
