@@ -74,7 +74,10 @@ node src/cli.mjs avatar validate-mouth-pack mouth-pack.json
 The validator rejects missing states, repeated mappings, malformed PNGs,
 mismatched canvas dimensions, and byte-identical images. These checks do not
 measure perceptual similarity, anchor alignment, or whether each drawing
-actually matches its intended articulation.
+actually matches its intended articulation. Its result includes
+`visualReviewRequired: true` and a machine-readable checklist for those
+artwork and cue-alignment checks. Structural validity alone does not approve the
+pack for use.
 
 For better recognition, provide the spoken dialog when it is known. Pass it as
 `dialogText` from an in-memory workflow, or use `dialogFile` when the text

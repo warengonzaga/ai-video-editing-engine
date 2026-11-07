@@ -1381,3 +1381,9 @@ smoke render alone.
   Engine cannot safely split arbitrary raster body art into separate layers.
   Syntax checks and a direct capability query confirmed the guidance is
   returned. No new avatar asset or render was generated.
+- Mouth-pack validation now returns `visualReviewRequired: true` plus a
+  machine-readable checklist for anchor consistency, visual style, articulation,
+  and cue timing. Capability discovery exposes the same checklist so consumer
+  skills can distinguish structural validation from visual approval. The CLI
+  accepted the existing user-supplied A-H/X pack at 280x171, returned all four
+  review items, and passed syntax checks. No full test suite was run.

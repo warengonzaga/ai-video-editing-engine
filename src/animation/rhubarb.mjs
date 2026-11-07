@@ -24,6 +24,12 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
     blinking: 'Use a dedicated eyes layer for blink states; keep the body sprite unchanged during a blink to avoid whole-avatar flicker.',
     poseChanges: 'When body pose states change, preserve the same canvas, framing, scale, and body anchor across every state.',
   }),
+  mouthVisualReviewChecklist: Object.freeze([
+    'Confirm the upper-lip center and mouth centerline stay aligned across A-H and X.',
+    'Confirm teeth, tongue, outlines, palette, and shading remain consistent across states.',
+    'Confirm each drawing reads as its intended Rhubarb articulation.',
+    'Watch the states as a sequence with the target audio and review cue timing.',
+  ]),
   mouthShapeGuidance: Object.freeze({
     a: Object.freeze({ articulation: 'closed with gentle lip pressure', sounds: ['P', 'B', 'M'], role: 'bilabial closure' }),
     b: Object.freeze({ articulation: 'slightly open with teeth close together', sounds: ['K', 'S', 'T', 'EE'], role: 'consonants and narrow vowels' }),
@@ -180,6 +186,8 @@ export function validateRhubarbSpriteStates(states, options = {}) {
     valid: true,
     shapeStates: Object.fromEntries(requiredShapes.map((shape, index) => [shape.toUpperCase(), requiredStates[index]])),
     canvas: sharedDimensions,
+    visualReviewRequired: true,
+    visualReviewChecklist: RHUBARB_SPRITE_CONTRACT.mouthVisualReviewChecklist,
   };
 }
 

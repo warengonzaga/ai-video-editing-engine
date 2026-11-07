@@ -161,7 +161,11 @@ node src/cli.mjs avatar validate-mouth-pack mouth-pack.json
 
 Relative sprite paths resolve from the JSON file's directory. The command
 returns the validated shape-to-state mapping and shared canvas dimensions; it
-does not create or modify files.
+does not create or modify files. Its JSON result also sets
+`visualReviewRequired: true` and supplies a checklist. Structural validity does
+not confirm that mouth anchors align, the artwork matches each articulation, or
+Rhubarb cues match the recording; consumers should complete that visual review
+before presenting the avatar as approved.
 
 ```js
 import { validateRhubarbSpriteStates } from 'ai-video-editing-engine';

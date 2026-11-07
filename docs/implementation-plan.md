@@ -284,7 +284,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   review. Machine-readable mouth-art guidance now specifies a fixed layer,
   shared upper-lip anchor, downward jaw opening, and front-facing mouth
   placement. Animation guidance also keeps blinking on a dedicated eyes layer
-  so body artwork stays static during blinks. This requirement
+  so body artwork stays static during blinks. Mouth-pack validation returns an
+  explicit visual-review requirement and checklist because structural checks
+  cannot prove artwork alignment or phoneme accuracy. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
   arbitrary external cue tracks. `avatar-compose` validates the required mouth
   PNGs and shared canvas dimensions before invoking Rhubarb.
