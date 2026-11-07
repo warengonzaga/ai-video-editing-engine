@@ -1868,7 +1868,9 @@ smoke render alone.
   the Engine package.
 - Added `scene-review <media> <new-output-directory>` to package a JSON shot map,
   representative 320px JPEG thumbnails, and a contact sheet for AI/human visual
-  inspection. A manual synthetic three-shot run mapped the 0–2, 2–4, and 4–6
+  inspection. Schema v2 fingerprints the analyzed source with SHA-256, and the
+  B-roll planner requires the registered asset to match that identity. A manual
+  synthetic three-shot run mapped the 0–2, 2–4, and 4–6
   second ranges to three correctly colored frames and built a contact sheet. A
   manual real DJI run produced one 27.4274-second shot, one thumbnail, and a
   contact sheet without false scene cuts. Async API and CLI support cancellation
@@ -1890,9 +1892,11 @@ smoke render alone.
   left the input timeline unchanged. An unknown shot index was rejected. The
   existing DJI project also produced a valid one-shot plan from camera source
   seconds 10–11.5 to timeline seconds 8–9.5 on its B-roll track, without
-  changing the project. The caller remains responsible for using the media
-  asset that produced the pack; automated tests remain deferred. A synthetic
-  CLI workflow saved and explicitly applied the plan, rejected reapplication as
+  changing the project. Automated tests remain deferred. A manual real-DJI run
+  regenerated a schema v2 pack and verified its SHA-256 against the registered
+  camera asset; the matching asset produced a plan and a deliberately changed
+  pack fingerprint was rejected. A synthetic CLI workflow saved and explicitly
+  applied the plan, rejected reapplication as
   stale, and restored the source timeline through undo. The same `timeline
   plan-broll` then `timeline apply-plan` flow ran on an isolated copy of the DJI
   project and returned an undo depth of one. Its 10-second 1080×1920/30 fps
@@ -1900,9 +1904,10 @@ smoke render alone.
   seconds switches from the original timeline source to the selected
   10–11.5-second camera range, while the original project remains unchanged.
   This validates one Windows/DJI case, not broad source or platform coverage.
-- The user approved the borderless mouth art and lip-sync, then reported the
-  rendered mouth looked too small. A local v13 comparison preview scales the
+- The user approved the borderless, lip-free mouth art and confirmed lip-sync
+  timing is good; the only avatar issue they want addressed later is the mouth
+  appearing too small. A local v13 comparison preview scales the
   mouth layer width from 0.0403 to 0.0605 (1.5×) while preserving its center,
   sprites, and timing; the v12 render remains available for comparison. The
-  v13 MP4 is 1920×1080 H.264, 30 fps, 11.133 seconds. The updated render still
-  needs the user's visual review.
+  v13 MP4 is 1920×1080 H.264, 30 fps, 11.133 seconds. Further mouth-size work
+  is deferred at the user's direction.

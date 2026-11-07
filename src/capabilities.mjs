@@ -174,14 +174,14 @@ export function getEngineCapabilities(options = {}) {
         progressCallbacks: {
           supported: true,
           asyncApiOnly: true,
-          stages: ['scene-analysis', 'scene-thumbnails', 'scene-contact-sheet', 'scene-review-publish'],
+          stages: ['scene-source-fingerprint', 'scene-analysis', 'scene-thumbnails', 'scene-contact-sheet', 'scene-review-publish'],
           eventFields: ['stage', 'phase'],
           optionalEventFields: ['completed', 'total', 'percent', 'message'],
         },
       },
       sceneReviewPlacementPlanning: {
         available: true,
-        requires: ['validated-timeline', 'registered-video-asset', 'scene-review-pack', 'explicit-shot-selections'],
+        requires: ['validated-timeline', 'registered-video-asset-matching-scene-review-sha256', 'scene-review-pack', 'explicit-shot-selections'],
         output: 'review-required-timeline-operations',
         appliesChanges: false,
         maximumPlacements: 500,

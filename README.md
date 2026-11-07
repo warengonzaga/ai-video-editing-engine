@@ -676,8 +676,9 @@ node src/cli.mjs scene-review path/to/source.mp4 video-projects/review/source-sh
 The default pack is bounded to 300 shots and a 60-frame contact sheet. Use an
 options JSON file to adjust detection settings or set `maximumShots`,
 `thumbnailSize`, `contactSheetLimit`, and `columns`; the contact sheet is capped
-at 64 megapixels. The pack is staged and
-published as a new directory; an existing output directory is never replaced.
+at 64 megapixels. The schema v2 pack includes the source SHA-256 identity. It is
+staged and published as a new directory; an existing output directory is never
+replaced.
 All findings remain review-required, and the thumbnails do not infer scene
 meaning. The API exposes `createSceneReviewPackAsync(mediaPath, outputDir, options)`
 with cancellation and progress callbacks; the CLI reports progress on stderr
@@ -705,10 +706,10 @@ node src/cli.mjs timeline plan-broll timeline.json scene-review.json broll-sourc
 ```
 
 The command writes a `reviewRequired` plan with validated `add-clip` operations,
-a before/after preview, and a SHA-256 identity for the timeline it was based on.
-It does not change the timeline or choose semantically relevant shots. The
-selected source ranges must fit within their reviewed shot; the caller must use
-the same registered source as the scene-review pack. Review the saved plan,
+a before/after preview, and SHA-256 identities for the timeline and source.
+It verifies the registered asset matches the media used by the scene-review
+pack. It does not change the timeline or choose semantically relevant shots.
+The selected source ranges must fit within their reviewed shot. Review the saved plan,
 then explicitly apply it through the undoable command:
 
 ```sh

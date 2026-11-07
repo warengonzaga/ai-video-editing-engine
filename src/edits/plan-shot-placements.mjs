@@ -6,10 +6,11 @@ const MAXIMUM_PLACEMENTS = 500;
 /** Build a review-only clip insertion plan from explicit scene-review selections. */
 export function planSceneReviewPlacements(timeline, sceneReview, assetId, trackId, placements) {
   if (!sceneReview || typeof sceneReview !== 'object' || Array.isArray(sceneReview)
-      || sceneReview.schemaVersion !== 1 || sceneReview.reviewRequired !== true
+      || sceneReview.schemaVersion !== 2 || sceneReview.reviewRequired !== true
+      || !/^[a-f0-9]{64}$/.test(sceneReview.sourceSha256 ?? '')
       || !Array.isArray(sceneReview.shots) || !Number.isFinite(sceneReview.durationSeconds)
       || sceneReview.durationSeconds <= 0) {
-    throw new TypeError('Scene review must be a schemaVersion 1 review-required pack with a positive duration and shots array.');
+    throw new TypeError('Scene review must be a schemaVersion 2 review-required pack with a SHA-256 source identity, positive duration, and shots array. Regenerate older packs.');
   }
   if (!Array.isArray(placements) || placements.length === 0 || placements.length > MAXIMUM_PLACEMENTS) {
     throw new TypeError(`placements must contain between 1 and ${MAXIMUM_PLACEMENTS} shot selections.`);
@@ -20,6 +21,9 @@ export function planSceneReviewPlacements(timeline, sceneReview, assetId, trackI
   const asset = timeline?.assets?.find((candidate) => candidate.id === assetId);
   if (!asset || asset.type !== 'video' || !Number.isFinite(asset.durationSeconds) || asset.durationSeconds <= 0) {
     throw new TypeError(`B-roll asset ${assetId} must be a registered video asset with a known duration.`);
+  }
+  if (asset.sha256 !== sceneReview.sourceSha256) {
+    throw new TypeError(`B-roll asset ${assetId} does not match the source media used by this scene-review pack.`);
   }
   const track = timeline?.tracks?.find((candidate) => candidate.id === trackId);
   if (!track || track.kind !== 'video') throw new TypeError(`B-roll destination ${trackId} must be an existing video track.`);
@@ -92,6 +96,7 @@ export function planSceneReviewPlacements(timeline, sceneReview, assetId, trackI
     type: 'scene-review-placement-plan',
     reviewRequired: true,
     baseTimelineSha256: timelineFingerprint(timeline),
+    sourceSha256: sceneReview.sourceSha256,
     assetId,
     trackId,
     operations,

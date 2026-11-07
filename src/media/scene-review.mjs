@@ -1,6 +1,7 @@
 import { copyFile, mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { basename, dirname, join, resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { runProcess } from '../render/process.mjs';
 import { detectSceneChangesAsync } from './scene-detection.mjs';
@@ -37,6 +38,9 @@ export async function createSceneReviewPackAsync(inputPath, outputDirectory, opt
   validateIntegerRange(contactSheetLimit, 1, 120, 'contactSheetLimit');
   validateIntegerRange(columns, 1, 8, 'columns');
 
+  emitProgress(options.onProgress, { stage: 'scene-source-fingerprint', phase: 'started' });
+  const sourceSha256 = await hashFileAsync(resolve(inputPath), options.signal);
+  emitProgress(options.onProgress, { stage: 'scene-source-fingerprint', phase: 'completed' });
   emitProgress(options.onProgress, { stage: 'scene-analysis', phase: 'started' });
   const analysis = await detectSceneChangesAsync(inputPath, {
     ...(options.threshold !== undefined ? { threshold: options.threshold } : {}),
@@ -109,7 +113,8 @@ export async function createSceneReviewPackAsync(inputPath, outputDirectory, opt
     emitProgress(options.onProgress, { stage: 'scene-contact-sheet', phase: 'completed' });
 
     const result = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      sourceSha256,
       providerId: analysis.providerId,
       durationSeconds: analysis.analysis.durationSeconds,
       settings: analysis.settings,
@@ -187,6 +192,12 @@ function throwIfAborted(signal) {
 
 function emitProgress(onProgress, event) {
   try { onProgress?.({ ...event }); } catch { /* Progress observers must not interrupt media processing. */ }
+}
+
+async function hashFileAsync(path, signal) {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(path, { signal })) hash.update(chunk);
+  return hash.digest('hex');
 }
 
 function round(value) {

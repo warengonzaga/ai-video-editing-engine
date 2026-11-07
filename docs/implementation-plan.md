@@ -177,8 +177,10 @@ and cross-platform codec coverage remain open.
   and published atomically to a new directory. `timeline plan-broll` converts
   explicit shot selections into validated, review-required insertion operations
   and a dry-run diff; it never chooses or applies shots automatically. Plans
-  include the source timeline fingerprint and can be applied explicitly through
-  an undoable command that rejects stale plans.
+  include the source timeline fingerprint and source media identity; the
+  planner rejects a registered asset that differs from the reviewed source.
+  Plans can be applied explicitly through an undoable command that rejects
+  stale timeline state.
 - [x] Provide explicit project-frame conversion and rounding helpers; enforce
   constant-rate or integrated speed-ramp source-span/duration matches and
   registered-media source boundaries.
