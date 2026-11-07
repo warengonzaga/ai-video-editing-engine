@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { closeSync, copyFileSync, createReadStream, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { open, readdir, rename, rm } from 'node:fs/promises';
+import { closeSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { cp, mkdtemp, open, readdir, rename, rm } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
+import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { createFfmpegProgressParser, emitRenderProgress } from './progress.mjs';
@@ -88,11 +88,12 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
   const outputDir = dirname(output);
   mkdirSync(outputDir, { recursive: true });
   const pngSequence = format === 'png-sequence';
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), 'aive-render-'));
   const temporaryOutput = pngSequence
-    ? join(outputDir, `.${basename(output)}.${randomUUID()}.tmp`)
-    : join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.tmp.${format}`);
+    ? join(temporaryDirectory, 'frames')
+    : join(temporaryDirectory, `render.${format}`);
   const encodedOutput = finalEncoder.codec
-    ? join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.encoded.${format}`)
+    ? join(temporaryDirectory, `encoded.${format}`)
     : undefined;
   let outputCreated = false;
 
@@ -110,7 +111,7 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
         }
       }
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
-      renameSync(temporaryOutput, output);
+      publishPngSequenceSync(temporaryOutput, output, outputDir);
       return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
     }
     if (finalEncoder.codec) encodeVideoFile(temporaryOutput, encodedOutput, format, finalEncoder, colorProfile);
@@ -141,7 +142,7 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
     if (outputCreated && existsSync(output)) unlinkSync(output);
     throw error;
   } finally {
-    cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput);
+    cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput, temporaryDirectory);
   }
 }
 
@@ -174,12 +175,9 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
   const outputDir = dirname(output);
   mkdirSync(outputDir, { recursive: true });
   const pngSequence = format === 'png-sequence';
-  const temporaryOutput = pngSequence
-    ? join(outputDir, `.${basename(output)}.${randomUUID()}.tmp`)
-    : join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.tmp.${format}`);
-  const encodedOutput = finalEncoder.codec
-    ? join(outputDir, `.${basename(output, extname(output))}.${randomUUID()}.encoded.${format}`)
-    : undefined;
+  let temporaryDirectory;
+  let temporaryOutput;
+  let encodedOutput;
   let checkpoint;
   let checkpointArtifact;
   let resumedFromCheckpoint = false;
@@ -212,6 +210,13 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
   const control = createRenderControl(externalSignal, renderOptions.timeoutSeconds);
 
   try {
+    temporaryDirectory = await mkdtemp(join(tmpdir(), 'aive-render-'));
+    temporaryOutput = pngSequence
+      ? join(temporaryDirectory, 'frames')
+      : join(temporaryDirectory, `render.${format}`);
+    encodedOutput = finalEncoder.codec
+      ? join(temporaryDirectory, `encoded.${format}`)
+      : undefined;
     if (!checkpointArtifact) {
       emitRenderProgress(onProgress, 'capture', 'started');
       await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal, onProgress);
@@ -240,7 +245,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
       control.signal.throwIfAborted();
       emitRenderProgress(onProgress, 'publish', 'started');
-      await rename(temporaryOutput, output);
+      await publishPngSequenceAsync(temporaryOutput, output, outputDir);
       outputCreated = true;
       control.signal.throwIfAborted();
       emitRenderProgress(onProgress, 'publish', 'completed');
@@ -270,7 +275,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     if (checkpointArtifact) error.message += ' The completed capture is preserved for resume; retry the same render options to reuse it.';
     throw error;
   } finally {
-    await cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput);
+    if (temporaryOutput) await cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput, temporaryDirectory);
     if (checkpoint && completed) {
       await removeRenderCheckpoint(checkpoint).catch((error) => process.emitWarning(`Could not remove completed render checkpoint: ${error.message}`));
     }
@@ -290,19 +295,21 @@ async function hasExpectedPngHeader(path, width, height) {
   }
 }
 
-async function cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput) {
+async function cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput, temporaryDirectory) {
   await rm(temporaryOutput, { recursive: true, force: true });
   const outputName = basename(temporaryOutput);
   const transactionStem = outputName.replace(/\.(?:mp4|webm|mov|gif)$/i, '');
   const transactionPrefix = `.${transactionStem}.hf-transaction-`;
-  if (existsSync(outputDir)) {
-    for (const entry of await readdir(outputDir, { withFileTypes: true })) {
+  const transactionDirectory = temporaryDirectory ?? outputDir;
+  if (existsSync(transactionDirectory)) {
+    for (const entry of await readdir(transactionDirectory, { withFileTypes: true })) {
       if (entry.isDirectory() && entry.name.startsWith(transactionPrefix)) {
-        await rm(join(outputDir, entry.name), { recursive: true, force: true });
+        await rm(join(transactionDirectory, entry.name), { recursive: true, force: true });
       }
     }
   }
   if (encodedOutput) await rm(encodedOutput, { force: true });
+  if (temporaryDirectory) await rm(temporaryDirectory, { recursive: true, force: true });
 }
 
 function validateRenderedMedia(rendered, meta, codecId) {
@@ -326,19 +333,45 @@ function validateColorProfile(rendered, colorProfile) {
   }
 }
 
-function cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput) {
+function cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput, temporaryDirectory) {
   rmSync(temporaryOutput, { recursive: true, force: true });
   const outputName = basename(temporaryOutput);
   const transactionStem = outputName.replace(/\.(?:mp4|webm|mov|gif)$/i, '');
   const transactionPrefix = `.${transactionStem}.hf-transaction-`;
-  if (existsSync(outputDir)) {
-    for (const entry of readdirSync(outputDir, { withFileTypes: true })) {
+  const transactionDirectory = temporaryDirectory ?? outputDir;
+  if (existsSync(transactionDirectory)) {
+    for (const entry of readdirSync(transactionDirectory, { withFileTypes: true })) {
       if (entry.isDirectory() && entry.name.startsWith(transactionPrefix)) {
-        rmSync(join(outputDir, entry.name), { recursive: true, force: true });
+        rmSync(join(transactionDirectory, entry.name), { recursive: true, force: true });
       }
     }
   }
   if (encodedOutput) rmSync(encodedOutput, { force: true });
+  if (temporaryDirectory) rmSync(temporaryDirectory, { recursive: true, force: true });
+}
+
+function publishPngSequenceSync(temporaryOutput, output, outputDir) {
+  const stagingDirectory = mkdtempSync(join(outputDir, '.aive-sequence-'));
+  const stagingOutput = join(stagingDirectory, 'frames');
+  try {
+    cpSync(temporaryOutput, stagingOutput, { recursive: true, force: false, errorOnExist: true });
+    if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
+    renameSync(stagingOutput, output);
+  } finally {
+    rmSync(stagingDirectory, { recursive: true, force: true });
+  }
+}
+
+async function publishPngSequenceAsync(temporaryOutput, output, outputDir) {
+  const stagingDirectory = await mkdtemp(join(outputDir, '.aive-sequence-'));
+  const stagingOutput = join(stagingDirectory, 'frames');
+  try {
+    await cp(temporaryOutput, stagingOutput, { recursive: true, force: false, errorOnExist: true });
+    if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
+    await rename(stagingOutput, output);
+  } finally {
+    await rm(stagingDirectory, { recursive: true, force: true });
+  }
 }
 
 function createRenderControl(externalSignal, timeoutSeconds) {

@@ -1629,3 +1629,11 @@ smoke render alone.
   `video-projects/waren-avatar-viseme-v9/renders/waren-talking-eyes-v9.mp4`.
   Syntax checks, manual API preflight/compose, lint, and diff checks passed; the
   test suite was not run.
+- Fixed Windows path-length failures in both synchronous and asynchronous
+  renderers by capturing into short, unique directories under the OS temp path.
+  PNG sequences are staged beside their destination and then renamed into place
+  so final publication stays on the destination volume. Manual long-path
+  renders passed through both APIs: MP4 output completed earlier, and each PNG
+  sequence produced all 30 expected 320×180 frames. Temporary render folders
+  were removed. Node syntax and diff checks passed; the automated test suite
+  remains deferred.
