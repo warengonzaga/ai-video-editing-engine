@@ -42,5 +42,5 @@ export function createFfmpegProgressParser(onProgress, stage, durationSeconds, d
 
 function warnProgressCallback(error) {
   const detail = error instanceof Error ? error.message : String(error);
-  process.emitWarning(`Render progress callback failed: ${detail}`);
+  process.emitWarning(`Progress callback failed: ${detail}`);
 }
