@@ -14,19 +14,22 @@ const VIDEO_ENCODERS = Object.freeze({
 
 export function getEngineCapabilities(options = {}) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Capability options must be an object.');
-  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'rhubarb'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
+  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'rhubarb', 'otioPython'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
   const ffmpegCommand = options.ffmpeg ?? 'ffmpeg';
   const ffprobeCommand = options.ffprobe ?? 'ffprobe';
   const rhubarbCommand = options.rhubarb ?? 'rhubarb';
+  const otioPythonCommand = options.otioPython ?? process.env.AIVE_OTIO_PYTHON ?? process.env.PYTHON ?? 'python';
   if (typeof ffmpegCommand !== 'string' || !ffmpegCommand.trim()) throw new TypeError('ffmpeg must be a non-empty command path.');
   if (typeof ffprobeCommand !== 'string' || !ffprobeCommand.trim()) throw new TypeError('ffprobe must be a non-empty command path.');
   if (typeof rhubarbCommand !== 'string' || !rhubarbCommand.trim()) throw new TypeError('rhubarb must be a non-empty command path.');
+  if (typeof otioPythonCommand !== 'string' || !otioPythonCommand.trim()) throw new TypeError('otioPython must be a non-empty command path.');
 
   const nodeVersion = process.versions.node;
   const nodeMajor = Number(nodeVersion.split('.')[0]);
   const ffmpeg = inspectCommand(ffmpegCommand);
   const ffprobe = inspectCommand(ffprobeCommand);
   const rhubarb = inspectCommand(rhubarbCommand, ['--version']);
+  const openTimelineIO = inspectPythonModule(otioPythonCommand, 'opentimelineio');
   let encoders = new Set();
   let decoders = new Set();
   let demuxers = new Set();
@@ -91,6 +94,12 @@ export function getEngineCapabilities(options = {}) {
       ffmpeg: { ...ffmpeg, ...(ffmpegInspectionError ? { inspectionError: ffmpegInspectionError } : {}) },
       ffprobe,
       rhubarb,
+      openTimelineIO: {
+        available: openTimelineIO.available,
+        optional: true,
+        ...(openTimelineIO.version ? { version: openTimelineIO.version } : {}),
+        ...(openTimelineIO.reason ? { reason: openTimelineIO.reason } : {}),
+      },
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
       browserRuntime: { available: null, checked: false, checkCommand: 'npm run doctor' },
@@ -138,6 +147,18 @@ export function getEngineCapabilities(options = {}) {
           eventFields: ['stage', 'phase'],
           optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'reason'],
         },
+      },
+    },
+    interchange: {
+      openTimelineIO: {
+        available: openTimelineIO.available,
+        formats: ['.otio'],
+        import: true,
+        export: true,
+        optionalDependency: 'Python OpenTimelineIO',
+        installCommand: 'python -m pip install -r requirements-otio.txt',
+        ...(openTimelineIO.version ? { pythonPackageVersion: openTimelineIO.version } : {}),
+        ...(openTimelineIO.reason ? { reason: openTimelineIO.reason } : {}),
       },
     },
     avatar: {
@@ -239,6 +260,27 @@ function inspectCommand(command, args = ['-version']) {
   const result = spawnSync(command, args, { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 });
   if (result.error || result.status !== 0) return { available: false };
   return { available: true, version: result.stdout.trim().split(/\r?\n/, 1)[0] };
+}
+
+function inspectPythonModule(command, moduleName) {
+  const result = spawnSync(command, ['-c', `import ${moduleName} as module; assert 'otio_json' in module.adapters.available_adapter_names(), 'otio_json adapter unavailable'; print(getattr(module, '__version__', 'installed'))`], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.error) return { available: false, reason: 'python-not-found' };
+  if (result.status !== 0) {
+    return {
+      available: false,
+      reason: /No module named ['"]?opentimelineio/.test(`${result.stderr}\n${result.stdout}`)
+        ? 'package-not-installed'
+        : /otio_json adapter unavailable/.test(`${result.stderr}\n${result.stdout}`)
+          ? 'json-adapter-unavailable'
+          : 'package-import-failed',
+    };
+  }
+  const version = result.stdout.trim().split(/\r?\n/, 1)[0];
+  return { available: true, ...(version ? { version } : {}) };
 }
 
 function packageAvailable(name) {

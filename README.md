@@ -1393,6 +1393,11 @@ Standard OTIO playback still represents only the interoperable subset; other
 editors may ignore or remove Engine metadata, and may not reproduce those
 settings when rendering.
 
+Run `npm run doctor` or `node src/cli.mjs capabilities` to check whether the
+selected Python environment has OpenTimelineIO and its `otio_json` adapter.
+Set `AIVE_OTIO_PYTHON` to the Python command for a separate environment when
+needed; the JavaScript capability API accepts the same override as `otioPython`.
+
 ## License
 
 AI Video Editing Engine is licensed under the MIT License. See [LICENSE](LICENSE)

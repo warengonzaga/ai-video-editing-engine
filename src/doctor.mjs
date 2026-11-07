@@ -39,6 +39,12 @@ if (!rhubarb.ok) {
   console.log('  Install the optional CLI and make `rhubarb` available on PATH to enable phonetic mouth cues.');
   console.log('  Project: https://github.com/DanielSWolf/rhubarb-lip-sync/releases');
 }
+const otioPython = process.env.AIVE_OTIO_PYTHON || process.env.PYTHON || 'python';
+const openTimelineIO = checkPythonModule('OpenTimelineIO', otioPython);
+console.log(`${openTimelineIO.ok ? '✓' : '⚠'} Optional ${openTimelineIO.name}: ${openTimelineIO.detail}`);
+if (!openTimelineIO.ok) {
+  console.log('  Install with `python -m pip install -r requirements-otio.txt` or set `AIVE_OTIO_PYTHON` to a Python command with OpenTimelineIO installed.');
+}
 if (results.find((result) => result.name === 'HyperFrames')?.ok) {
   console.log('\nChecking HyperFrames renderer requirements:');
   try {
@@ -108,4 +114,26 @@ function checkPackage(label, packageName) {
   } catch {
     return { name: label, ok: false, detail: 'not installed' };
   }
+}
+
+function checkPythonModule(label, command) {
+  const result = spawnSync(command, ['-c', "import opentimelineio as otio; assert 'otio_json' in otio.adapters.available_adapter_names(), 'otio_json adapter unavailable'; print(getattr(otio, '__version__', 'installed'))"], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.error) return { name: label, ok: false, detail: `Python command unavailable (${command})` };
+  if (result.status !== 0) {
+    const details = `${result.stderr}\n${result.stdout}`;
+    return {
+      name: label,
+      ok: false,
+      detail: /No module named ['"]?opentimelineio/.test(details)
+        ? 'Python package not installed'
+        : /otio_json adapter unavailable/.test(details)
+          ? 'JSON adapter not available'
+          : 'Python package failed to import',
+    };
+  }
+  return { name: label, ok: true, detail: `Python package ${result.stdout.trim().split(/\r?\n/, 1)[0]}` };
 }

@@ -526,7 +526,10 @@ in this order:
   crossfades or crossfades with additional Engine-only clip settings. The three
   OTIO interchange tests pass on Windows
   with the pinned optional dependency installed in an isolated temporary
-  environment; cross-platform OTIO execution remains unverified.
+  environment; cross-platform OTIO execution remains unverified. `npm run
+  doctor` and capability discovery also preflight whether the selected Python
+  environment has OpenTimelineIO and its native `otio_json` adapter; this stays
+  optional and does not affect core readiness.
 5. **Workflow quality:** visual preview/review artifacts, richer caption
    layout templates, undoable and dry-run reviewable edit operations, injected transcription and
    media-analysis provider APIs, and CLI-loaded analysis provider modules are

@@ -1701,3 +1701,12 @@ smoke render alone.
   0.133333 seconds, 1920×1080/30 fps H.264, and 48 kHz stereo AAC. Local
   localhost capture required the approved unsandboxed render. No automated
   suite ran, per the user's direction.
+- Added OpenTimelineIO preflight reporting to the `doctor` command and versioned
+  capability output. The check uses the same `AIVE_OTIO_PYTHON` / `PYTHON`
+  selection as the interchange bridge and verifies both the package import and
+  native `otio_json` adapter. Missing optional OTIO leaves core readiness
+  unchanged. `node --check`, `npm run doctor`, capability CLI output, and
+  `git diff --check` passed; the current Windows Python lacks OpenTimelineIO,
+  so the report correctly marks interchange unavailable. The official OTIO
+  adapter API documents `available_adapter_names()` for this check. No tests
+  were run, per the user's direction.
