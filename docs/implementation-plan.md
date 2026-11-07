@@ -430,7 +430,7 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   good; the speaking-avatar preview also passed timing review. This closes the
   human review gate for these samples. Broader source, platform, and performance
   validation remain open.
-- [ ] Measure render time and resource use for representative projects; record
+- [x] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows
   synthetic-suite baseline and three settings profiles on an 11-second
   1080p/30 fps avatar project are recorded there. Two fresh 11-second draft
@@ -456,8 +456,13 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   low-memory timeline workflow in 1m 53.1s at 1080×1920/30 fps, producing
   H.264/AAC output. A profile-v2 540×960 proxy from the 96.1 MB source is 3.02
   MB; the resolver selected it for a 10-second draft render while preserving
-  source audio. Asset verification confirmed source and proxy hashes. Broader
-  source, resource, and platform coverage remain open.
+  source audio. Asset verification confirmed source and proxy hashes. A fresh
+  real-source speed-ramp render completed in 30.6s and encoded 247 video frames
+  with a 0.000567-second video/audio duration difference. This completes a
+  Windows baseline across synthetic, avatar, generic A/V, multi-layer, PiP,
+  full-camera, proxy, and speed-ramp workflows. Broader source, resource, and
+  cross-platform performance coverage remain open; these samples are not a
+  universal performance guarantee.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;
