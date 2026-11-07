@@ -320,11 +320,13 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   consumer-provided body, mouth, and full-body blink sprites with Taglish
   narration. Representative frames verify mouth placement and full-body
   framing. That v8 artifact predates the enforced isolated-eyes contract; its
-  source specification now fails preflight and needs eye-only blink artwork
-  before it can be regenerated. The archived render is 1920×1080/30 fps with
-  `Voice 015.mp3`, A-H visemes, X rest, 11.133 seconds, H.264, and stereo AAC.
-  Its composition lints without warnings, and sampled frames show changing
-  mouth states with stable body framing. A direct local Rhubarb 1.14.0 call
+  source specification now fails preflight. A new v9 composition uses a
+  transparent eye-only blink overlay and a static body layer. Its composition
+  lints without warnings and renders `Voice 015.mp3` at 1920×1080/30 fps for
+  11.133 seconds as H.264 with 48 kHz stereo AAC. Pre-blink, blink, and
+  post-blink frame inspection shows the body silhouette remains unchanged;
+  mouth-transition frames and Taglish phoneme timing still need review. A direct
+  local Rhubarb 1.14.0 call
   confirms 59 normalized cues
   from Voice 015 and validates the supplied 280×171 A-H/X mouth pack. These
   checks do not verify phoneme alignment or perceived audio quality; human

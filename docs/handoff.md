@@ -1615,9 +1615,17 @@ smoke render alone.
 - Enforced the existing avatar-art direction in `avatar-compose`: blink-named
   states and cues must belong to an `eyes` layer, so body and custom sprites
   cannot be swapped for a blink. The async API checks this before running
-  Rhubarb; capability discovery and `docs/avatar-mouth-packs.md` expose the
-  same rule. Manual API preflight against the current Waren v8 specification
-  now fails early with an actionable message because its blink artwork is still
-  embedded in the full-body sprite. New eye-only blink artwork is required
-  before regenerating that sample; the existing rendered comparison remains
-  available. Syntax and diff checks passed; the test suite was not run.
+  Rhubarb; capability discovery, README, and `docs/avatar-mouth-packs.md` expose
+  the same rule. Manual API preflight against the current Waren v8 specification
+  fails early because its blink artwork is embedded in the full-body sprite.
+  Generated an isolated transparent eye overlay from the supplied open/closed
+  avatar references and composed a new v9 scene with a static body layer. Lint
+  reports 0 errors and 0 warnings. The rendered preview is 11.133 seconds,
+  1920×1080/30 fps H.264 with 48 kHz stereo AAC. Sampled pre-blink, blink, and
+  post-blink frames show the closed-eye overlay aligned on the glasses while
+  the body and hair silhouette stay fixed. One sampled viseme transition shows
+  a blended mouth frame; phoneme timing, mouth transitions, and human listening
+  review remain open. Output:
+  `video-projects/waren-avatar-viseme-v9/renders/waren-talking-eyes-v9.mp4`.
+  Syntax checks, manual API preflight/compose, lint, and diff checks passed; the
+  test suite was not run.
