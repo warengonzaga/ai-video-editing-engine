@@ -1670,3 +1670,10 @@ smoke render alone.
   styling during visual review. Capability discovery and the mouth-pack guide
   now expose the same requirement; automatic pixel-level enforcement is not
   claimed.
+- Extended the OTIO import bridge to flatten nested `Track` and `Stack`
+  compositions found inside tracks into ordered Engine tracks, preserving clip
+  timeline offsets, enabled state, and composition group names. Combined nested
+  composition and parent-track trims remain explicitly unsupported. Python
+  bytecode compilation passed; runtime import verification remains pending
+  because OpenTimelineIO is not installed in the active Python environment.
+  The automated suite was not run.

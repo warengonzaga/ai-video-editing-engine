@@ -507,10 +507,12 @@ in this order:
   `LinearTimeWarp` using source-span divided by playback rate for Engine
   duration. Variable speed ramps, retimed crossfades, custom transitions,
   other overlaps, trims that cut through transitions, nested or combined stack
-  trims, third-party effects, and nested compositions inside tracks remain
-  unsupported by the standard profile. Engine-only clip settings and supported
-  audio-track effects/automation are preserved in namespaced metadata for Engine
-  round trips; other editors may ignore that metadata.
+  trims, nested-composition trims combined with parent-track trims, and
+  third-party effects remain unsupported by the standard profile. Nested
+  compositions inside tracks are flattened into ordered Engine tracks.
+  Engine-only clip settings and supported audio-track effects/automation are
+  preserved in namespaced metadata for Engine round trips; other editors may
+  ignore that metadata.
   Trimmed track source ranges are applied to clips and gaps during import.
   Trimmed stacks apply their source range to direct tracks.
   OTIO's `LinearTimeWarp`

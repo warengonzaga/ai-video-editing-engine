@@ -282,7 +282,7 @@ def import_timeline(request):
             marker_record["color"] = color
         payload["markers"].append(marker_record)
 
-    def import_track(track, group_path, parent_enabled, parent_range=None):
+    def import_track(track, group_path, parent_enabled, parent_range=None, timeline_offset=0.0):
         if track.kind not in (otio.schema.TrackKind.Audio, otio.schema.TrackKind.Video):
             raise ValueError(f"Track {track.name!r} has unsupported kind {track.kind!r}.")
         if track.effects:
@@ -311,7 +311,6 @@ def import_timeline(request):
         imported = {
             "name": name,
             "kind": kind,
-            "order": len(payload["tracks"]),
             "enabled": bool(track.enabled and parent_enabled),
             "engineTrackId": track.metadata.get(ENGINE_KEY, {}).get("trackId"),
             "engineSettings": plain_json(track.metadata.get(ENGINE_KEY, {}).get("trackSettings", {})),
@@ -387,7 +386,7 @@ def import_timeline(request):
                         )
                 if selected_end > selected_start:
                     pair_id = f"otio-transition-{len(imported['clips']) + 1:04d}"
-                    timeline_start = selected_start - range_start
+                    timeline_start = timeline_offset + selected_start - range_start
                     for item_clip, role, suffix in ((outgoing, "outgoing", "a-out"), (incoming, "incoming", "b-in")):
                         crossfade = {"role": role, "durationSeconds": duration}
                         record = clip_record(item_clip, timeline_start, crossfade)
@@ -403,32 +402,69 @@ def import_timeline(request):
                     raise ValueError(f"Gap {item.name!r} has effects ({effects}) that the OTIO interchange profile does not support.")
                 cursor += item.duration().to_seconds()
                 continue
+            if isinstance(item, (otio.schema.Track, otio.schema.Stack)):
+                item_duration = item.duration().to_seconds()
+                if not math.isfinite(item_duration) or item_duration < 0:
+                    raise ValueError(f"Nested composition {item.name!r} has an invalid duration.")
+                selected_start = max(cursor, range_start)
+                selected_end = min(cursor + item_duration, range_end)
+                if selected_end > selected_start:
+                    relative_start = selected_start - cursor
+                    relative_end = selected_end - cursor
+                    nested_range = None
+                    if (track_range is not None or parent_range is not None) and (
+                        relative_start > 1e-6 or relative_end < item_duration - 1e-6
+                    ):
+                        item_source_range = item.source_range
+                        if item_source_range is not None:
+                            raise ValueError(
+                                f"Nested composition {item.name!r} combines its own source range with a parent track trim; combined nested trims are not supported."
+                            )
+                        nested_range = (relative_start, relative_end)
+                    nested_offset = timeline_offset + selected_start - range_start
+                    nested_group = (*group_path, item.name) if isinstance(item, otio.schema.Stack) and item.name else group_path
+                    nested_enabled = bool(item.enabled and parent_enabled)
+                    if isinstance(item, otio.schema.Track):
+                        import_track(item, nested_group, nested_enabled, nested_range, nested_offset)
+                    else:
+                        import_stack(
+                            item,
+                            nested_group,
+                            include_self=False,
+                            parent_enabled=nested_enabled,
+                            parent_range=nested_range,
+                            timeline_offset=nested_offset,
+                        )
+                cursor += item_duration
+                continue
             if not isinstance(item, otio.schema.Clip):
                 raise ValueError(
-                    f"OTIO item {item.name!r} is not a clip or gap; unsupported transitions and nested compositions inside tracks cannot be imported."
+                    f"OTIO item {item.name!r} is not a clip, gap, track, or stack supported by the interchange profile."
                 )
             full_record = clip_record(item, cursor)
             item_duration = full_record["durationSeconds"]
             selected_start = max(cursor, range_start)
             selected_end = min(cursor + item_duration, range_end)
             if selected_end > selected_start:
-                if track_range is None:
+                if track_range is None and parent_range is None:
+                    full_record["timelineStart"] += timeline_offset
                     imported["clips"].append(full_record)
                 else:
                     relative_start = selected_start - cursor
                     relative_end = selected_end - cursor
                     record = clip_record(
                         item,
-                        selected_start - range_start,
+                        timeline_offset + selected_start - range_start,
                         source_window=(relative_start, relative_end - relative_start),
                     )
                     imported["clips"].append(record)
             cursor += item_duration
         visible_duration = cursor if track_range is None and parent_range is None else range_end - range_start
-        payload["durationSeconds"] = max(payload["durationSeconds"], visible_duration)
+        payload["durationSeconds"] = max(payload["durationSeconds"], timeline_offset + visible_duration)
+        imported["order"] = len(payload["tracks"])
         payload["tracks"].append(imported)
 
-    def import_stack(stack, group_path=(), include_self=True, parent_enabled=True, parent_range=None):
+    def import_stack(stack, group_path=(), include_self=True, parent_enabled=True, parent_range=None, timeline_offset=0.0):
         stack_range = stack.source_range
         if stack_range is not None and parent_range is not None:
             raise ValueError(f"Stack {stack.name!r} combines nested stack trims; combined trim ranges are not supported.")
@@ -456,9 +492,9 @@ def import_timeline(request):
         next_group = (*group_path, stack.name) if include_self and stack.name else group_path
         for item in stack:
             if isinstance(item, otio.schema.Track):
-                import_track(item, next_group, stack_enabled, child_range)
+                import_track(item, next_group, stack_enabled, child_range, timeline_offset)
             elif isinstance(item, otio.schema.Stack):
-                import_stack(item, next_group, parent_enabled=stack_enabled, parent_range=child_range)
+                import_stack(item, next_group, parent_enabled=stack_enabled, parent_range=child_range, timeline_offset=timeline_offset)
             else:
                 raise ValueError(f"OTIO stack item {item.name!r} is not a track or nested stack.")
 

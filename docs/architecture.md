@@ -50,17 +50,18 @@ code and keeps Python/OpenTimelineIO optional for consumers that do not use
 interchange. The pinned optional dependency is in `requirements-otio.txt`.
 
 The interchange profile maps external media references, video/audio tracks,
-nested track stacks (flattened into ordered Engine tracks), clips, gaps,
-root-stack review markers, track enabled state, clip enabled state, and project duration including trailing
-gaps. Import expands standard `SMPTE_Dissolve` transitions into overlapping
+nested track stacks and nested compositions inside tracks (flattened into
+ordered Engine tracks), clips, gaps, root-stack review markers, track enabled
+state, clip enabled state, and project duration including trailing gaps. Import
+expands standard `SMPTE_Dissolve` transitions into overlapping
 Engine clips with video opacity fades or audio crossfades. It supports
 constant-rate `LinearTimeWarp` retiming and trimmed track/stack ranges when
 their boundaries preserve complete transitions. It rejects variable speed
 ramps, retimed crossfades, nested or combined stack trims, custom transition
-types, other overlaps, effects, nested compositions inside tracks, non-file
-remote references, and missing media instead of silently changing their
-meaning. Export converts explicitly faded two-clip overlaps to standard
-`SMPTE_Dissolve` transitions. Unmarked or
+types, other overlaps, effects, nested-composition trims combined with parent
+track trims, non-file remote references, and missing media instead of silently
+changing their meaning. Export converts explicitly faded two-clip overlaps to
+standard `SMPTE_Dissolve` transitions. Unmarked or
 chained overlaps, standalone fades, clip-edge transitions, and variable speed
 ramps are rejected instead of silently changing their meaning. Track-level
 audio effects and volume automation are also refused on export because the profile does not

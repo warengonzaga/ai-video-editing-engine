@@ -1367,19 +1367,20 @@ node src/cli.mjs timeline import-otio video-projects/my-edit edit.otio imported-
 The bridge uses the maintained OpenTimelineIO Python library; the Node.js API
 and other Engine features work without it. OTIO files reference media by path
 and do not embed media. The profile supports video/audio tracks, nested track
-stacks flattened into ordered Engine tracks, cuts, gaps, root-stack markers,
-standard `SMPTE_Dissolve` transitions on import, track enabled state, and project duration
-including trailing gaps. Engine track lock and solo state are stored in the
-namespaced metadata; OTIO has no portable track-lock state. Imported dissolves become overlapping clips with
+stacks and nested compositions inside tracks flattened into ordered Engine
+tracks, cuts, gaps, root-stack markers, standard `SMPTE_Dissolve` transitions
+on import, track enabled state, and project duration including trailing gaps.
+Engine track lock and solo state are stored in the namespaced metadata; OTIO has
+no portable track-lock state. Imported dissolves become overlapping clips with
 video opacity fades or audio crossfades. Constant-rate retiming uses OTIO's
 `LinearTimeWarp`; imported clip duration is calculated from the source span and
 playback rate. Variable speed ramps and retimed crossfades remain unsupported.
 Import applies a trimmed track's source range to its clips and gaps; it rejects
 trims that partially cut transitions. Trimmed stacks are applied to direct tracks;
 nested or combined stack/track trims remain unsupported. Import also rejects
-custom transition types, other overlaps, third-party effects, nested
-compositions inside tracks, and remote media references. Clip enabled state is retained on import
-and export. Export converts explicitly faded two-clip overlaps into standard
+custom transition types, other overlaps, third-party effects, nested-composition
+trims combined with parent-track trims, and remote media references. Clip enabled
+state is retained on import and export. Export converts explicitly faded two-clip overlaps into standard
 `SMPTE_Dissolve` transitions. Unmarked or chained overlaps are rejected rather
 than silently reinterpreted. Standalone fades, clip-edge transitions, clip
 settings, track-level audio effects and automation, and overlay tracks are
