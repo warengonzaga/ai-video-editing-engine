@@ -1677,3 +1677,10 @@ smoke render alone.
   bytecode compilation passed; runtime import verification remains pending
   because OpenTimelineIO is not installed in the active Python environment.
   The automated suite was not run.
+- Reworked the ignored local v11 avatar's F/"oo" sprite as a compact open cavity
+  with a restrained tongue and no separate border. A full-frame static preview
+  is available at `video-projects/waren-avatar-engine-v11/renders/o-mouth-fix-frame.png`.
+  HyperFrames range rendering was attempted but could not reach its localhost
+  capture server in this sandbox; no video render or automated tests ran.
+- Refined the public mouth-art guidance: the open F/"oo" shape should read from
+  the cavity itself, without an added outline or skin halo.

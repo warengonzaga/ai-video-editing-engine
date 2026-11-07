@@ -49,9 +49,9 @@ not replace a complete, well-aligned A-H/X pack or phoneme-timing review.
   across every state. If a style does not normally expose teeth, keep teeth
   exposure consistent with that character's design rather than adding a new
   rendering style to only one shape.
-- Keep rounded E and puckered F shapes readable with a thin, consistent lip
-  edge. Avoid a thick black ring around the opening or a broad skin-colored halo;
-  the rounded shape should read from the mouth and lip form itself.
+- Keep rounded E shapes readable with a subtle, integrated lip edge. For the
+  open, rounded F/"oo" shape, let the dark cavity and restrained tongue define
+  the opening; do not add a separate outline or skin-colored halo.
 - Review the 60 ms default crossfade at speaking speed; overlapping outlines or
   inconsistent teeth can look like ghosting. Reduce the transition duration or
   use direct cuts if the overlap distracts from the articulation.
