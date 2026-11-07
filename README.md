@@ -683,6 +683,35 @@ meaning. The API exposes `createSceneReviewPackAsync(mediaPath, outputDir, optio
 with cancellation and progress callbacks; the CLI reports progress on stderr
 while writing the review manifest to stdout.
 
+An editing agent can turn explicitly selected review shots into a dry-run B-roll
+insertion plan. Register the same source media used to create the scene-review
+pack as a video asset, then provide only the shot, timeline position, and
+optional source trim selections:
+
+```json
+[
+  {
+    "shotIndex": 2,
+    "timelineStartSeconds": 8,
+    "sourceOffsetSeconds": 0.25,
+    "durationSeconds": 2,
+    "clipId": "market-broll-01"
+  }
+]
+```
+
+```sh
+node src/cli.mjs timeline plan-broll timeline.json scene-review.json broll-source video-broll placements.json
+```
+
+The command prints a `reviewRequired` plan with validated `add-clip`
+operations and a before/after preview. It does not change the timeline or
+choose semantically relevant shots. The selected source ranges must fit within
+their reviewed shot; the caller must use the same registered source as the
+scene-review pack. Apply the returned `operations` only after editorial review
+with `timeline edit`. The API is
+`planSceneReviewPlacements(timeline, sceneReview, assetId, trackId, placements)`.
+
 ```js
 const { analysis } = await analyzeMediaWithProvider(mediaPath, {
   id: 'scene-detector',

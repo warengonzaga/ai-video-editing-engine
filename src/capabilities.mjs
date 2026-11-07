@@ -179,6 +179,13 @@ export function getEngineCapabilities(options = {}) {
           optionalEventFields: ['completed', 'total', 'percent', 'message'],
         },
       },
+      sceneReviewPlacementPlanning: {
+        available: true,
+        requires: ['validated-timeline', 'registered-video-asset', 'scene-review-pack', 'explicit-shot-selections'],
+        output: 'review-required-timeline-operations',
+        appliesChanges: false,
+        maximumPlacements: 500,
+      },
     },
     interchange: {
       openTimelineIO: {

@@ -1878,3 +1878,14 @@ smoke render alone.
   support. A manual cancellation during thumbnail generation left no final pack
   or staging directory. Automated tests remain deferred per the user's
   direction.
+- Added `planSceneReviewPlacements` and `timeline plan-broll` to convert explicit
+  scene-review shot selections into validated `add-clip` operations plus a
+  before/after diff. The plan is review-required and never changes the timeline
+  or infers which shots are relevant. Manual API and CLI checks mapped shot 2
+  (2–4 seconds) with a 0.25-second source offset and 1.5-second duration to the
+  expected 2.25–3.75-second source range, returned one validated insertion, and
+  left the input timeline unchanged. An unknown shot index was rejected. The
+  existing DJI project also produced a valid one-shot plan from camera source
+  seconds 10–11.5 to timeline seconds 8–9.5 on its B-roll track, without
+  changing the project. The caller remains responsible for using the media
+  asset that produced the pack; automated tests remain deferred.

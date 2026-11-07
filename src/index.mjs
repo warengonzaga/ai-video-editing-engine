@@ -27,6 +27,7 @@ export { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
 export { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 export { detectAcousticSilence, parseSilenceIntervals } from './edits/detect-silence.mjs';
 export { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
+export { planSceneReviewPlacements } from './edits/plan-shot-placements.mjs';
 export { applyTranscriptCorrections } from './transcript/corrections.mjs';
 export { parseProbeOutput, probeMedia, probeMediaAsync } from './media/probe.mjs';
 export { inspectMediaCompatibility } from './media/compatibility.mjs';

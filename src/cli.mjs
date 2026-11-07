@@ -17,6 +17,7 @@ import { createSceneReviewPackAsync } from './media/scene-review.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
+import { planSceneReviewPlacements } from './edits/plan-shot-placements.mjs';
 import { audioLevelCues } from './animation/audio-cues.mjs';
 import { rhubarbLipSyncCuesAsync, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
 import { createAvatarCompositionAsync } from './animation/avatar.mjs';
@@ -192,6 +193,18 @@ async function main(args) {
   if (command === 'timeline' && commandArgs[0] === 'preview-edit' && commandArgs.length === 3) {
     const [, inputPath, operationPath] = commandArgs;
     console.log(JSON.stringify(previewTimelineEdit(readJson(resolve(inputPath)), readJson(resolve(operationPath))), null, 2));
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'plan-broll' && commandArgs.length === 6) {
+    const [, timelinePath, sceneReviewPath, assetId, trackId, placementsPath] = commandArgs;
+    const plan = planSceneReviewPlacements(
+      readJson(resolve(timelinePath)),
+      readJson(resolve(sceneReviewPath)),
+      assetId,
+      trackId,
+      readJson(resolve(placementsPath)),
+    );
+    console.log(JSON.stringify(plan, null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'project-edit' && commandArgs.length >= 3 && commandArgs.length <= 4) {
@@ -634,7 +647,7 @@ async function main(args) {
   asset relink <project> <assetId> <replacement-media>
   asset proxy create <project> <assetId> [maxDimension] [crf] [frameRate]
   edit <project> <assetId> <transcript.json> <approved-edl.json> [output.mp4] [draft|standard|high]
-  timeline create <project> [output.json|durationSeconds] [durationSeconds] | timeline validate <timeline.json> | timeline preview-edit <timeline.json> <operation.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
+  timeline create <project> [output.json|durationSeconds] [durationSeconds] | timeline validate <timeline.json> | timeline preview-edit <timeline.json> <operation.json> | timeline plan-broll <timeline.json> <scene-review.json> <asset-id> <video-track-id> <placements.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
   timeline project-edit <timeline.json> <operation.json> [history-limit] | timeline undo|redo <timeline.json> | timeline history <timeline.json> [show|reset [limit]]
   timeline export-otio <project> <timeline.json> <new-output.otio>
   timeline import-otio <project> <input.otio> <new-timeline.json>
