@@ -8,6 +8,15 @@ Last updated: 2026-11-07
 
 ## Current status
 
+- Official support is Windows and Linux. Windows has a previously completed
+  local suite and render-smoke baseline. On 2026-11-07, a Debian Bookworm Docker
+  container with Node.js 22, FFmpeg, OpenTimelineIO, and HyperFrames' headless
+  browser passed 137/137 tests, the full render smoke, and `npm audit --omit=dev`
+  with zero vulnerabilities. Rendering used software graphics.
+- macOS is not officially supported yet. The manual workflow can target it, but
+  native Mac validation is required; track this in
+  [issue #2](https://github.com/warengonzaga/ai-video-editing-engine/issues/2).
+- PR #1 was reviewed and squash-merged into `dev` as `71c4bdf` on 2026-11-07.
 - The Engine is a generic, local-first Node.js CLI/API. Explainer Studio is a
   future consumer, not part of the Engine's timeline contract.
 - Generic timeline v1 supports ordered video/audio/overlay tracks, clip source
@@ -629,10 +638,10 @@ passed against the real OTIO adapter. The package is not installed globally.
 
 ### Reliability and editing capability
 
-- Validate variable-frame-rate seek behavior, long-form audio clock drift, and
-  cuts at media boundaries using real provider transcripts and footage.
-- Validate codec quality, audio behavior, and formats with varied real footage
-  and audio, across operating systems, then inspect frames and listen to output.
+- Broaden variable-frame-rate seek, long-form audio clock drift, and media
+  boundary validation with more real sources. Windows and Linux now pass the
+  full test suite and render smoke; macOS native testing is tracked in issue #2.
+- Validate codec quality and audio behavior with varied real footage and audio.
 - Review Rec.2020 SDR output on a color-managed display and compare decoded
   color patches to reference values; current local checks validate conversion
   execution and stream tags, not perceptual or broadcast compliance.
@@ -644,19 +653,18 @@ passed against the real OTIO adapter. The package is not installed globally.
   audio, B-roll, still image, and captions. A synthetic integration render now
   covers that exact layer combination; real-source quality and listening review
   remain open.
-- Validate no-audio video, audio-only input, and unsupported codec behavior
-  across Windows, macOS, and Linux. JSON/SRT/VTT transcript import and SRT/VTT
-  export now have local coverage.
+- macOS-specific rendering, installation, cancellation, and codec behavior are
+  unverified until a native Mac run is completed (issue #2). JSON/SRT/VTT
+  transcript import and SRT/VTT export have local coverage.
 
 ### Consumer integration and delivery
 
-- Obtain a human audiovisual review of the current A-H avatar render and its
-  local contact sheet. Its audio stream was technically verified, but has not
-  received a human listening review.
+- The user approved Engine DJI framing/audio and avatar lip-sync timing. The
+  mouth-size correction is a user-deferred asset-scale follow-up.
 - Decide a distribution model. The private package exposes an installable CLI
   binary for local/Git dependency use; public npm installation is not enabled.
-- Recheck current hosted Linux/macOS/Windows CI state and validate setup on a
-  clean target. A local packed-tarball install into a disposable Windows
+- A native Mac run remains open in issue #2. A local packed-tarball install into
+  a disposable Windows
   consumer now passes: package dependencies install, the `ai-video-engine`
   binary reports capabilities, the ESM API imports, and a new blank project
   timeline validates. This is local packaging evidence only; no npm publish or
@@ -1921,7 +1929,7 @@ smoke render alone.
   sprites, and timing; the v12 render remains available for comparison. The
   v13 MP4 is 1920×1080 H.264, 30 fps, 11.133 seconds. Further mouth-size work
   is deferred at the user's direction.
-- Latest local validation on the active branch: `npm test` passes all 135 tests
+- Earlier Windows validation: `npm test` passed all 135 tests
   with 0 failures and 0 skips after installing the pinned optional
   OpenTimelineIO 0.18.1 wheel into a disposable workspace directory. The three
   OTIO round-trip, transition-import, and overlap-rejection tests all pass;
@@ -1934,8 +1942,14 @@ smoke render alone.
   background (`#10141c`). Its first attempt was blocked by sandbox localhost
   restrictions; the authorized local-render run completed all scenarios.
   Neither command invoked GitHub Actions.
+- Current Linux validation on 2026-11-07: a Debian Bookworm Docker container
+  with Node.js 22, FFmpeg, OpenTimelineIO, and the HyperFrames headless browser
+  passed `npm test` (137/137, no skips), `npm run test:render-smoke`, and
+  `npm audit --omit=dev` (zero vulnerabilities). The browser used software
+  graphics. The first container attempt identified missing Chrome shared
+  libraries; installing the documented libraries made the full smoke pass.
 - Added a manual CI platform selector (`all`, `linux`, `macos`, `windows`) so
   targeted cross-platform verification does not require billing all three
-  runners. The default remains the full matrix; branch pushes still do not
-  trigger checks. YAML parsing and the dispatch choice list were validated
-  locally. Current-head Linux/macOS runs are the remaining platform gate.
+  runners. Automatic triggers remain disabled; current Windows and Linux
+  validation was run locally, not through GitHub Actions. macOS remains
+  unverified on native hardware and is tracked in issue #2.
