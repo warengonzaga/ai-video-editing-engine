@@ -1717,3 +1717,11 @@ smoke render alone.
   B-roll, still, lower-third, and captions. The footage sources are synthetic
   color patterns, so this confirms the generic layered render path, not camera
   footage quality or human listening quality. No automated tests were run.
+- Created a separate preview copy of that generic timeline and moved its
+  captions upward to remove the lower-third collision seen in the first
+  contact sheet. The current Engine API rendered the six-second clone in 20.8
+  seconds with one worker; `ffprobe` again confirms 640×360/30 fps H.264 and
+  48 kHz stereo AAC, and the new contact sheet shows separated caption and
+  lower-third layers. The source clips remain synthetic patterns. The original
+  demo project and render are unchanged; no Engine source or test files were
+  changed.
