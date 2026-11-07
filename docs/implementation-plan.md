@@ -408,7 +408,10 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   used 1,835.7 MiB and took 49.11 seconds, with identical decoded video and
   audio. The complete 27.4274-second DJI source also rendered through the
   low-memory timeline workflow in 1m 53.1s at 1080×1920/30 fps, producing
-  H.264/AAC output. Broader source, resource, and platform coverage remain open.
+  H.264/AAC output. A profile-v2 540×960 proxy from the 96.1 MB source is 3.02
+  MB; the resolver selected it for a 10-second draft render while preserving
+  source audio. Asset verification confirmed source and proxy hashes. Broader
+  source, resource, and platform coverage remain open.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;

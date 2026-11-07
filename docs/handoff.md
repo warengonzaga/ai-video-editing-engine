@@ -1770,3 +1770,9 @@ smoke render alone.
   confirms consistent full-frame camera framing. This is a longer Windows
   render and stream-integrity check, not cross-platform proof or human audio
   approval. The source, project, and outputs remain ignored local artifacts.
+- Generated a profile-v2 30 fps proxy from the real HEVC+AAC source. The
+  540×960 H.264 proxy is 3.02 MB versus the 96.1 MB source, and the resolver
+  selected it for an explicit 10-second draft render while keeping audio on the
+  original source. The draft output is 1080×1920 H.264 with 48 kHz stereo AAC;
+  `asset verify` confirms both source and proxy hashes. The proxy render and
+  contact sheet stay in the ignored local project.
