@@ -1793,6 +1793,14 @@ smoke render alone.
   8.1–8.6s peaked at zero offset (0.947529 correlation). The render-level scan
   reports -29.0 dB mean and -6.1 dB peak. This checks one manual cut seam on
   one Windows source; it does not replace varied media or human review.
+- Rendered the same two-clip ripple-edited timeline again with
+  `useProxies: true`. Proxy resolution selected the expected profile-v2 540×960
+  source while the audio clips continued to read from the original media. The
+  25.433333-second draft is 1080×1920 H.264 with 48 kHz stereo AAC, and its
+  decoded audio MD5 exactly matches the high-resolution edited render. The
+  frame/contact-sheet review shows the source continues from the right point
+  after the cut. This confirms the proxy and multi-clip edit paths compose on
+  this Windows source; it is a draft and not the full-resolution master.
 - Re-ran `npm pack --dry-run --json --ignore-scripts` after the real-footage
   work. The private 0.1.0 package contains 74 files (219,508 packed bytes) and
   no source clip, rendered video, audio recording, or `video-projects` artifact.
