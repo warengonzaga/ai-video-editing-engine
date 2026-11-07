@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
 import { runProcess } from '../render/process.mjs';
+import { createFfmpegProgressParser, emitRenderProgress } from '../render/progress.mjs';
 
 const DEFAULTS = Object.freeze({
   integratedLoudnessLUFS: -16,
@@ -91,7 +92,7 @@ export function masterAudioFile(outputPath, format, settings, fps) {
   }
 }
 
-export async function masterAudioFileAsync(outputPath, format, settings, fps, signal) {
+export async function masterAudioFileAsync(outputPath, format, settings, fps, signal, onProgress) {
   const input = await probeMediaAsync(outputPath, { signal });
   if (!input.hasAudio) throw new Error('Cannot master loudness because the rendered output has no audio stream.');
   const baseFilter = `loudnorm=I=${settings.integratedLoudnessLUFS}:TP=${settings.truePeakDBTP}:LRA=${settings.loudnessRangeLU}`;
@@ -99,10 +100,15 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
   const equalizerFilters = buildEqualizerFilters(settings.equalizer);
   const preLoudnessFilters = [...channelFilter, ...equalizerFilters];
   const preLoudnessPrefix = preLoudnessFilters.length ? `${preLoudnessFilters.join(',')},` : '';
+  emitRenderProgress(onProgress, 'mastering-analysis', 'started');
+  const analysisProgress = onProgress ? createFfmpegProgressParser(onProgress, 'mastering-analysis', input.durationSeconds) : undefined;
   const analysis = await runProcess('ffmpeg', [
     '-nostdin', '-hide_banner', '-v', 'info', '-i', outputPath,
-    '-map', '0:a:0', '-af', `${preLoudnessPrefix}${baseFilter}:print_format=json`, '-f', 'null', nullDevice(),
-  ], { signal, stdio: 'capture' });
+    '-map', '0:a:0', '-af', `${preLoudnessPrefix}${baseFilter}:print_format=json`,
+    ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []), '-f', 'null', nullDevice(),
+  ], { signal, stdio: 'capture', ...(analysisProgress ? { onStdout: analysisProgress.push } : {}) });
+  analysisProgress?.flush();
+  emitRenderProgress(onProgress, 'mastering-analysis', 'completed');
   const loudness = parseLoudnessAnalysis(analysis.stderr);
   const loudnessFilter = loudness.measured
     ? `${baseFilter}:measured_I=${loudness.measured.input_i}:measured_TP=${loudness.measured.input_tp}:measured_LRA=${loudness.measured.input_lra}:measured_thresh=${loudness.measured.input_thresh}:offset=${loudness.measured.target_offset}:linear=true:print_format=summary`
@@ -113,14 +119,24 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
   const temporaryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`);
   try {
     const audioCodec = format === 'webm' ? ['-c:a', 'libopus', '-b:a', '192k'] : ['-c:a', 'aac', '-b:a', '256k'];
+    emitRenderProgress(onProgress, 'mastering-encode', 'started', { codec: audioCodec[1] });
+    const encodeProgress = onProgress ? createFfmpegProgressParser(onProgress, 'mastering-encode', input.durationSeconds, { codec: audioCodec[1] }) : undefined;
     await runProcess('ffmpeg', [
       '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', outputPath,
       '-map', '0:v:0', '-map', '0:a:0', '-c:v', 'copy', ...audioCodec,
       ...(filter ? ['-af', filter] : []), '-ar', '48000',
       ...(settings.channelLayout ? ['-ac', settings.channelLayout === 'mono' ? '1' : '2', '-channel_layout', settings.channelLayout] : []),
+      ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []),
       ...(format === 'mp4' || format === 'mov' ? ['-movflags', '+faststart'] : []),
       temporaryPath,
-    ], { signal });
+    ], { signal, ...(encodeProgress ? {
+      stdio: 'capture',
+      onStdout: encodeProgress.push,
+      onStderr: (chunk) => process.stderr.write(chunk),
+    } : {}) });
+    encodeProgress?.flush();
+    emitRenderProgress(onProgress, 'mastering-encode', 'completed', { codec: audioCodec[1] });
+    emitRenderProgress(onProgress, 'mastering-validation', 'started');
     const mastered = await probeMediaAsync(temporaryPath, { signal });
     const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
     if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
@@ -128,8 +144,11 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
         || Math.abs(mastered.durationSeconds - input.durationSeconds) > Math.max(0.15, 1 / frameRateNumber(fps))) {
       throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
     }
+    emitRenderProgress(onProgress, 'mastering-validation', 'completed');
+    emitRenderProgress(onProgress, 'mastering-publish', 'started');
     unlinkSync(outputPath);
     renameSync(temporaryPath, outputPath);
+    emitRenderProgress(onProgress, 'mastering-publish', 'completed');
     return {
       ...mastered,
       loudnessMode: loudness.measured ? 'two-pass-linear' : loudness.silent ? 'silent-bypass' : 'single-pass-dynamic',

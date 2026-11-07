@@ -253,7 +253,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
       }
       if (audioMastering) {
         emitRenderProgress(onProgress, 'mastering', 'started', { target: 'audio' });
-        const mastered = await masterAudioFileAsync(result.output, format, audioMastering, timeline.project.fps, renderControl.signal);
+        const mastered = await masterAudioFileAsync(result.output, format, audioMastering, timeline.project.fps, renderControl.signal, onProgress);
         renderControl.assertActive();
         emitRenderProgress(onProgress, 'mastering', 'completed', { target: 'audio' });
         return { ...result, durationSeconds: mastered.durationSeconds, audioMastering: { ...audioMastering, mode: mastered.loudnessMode } };

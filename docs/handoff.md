@@ -1465,10 +1465,11 @@ smoke render alone.
   `renderEditedProjectAsync` accept an `onProgress` callback with pipeline stage
   events for proxy resolution, audio alignment, playback processing, audio
   effects, sidechain processing, HyperFrames capture, encoding, output
-  validation, publishing, timeline audio validation, and mastering. Stage
+  validation, publishing, timeline audio validation, and mastering analysis,
+  encoding, validation, and publication. Stage
   events report `started`, `completed`, or `skipped`; HyperFrames capture reports its
-  normalized phase percentage, and FFmpeg encoding reports elapsed media time
-  and percentage. Callback exceptions emit a warning without cancelling the
+  normalized phase percentage, and FFmpeg video/audio encoding reports elapsed
+  media time and percentage. Callback exceptions emit a warning without cancelling the
   render. HyperFrames and FFmpeg stderr diagnostics remain visible.
   Capability discovery describes supported stages and optional event fields.
   A manual v9

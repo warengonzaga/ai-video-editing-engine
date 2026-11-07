@@ -377,10 +377,11 @@ and `renderTimeline` APIs remain available without cancellation. JavaScript
 consumers can pass an `onProgress` callback to async render APIs. Events report
 pipeline stages such as proxy resolution, audio alignment, playback processing,
 audio effects, sidechain processing, HyperFrames capture, encoding, output
-validation, publishing, timeline audio validation, and mastering. Each event
+validation, publishing, timeline audio validation, and mastering analysis,
+encoding, validation, and publication. Each event
 includes `stage` and `phase` (`started`, `completed`, or `skipped`); capture
-events include HyperFrames phase progress, while FFmpeg encoding events report
-elapsed media time and a percentage. Events may include stage details such as
+events include HyperFrames phase progress, while FFmpeg video and audio
+mastering events report elapsed media time and a percentage. Events may include stage details such as
 codec, target, or completed/total counts. Callback failures emit a warning and
 do not cancel the render. To render PNG frames, set
 `{ "format": "png-sequence" }`; the output path is a new directory. Defaults

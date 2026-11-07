@@ -6,7 +6,7 @@ import { open, readdir, rename, rm } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
-import { emitRenderProgress } from './progress.mjs';
+import { createFfmpegProgressParser, emitRenderProgress } from './progress.mjs';
 import { normalizeTranscript } from '../transcript/normalize.mjs';
 import { parseSubtitleText } from '../transcript/subtitles.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
@@ -375,7 +375,7 @@ async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, sign
   args.push('-c:a', 'copy', '-progress', 'pipe:1', '-nostats');
   if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
   args.push(outputPath);
-  const progressParser = onProgress ? createFfmpegProgressParser(onProgress, durationSeconds, encoder.codecId) : undefined;
+  const progressParser = onProgress ? createFfmpegProgressParser(onProgress, 'encoding', durationSeconds, { codec: encoder.codecId }) : undefined;
   await runProcess('ffmpeg', args, {
     signal,
     ...(progressParser ? {
@@ -385,37 +385,6 @@ async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, sign
     } : {}),
   });
   progressParser?.flush();
-}
-
-function createFfmpegProgressParser(onProgress, durationSeconds, codec) {
-  let pending = '';
-  let currentTimeUs;
-  const parseLine = (line) => {
-    const separator = line.indexOf('=');
-    if (separator < 0) return;
-    const key = line.slice(0, separator);
-    const value = line.slice(separator + 1);
-    if (key === 'out_time_us') currentTimeUs = Number(value);
-    if (key !== 'progress' || !Number.isFinite(currentTimeUs)) return;
-    const completed = Math.max(0, currentTimeUs / 1_000_000);
-    const percent = Math.max(0, Math.min(99, completed / durationSeconds * 100));
-    emitRenderProgress(onProgress, 'encoding', 'progress', { percent, completed, total: durationSeconds, codec });
-  };
-  return {
-    push(chunk) {
-      pending += chunk.toString('utf8');
-      let newline;
-      while ((newline = pending.indexOf('\n')) >= 0) {
-        parseLine(pending.slice(0, newline).replace(/\r$/, ''));
-        pending = pending.slice(newline + 1);
-      }
-      if (pending.length > 4096) pending = pending.slice(-4096);
-    },
-    flush() {
-      if (pending) parseLine(pending);
-      pending = '';
-    },
-  };
 }
 
 function encodeVideoFile(inputPath, outputPath, format, encoder, colorProfile) {
