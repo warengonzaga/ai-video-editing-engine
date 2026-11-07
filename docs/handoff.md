@@ -1358,3 +1358,7 @@ smoke render alone.
   serial suite: 134 passed, 0 failed, 0 skipped. The temporary venv was removed;
   no repository dependency changed and no hosted workflow was started. OTIO
   cross-platform behavior remains unverified.
+- Checked local WSL distributions for a Linux-side run. Ubuntu and Kali are
+  installed, but neither exposes Node.js or FFmpeg; installing packages would
+  modify the user's distro, so no WSL changes were made. Linux/macOS execution
+  remains unverified, and no GitHub Actions run was started.
