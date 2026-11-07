@@ -324,14 +324,17 @@ file, initialize one from its metadata and media catalog with:
 node src/cli.mjs timeline create video-projects/my-video
 ```
 
-Use the reviewable `set-project-state` operation to change timeline duration or
-the project-wide `sourceFit`; validation refuses a duration that would clip
-any existing timeline item. `sourceFit: null` clears the project override.
+Use the reviewable `set-project-state` operation to change timeline duration,
+the project-wide `sourceFit`, or the canvas background color; validation
+refuses a duration that would clip any existing timeline item. `sourceFit: null`
+clears the project override. `backgroundColor: null` makes the canvas
+transparent; existing timelines without a background retain their black render
+background. New projects default to `#10141c`.
 Canvas width, height, and frame rate remain tied to project metadata and are
 not editable through a timeline-only operation.
 
 ```json
-{ "type": "set-project-state", "state": { "sourceFit": "cover", "durationSeconds": 30 } }
+{ "type": "set-project-state", "state": { "sourceFit": "cover", "durationSeconds": 30, "backgroundColor": "#f3f0eb" } }
 ```
 
 The optional output path can create a separate timeline. Pass a duration as the
@@ -455,7 +458,7 @@ still needs validation.
 ```sh
 # Inspect media and create a project
 node src/cli.mjs probe path/to/source.mp4
-node src/cli.mjs project create my-video 1080x1920 30 15
+node src/cli.mjs project create my-video 1080x1920 30 15 --background-color '#f3f0eb'
 
 # Create or import a transcript
 node src/cli.mjs transcribe video-projects/my-video path/to/source.mp4

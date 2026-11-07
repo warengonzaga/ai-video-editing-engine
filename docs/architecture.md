@@ -110,7 +110,10 @@ The first contract is intentionally small and renderer-neutral. JSON examples
 will be checked into docs only after the validator and CLI/API land.
 
 - `schemaVersion`: integer for explicit compatibility and migrations.
-- `project`: stable id, width, height, frame rate, and duration in seconds.
+- `project`: stable id, width, height, frame rate, duration in seconds, and an
+  optional validated background color. New projects default to `#10141c`,
+  while legacy timelines without a color retain the renderer's black
+  background; `null` means transparent for overlay workflows.
 - `assets`: stable ids and project-relative media paths; probe metadata is
   derived and records streams, duration, dimensions, average and nominal frame
   rates, per-stream timing, and codecs. A/V records preserve container aliases,

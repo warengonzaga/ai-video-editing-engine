@@ -24,6 +24,7 @@ export function createProjectTimeline(projectPath, options = {}) {
       fps: meta.fps,
       durationSeconds,
       ...(meta.sourceFit === undefined ? {} : { sourceFit: meta.sourceFit }),
+      ...(meta.backgroundColor === undefined ? {} : { backgroundColor: meta.backgroundColor }),
     },
     assets: catalog.assets.map((asset) => ({
       id: asset.id,

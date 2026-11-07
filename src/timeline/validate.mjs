@@ -9,6 +9,7 @@ import { validateClipTransition } from './transition.mjs';
 import { validateBlendMode } from './blend-mode.mjs';
 import { validateAudioClipEffects } from './audio-effects.mjs';
 import { validateAudioTrackVolumeKeyframes, validateAudioVolumeKeyframes } from './audio-volume.mjs';
+import { validateProjectBackgroundColor } from './background.mjs';
 
 const TRACK_KINDS = new Set(['video', 'audio', 'overlay']);
 
@@ -20,6 +21,7 @@ export function validateTimeline(timeline) {
   frameRateNumber(project.fps);
   if (!Number.isFinite(project.durationSeconds) || project.durationSeconds <= 0) throw new TypeError('Timeline project durationSeconds must be positive.');
   validateSourceFit(project.sourceFit, 'Timeline project sourceFit');
+  if (project.backgroundColor !== undefined) validateProjectBackgroundColor(project.backgroundColor, 'Timeline project backgroundColor');
   if (!Array.isArray(timeline.assets) || !Array.isArray(timeline.tracks)) throw new TypeError('Timeline assets and tracks must be arrays.');
   if (timeline.markers !== undefined) {
     if (!Array.isArray(timeline.markers)) throw new TypeError('Timeline markers must be an array.');

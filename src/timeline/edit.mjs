@@ -747,10 +747,10 @@ export function setTimelineAudioMastering(timeline, audioMastering) {
 export function setTimelineProjectState(timeline, state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) throw new TypeError('Project state must be an object.');
   const fields = Object.keys(state);
-  if (fields.length === 0 || fields.some((field) => !['durationSeconds', 'sourceFit'].includes(field))) {
-    throw new TypeError('Project state must set one or more of: durationSeconds, sourceFit.');
+  if (fields.length === 0 || fields.some((field) => !['durationSeconds', 'sourceFit', 'backgroundColor'].includes(field))) {
+    throw new TypeError('Project state must set one or more of: durationSeconds, sourceFit, backgroundColor.');
   }
-  if (fields.some((field) => state[field] === undefined)) throw new TypeError('Project state values must not be undefined; use null to clear sourceFit.');
+  if (fields.some((field) => state[field] === undefined)) throw new TypeError('Project state values must not be undefined; use null to clear sourceFit or make the background transparent.');
   const next = structuredClone(timeline);
   for (const field of fields) {
     if (field === 'sourceFit' && state[field] === null) delete next.project.sourceFit;

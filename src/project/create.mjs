@@ -5,6 +5,7 @@ import { resolveCanvasPreset } from './presets.mjs';
 import { DEFAULT_SOURCE_FIT, validateSourceFit } from '../timeline/source-fit.mjs';
 import { createProjectTimeline } from '../timeline/project.mjs';
 import { normalizeFrameRate } from '../media/frame-rate.mjs';
+import { DEFAULT_PROJECT_BACKGROUND_COLOR, validateProjectBackgroundColor } from '../timeline/background.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -12,7 +13,7 @@ export function createVideoProject(root, slug, options = {}) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     throw new TypeError('Use a lowercase kebab-case slug, not a path.');
   }
-  const { fps: requestedFps = 30, durationSeconds = 10, sourceFit = DEFAULT_SOURCE_FIT } = options;
+  const { fps: requestedFps = 30, durationSeconds = 10, sourceFit = DEFAULT_SOURCE_FIT, backgroundColor = DEFAULT_PROJECT_BACKGROUND_COLOR } = options;
   if (options.preset !== undefined && (options.width !== undefined || options.height !== undefined)) {
     throw new TypeError('Choose a canvas preset or custom width and height, not both.');
   }
@@ -20,6 +21,7 @@ export function createVideoProject(root, slug, options = {}) {
   const width = preset?.width ?? options.width ?? 1920;
   const height = preset?.height ?? options.height ?? 1080;
   validateSourceFit(sourceFit, 'sourceFit');
+  validateProjectBackgroundColor(backgroundColor, 'backgroundColor');
   if (![width, height].every((value) => Number.isSafeInteger(value) && value > 0)) {
     throw new TypeError('Width and height must be positive integers.');
   }
@@ -40,6 +42,7 @@ export function createVideoProject(root, slug, options = {}) {
     fps,
     durationSeconds,
     sourceFit,
+    backgroundColor,
     ...(preset ? { canvasPreset: preset.id } : {}),
   };
   const directories = ['assets', 'transcripts', 'edits', 'compositions', 'renders'];
@@ -63,14 +66,15 @@ export function createVideoProject(root, slug, options = {}) {
   return projectPath;
 }
 
-function starterHtml({ name, width, height, durationSeconds }) {
+function starterHtml({ name, width, height, durationSeconds, backgroundColor }) {
+  const background = backgroundColor ?? 'transparent';
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=${width}, initial-scale=1">
   <title>${escapeHtml(name)}</title>
-  <style>html,body,#root{box-sizing:border-box;margin:0;width:${width}px;height:${height}px}body{background:#10141c;color:#f5f5f5;font:48px system-ui,sans-serif}#root{display:grid;place-items:center}</style>
+  <style>html,body,#root{box-sizing:border-box;margin:0;width:${width}px;height:${height}px}body{background:${background};color:#f5f5f5;font:48px system-ui,sans-serif}#root{display:grid;place-items:center}</style>
   <script src="assets/gsap.min.js"></script>
 </head>
 <body>

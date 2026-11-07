@@ -87,7 +87,7 @@ function parseProjectOptions(args) {
   const flags = {};
   for (let index = 0; index < args.length; index++) {
     const token = args[index];
-    if (token === '--preset' || token === '--fit') {
+    if (token === '--preset' || token === '--fit' || token === '--background-color') {
       if (flags[token]) throw new Error(`${token} can only be specified once.`);
       const value = args[++index];
       if (!value || value.startsWith('--')) throw new Error(`${token} requires a value.`);
@@ -108,6 +108,7 @@ function parseProjectOptions(args) {
       fps: normalizeFrameRate(positional[0] ?? '30'),
       durationSeconds: Number(positional[1] ?? 10),
       ...(flags['--fit'] ? { sourceFit: flags['--fit'] } : {}),
+      ...(flags['--background-color'] ? { backgroundColor: parseBackgroundColorFlag(flags['--background-color']) } : {}),
     };
   }
 
@@ -123,7 +124,12 @@ function parseProjectOptions(args) {
     fps: normalizeFrameRate(fps),
     durationSeconds: Number(durationSeconds),
     ...(flags['--fit'] ? { sourceFit: flags['--fit'] } : {}),
+    ...(flags['--background-color'] ? { backgroundColor: parseBackgroundColorFlag(flags['--background-color']) } : {}),
   };
+}
+
+function parseBackgroundColorFlag(value) {
+  return value.toLowerCase() === 'transparent' ? null : value;
 }
 
 async function main(args) {
@@ -583,8 +589,8 @@ async function main(args) {
     return;
   }
   throw new Error(`Usage: node src/cli.mjs
-  project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>]
-  project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]
+  project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>] [--background-color <hex|transparent>]
+  project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>] [--background-color <hex|transparent>]
   presets list | probe <media> | media support <media>
   asset register <project> <media> [assetId] | asset register-many <project> <media>...
   asset unregister <project> <asset-id>

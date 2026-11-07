@@ -23,6 +23,7 @@ export function assembleEditedTimeline(projectPath, assetId, transcript, edl, op
     height: meta.height,
     fps: meta.fps,
     sourceFit: meta.sourceFit,
+    backgroundColor: meta.backgroundColor,
     assetPath: asset.path,
     assetType: asset.type,
     assetHasAudio: asset.hasAudio,

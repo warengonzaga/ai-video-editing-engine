@@ -136,7 +136,13 @@ audio policy, cross-platform and broader format coverage remain open.
   markers. Static checks only; tests remain deferred.
 - [x] Expose reviewable project-state edits for timeline duration and project
   source fitting; keep canvas width, height, and frame rate pinned to project
-  metadata and reject duration changes that invalidate existing clips.
+  metadata and reject duration changes that invalidate existing clips. New
+  projects can set a validated solid canvas background through the CLI or API,
+  and timeline edits can change it or select transparent output. A one-second
+  `#f3f0eb` PNG-sequence render reported the expected background RGB and
+  produced 30 valid frames. A separate Engine timeline combining the Waren
+  avatar composition and Voice 015 rendered at 1920×1080/30 fps with H.264 and
+  48 kHz stereo AAC over the neutral background.
 
 **Status:** synthetic A/V cut rendering and source immutability are covered by
 tests. A generic timeline can also contain multiple video/audio tracks and

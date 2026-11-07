@@ -1643,3 +1643,21 @@ smoke render alone.
   boundary while allowing the shared render timeout and cancellation signal to
   stop long sequence publication. Syntax and diff checks passed; no automated
   tests were run.
+- Added a validated project canvas background color across project creation,
+  timeline validation/edit/inspection, EDL assembly, and rendering. New projects
+  use the same neutral `#10141c` background as the starter scene; legacy
+  timelines without the field retain their previous black render. Set the color
+  through `--background-color` or `set-project-state`; `transparent`/`null`
+  preserves alpha for overlay exports. A one-second PNG-sequence render of a
+  `#f3f0eb` project produced 30 frames; HyperFrames reported the requested
+  background RGB `[243, 240, 235]`, and the first frame was visually inspected.
+  Syntax and whitespace checks passed; no automated tests ran.
+- Created a separate ignored Engine timeline project using the v9 consumer
+  avatar scene and registered Voice 015 narration. The generic timeline
+  composed both on a `#f3f0eb` background and rendered 11.133 seconds at
+  1920×1080/30 fps as H.264 with 48 kHz stereo AAC. Sample frames show the
+  neutral canvas, visible mouth-state changes, and isolated blink overlay with
+  a stable body. Output:
+  `video-projects/waren-avatar-engine-v10/renders/waren-avatar-engine-v10.mp4`.
+  The v9 comparison project remains unchanged. Human speech/audio review and
+  representative camera-footage validation are still open.

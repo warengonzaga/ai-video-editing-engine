@@ -42,6 +42,7 @@ export function inspectTimeline(timeline) {
       fps: timeline.project.fps,
       durationSeconds: timeline.project.durationSeconds,
       ...(timeline.project.sourceFit === undefined ? {} : { sourceFit: timeline.project.sourceFit }),
+      ...(timeline.project.backgroundColor === undefined ? {} : { backgroundColor: timeline.project.backgroundColor }),
     },
     ...(timeline.audioMix === undefined ? {} : { audioMix: structuredClone(timeline.audioMix) }),
     ...(timeline.audioMastering === undefined ? {} : { audioMastering: structuredClone(timeline.audioMastering) }),
