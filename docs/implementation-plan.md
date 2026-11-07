@@ -311,18 +311,13 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   `avatar-compose` specification, while retaining the standalone `lip-sync`
   command for reusable cue files. A separate Windows Engine render combines
   consumer-provided body, mouth, and blink sprites with Taglish narration.
-  Representative frames verify mouth placement and full-body framing. A local
-  1920×1080, 30 fps render uses A-H visemes plus X rest and fixed-canvas blink
-  assets. A sampled G frame
-  confirms the new sprite appears at the existing mouth anchor. The v4 render
-  was regenerated after moving mouth-file and dimension preflight ahead of the
-  Rhubarb call. The earlier v2 render remains available for comparison. After
-  adding configurable viseme crossfades, a v5 preview was rendered locally with
-  `Voice 015.mp3` at 1920×1080/30 fps; ffprobe confirms 11.133 seconds, H.264,
-  and stereo AAC. A close-up sample across a viseme boundary shows the mouth
-  changing without an obvious double outline. The v5 output and frame sheets
-  are under the ignored `video-projects/waren-avatar-viseme-v5/renders/` path.
-  Human speech-alignment and audio review remain outstanding; Rhubarb is an
+  Representative frames verify mouth placement and full-body framing. The
+  current v8 async composition was rendered locally at 1920×1080/30 fps with
+  `Voice 015.mp3`, A-H visemes, X rest, and fixed-canvas blink assets; ffprobe
+  confirms 11.133 seconds, H.264, and stereo AAC. Its composition lints without
+  warnings, and sampled frames show changing mouth states with stable body
+  framing. These checks do not verify phoneme alignment or perceived audio
+  quality; human speech and audio review remain outstanding. Rhubarb is an
   optional external runtime and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
@@ -349,7 +344,13 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   encoded output pixels to verify that the visual layers appear at their timed
   positions. A separate regression render verifies that a video stream whose
   first timestamp is one second still appears at the start of the timeline.
-  Human review and real-footage coverage remain open.
+  A separate six-second synthetic render combining main footage, external
+  narration, B-roll, a still image, a reusable lower-third composition, and
+  timed captions now lints with 0 errors and 0 warnings and encodes as
+  640×360/30 fps H.264 with stereo AAC. The still-image renderer uses a clipped
+  background layer to satisfy HyperFrames' top-level timeline structure while
+  retaining fit, object-position, and zoom behavior. Human review and
+  real-footage coverage remain open.
 - [x] Convert SDR video output to named Rec.709 or Rec.2020 profiles with a
   pixel colorspace transform and verify the encoded stream tags. Add an HDR10
   SDR-to-HDR10 path for MP4/MOV using a 203-nit reference white, 10-bit
