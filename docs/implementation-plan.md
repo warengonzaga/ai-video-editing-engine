@@ -467,12 +467,16 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;
   assert whether each output includes an audio stream.
-- [x] Validate these media modes and unsupported codec behavior across Windows,
-  macOS, and Linux. Local Windows and hosted three-OS smoke cover MP4, VP9/WebM,
-  ProRes/MOV, GIF, PNG sequences, and audio-only/video-only output. Explicit
+- [x] Validate supported Windows and Linux media modes, unsupported codecs,
+  audio-only/video-only output, and export paths. The Windows baseline and the
+  Linux Docker run cover the Engine suite and HyperFrames render smoke; Linux
+  passed all 137 tests and the complete render smoke on 2026-11-07. Explicit
   final encoders are checked against the local FFmpeg encoder registry before
   browser rendering, with unit coverage for encoder-list parsing and missing-
   codec errors.
+- [ ] Verify native macOS behavior before claiming support. The workflow has a
+  macOS selector, but native Mac validation is still open; track it in issue
+  [#2](https://github.com/warengonzaga/ai-video-editing-engine/issues/2).
 
 **Acceptance:** reproducible preview and export with recorded technical and
 human review evidence on each claimed supported environment.
@@ -500,9 +504,10 @@ through the documented engine interface; Studio retains its review gates.
 
 - [x] Expose a private-installable `ai-video-engine` CLI binary. Public package
   publication and the distribution policy remain undecided.
-- [x] Add a Linux/macOS/Windows GitHub Actions matrix for Node.js 22, FFmpeg-backed
-  tests, and production dependency auditing. Hosted run 42168696652 passed all
-  jobs on Linux, Windows, and macOS.
+- [x] Add a manually dispatched Linux/macOS/Windows workflow selector for
+  Node.js 22, FFmpeg-backed tests, render smoke, and production dependency
+  auditing. A previous hosted matrix passed, but the current macOS support
+  claim still requires native Mac validation (issue #2).
 - [x] Add a reproducible HyperFrames render smoke for video ingest, narration,
   captions, export, and output metadata; configure it for every CI operating
   system. Hosted run 42168696652 passed on all three operating systems.
@@ -513,18 +518,15 @@ through the documented engine interface; Studio retains its review gates.
   transcript corrections; document supported workflow and known limits.
 - [x] Run the available runtime dependency security scan and document
   limitations, supported environments, and dependencies for each capability.
-- [x] Prepare labeled feature PRs targeting `dev`; use existing labels only.
-  The generic Engine feature is in PR #1 with `enhancement` and `documentation`
-  labels; it remains open for review.
+- [x] Merge the generic Engine feature PR to `dev` using Clean Flow. PR #1 was
+  squash-merged as `71c4bdf` on 2026-11-07.
 - [x] Update the handoff with current status, evidence, blockers, and the next
   concrete task. Avoid claiming completion from test results alone.
 
 At the user's direction, automatic test, render-smoke, and dependency-audit
-workflows are temporarily disabled during implementation. The workflow remains
-available through manual dispatch with a platform selector: choose Linux,
-macOS, Windows, or the complete three-OS matrix (the default). Restore automatic
-checks for the manual debugging phase. Do not treat earlier green runs as
-verification of current unverified changes.
+workflow triggers remain disabled; manual dispatch is available. The current
+Linux Docker validation and Windows baseline are local evidence, not a hosted CI
+run. Do not treat earlier hosted macOS jobs as native Mac support validation.
 
 ## Full-editor capability backlog
 
@@ -647,10 +649,10 @@ Injected media-analysis findings can propose explicit source-range removals;
 the Engine emits a confidence-filtered review-required EDL, and render and
 retime paths require an explicitly approved EDL before applying those cuts.
 
-## Current starting point
+## Current completion status
 
-The current local branch is `feature/generic-video-engine` with local commits
-ahead of `origin/feature/generic-video-engine`. It contains the
+The Engine implementation PR #1 was squash-merged to `dev` on 2026-11-07.
+The repository includes the
 generic timeline, media catalog and proxy support, edit operations, transcript
 and provider workflows, layered video/overlay composition, audio mixing and
 mastering, preview assets, export controls, and OpenTimelineIO interchange.
@@ -661,9 +663,10 @@ Latest avatar implementation requires distinct A-H viseme states plus X/rest,
 defaults Rhubarb extended cues to GHX, and checks mouth PNG files and shared
 canvas dimensions before phonetic analysis. Mouth-layer sprite changes now
 crossfade over a configurable 60 ms default, with its range exposed through
-capability discovery. A fresh avatar composition was
-generated and rendered at 1920×1080/30 fps with the complete A-H/X pack. Human
-Taglish audio-alignment review remains open.
+capability discovery. A fresh avatar composition was generated and rendered at
+1920×1080/30 fps with the complete A-H/X pack. The user approved lip-sync
+timing and mouth style; the avatar mouth-scale change is deferred at the user's
+direction.
 
 Latest local profiling rendered both the avatar composition and the generic
 video-plus-narration timeline. The generic timeline's one-worker low-memory
@@ -672,17 +675,24 @@ output matches the default output's decoded video and audio hashes while using
 single avatar-source project. These profiles are not representative of varied
 camera footage, and the 250 ms sampler may miss short peaks.
 
-No automated test suite was run for the latest changes, per the user's
-implementation-first direction. The current Windows renders and `ffprobe`
-metadata are evidence for these specific local workflows; earlier test/CI runs
-do not verify the entire current branch. Remaining gates are human listening
-and visual review, representative footage and cross-platform validation, then
-review-gated Explainer Studio integration. The CI workflows remain manual-only.
-Recheck branch and remote state before publishing.
+The current supported platforms are Windows and Linux. The Windows test suite
+and render smoke were previously validated locally. On 2026-11-07, a Debian
+Bookworm Docker container with Node.js 22, FFmpeg, OpenTimelineIO, and the
+HyperFrames headless browser passed all 137 tests, the full render smoke, and
+`npm audit --omit=dev` with zero vulnerabilities. Container graphics used
+software rendering. macOS remains unverified on native hardware; see
+[issue #2](https://github.com/warengonzaga/ai-video-editing-engine/issues/2).
+
+Remaining work is separately scoped: native macOS validation, end-to-end
+Explainer Studio consumer integration, the deferred avatar mouth-scale
+adjustment, and broader real-footage, long-form audio, and color-managed visual
+quality review. Public npm distribution remains undecided. The CI workflow is
+manual-only.
 
 Both sync and async render paths now use short OS-temp capture paths to avoid
 Windows path-length failures. PNG sequences are staged in the destination
 directory before an atomic rename; the async publisher copies frames with the
 render cancellation signal and removes incomplete staging on abort. Long-path
-MP4 and 30-frame PNG-sequence smokes passed through both render APIs on Windows;
-broader cross-platform validation remains open.
+MP4 and 30-frame PNG-sequence smokes passed through both render APIs on Windows.
+The Linux test and render-smoke baseline is now also complete; macOS remains
+open under issue #2.
