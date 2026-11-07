@@ -1832,6 +1832,13 @@ smoke render alone.
   The post-favicon-fix render log has no browser network or asset-load warnings.
   The source, timeline, and output stay in ignored `video-projects/`; human
   audiovisual approval remains open.
+- Profiled a repeat high-quality render of the 10-second DJI PiP timeline using
+  one worker and HyperFrames low-memory mode. It completed in 51.61 seconds;
+  process-tree working set peaked at 2,069.9 MiB across 16 processes, sampled
+  every 250 ms. `ffprobe` confirms the output remains 1080×1920/30 fps H.264
+  with 48 kHz stereo AAC and exact 10.000-second streams. The browser-probe log
+  has no network or asset-load warnings. This is one Windows clip/profile, not
+  a general performance estimate; sampling can miss brief peaks.
 - Exercised real-camera clip volume automation and final audio mastering in a
   separate 10-second DJI project. The first mastered render exposed a 100 ms
   audio tail beyond the video. Both synchronous and asynchronous mastering now

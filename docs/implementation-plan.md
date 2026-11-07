@@ -428,6 +428,10 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   workers used 7,821.1 MiB and took 36.01 seconds; four workers used 5,945.6
   MiB and took 29.20 seconds; one-worker low-memory mode used 1,835.7 MiB and
   took 49.11 seconds. All three produced identical decoded video and audio.
+  A one-worker low-memory render of the real 10-second multi-video DJI PiP
+  timeline took 51.61 seconds and peaked at 2,069.9 MiB across 16 processes,
+  sampled every 250 ms. This is one Windows workload and does not establish
+  performance on other media, settings, hardware, or operating systems.
   The complete 27.4274-second DJI source also rendered through the
   low-memory timeline workflow in 1m 53.1s at 1080×1920/30 fps, producing
   H.264/AAC output. A profile-v2 540×960 proxy from the 96.1 MB source is 3.02
