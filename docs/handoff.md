@@ -1880,22 +1880,26 @@ smoke render alone.
   direction.
 - Added `planSceneReviewPlacements` and `timeline plan-broll` to convert explicit
   scene-review shot selections into validated `add-clip` operations plus a
-  before/after diff. The plan is review-required and never changes the timeline
-  or infers which shots are relevant. Manual API and CLI checks mapped shot 2
-  (2–4 seconds) with a 0.25-second source offset and 1.5-second duration to the
-  expected 2.25–3.75-second source range, returned one validated insertion, and
+  before/after diff. The plan is review-required, fingerprints the source
+  timeline, and never changes the timeline or infers which shots are relevant.
+  `timeline apply-plan` explicitly applies a reviewed plan as one undoable
+  history action and rejects stale timeline fingerprints. Manual API and CLI
+  checks mapped shot 2 (2–4 seconds) with a 0.25-second source offset and
+  1.5-second duration to the expected 2.25–3.75-second source range, returned
+  one validated insertion, and
   left the input timeline unchanged. An unknown shot index was rejected. The
   existing DJI project also produced a valid one-shot plan from camera source
   seconds 10–11.5 to timeline seconds 8–9.5 on its B-roll track, without
   changing the project. The caller remains responsible for using the media
-  asset that produced the pack; automated tests remain deferred. An approved
-  copy of the plan was then applied through the undoable `timeline project-edit`
-  command in an isolated copy of the DJI project. The resulting 10-second
-  1080×1920/30 fps render includes H.264 video and 48 kHz stereo AAC. The
-  sampled frame at 8.5 seconds switches from the original timeline source to
-  the selected 10–11.5-second camera range, while the original project remains
-  unchanged. This validates one Windows/DJI case, not broad source or platform
-  coverage.
+  asset that produced the pack; automated tests remain deferred. A synthetic
+  CLI workflow saved and explicitly applied the plan, rejected reapplication as
+  stale, and restored the source timeline through undo. The same `timeline
+  plan-broll` then `timeline apply-plan` flow ran on an isolated copy of the DJI
+  project and returned an undo depth of one. Its 10-second 1080×1920/30 fps
+  render includes H.264 video and 48 kHz stereo AAC. The sampled frame at 8.5
+  seconds switches from the original timeline source to the selected
+  10–11.5-second camera range, while the original project remains unchanged.
+  This validates one Windows/DJI case, not broad source or platform coverage.
 - The user approved the borderless mouth art and lip-sync, then reported the
   rendered mouth looked too small. A local v13 comparison preview scales the
   mouth layer width from 0.0403 to 0.0605 (1.5×) while preserving its center,

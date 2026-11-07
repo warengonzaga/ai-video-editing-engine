@@ -176,7 +176,9 @@ and cross-platform codec coverage remain open.
   Async generation supports cancellation and progress events; output is staged
   and published atomically to a new directory. `timeline plan-broll` converts
   explicit shot selections into validated, review-required insertion operations
-  and a dry-run diff; it never chooses or applies shots automatically.
+  and a dry-run diff; it never chooses or applies shots automatically. Plans
+  include the source timeline fingerprint and can be applied explicitly through
+  an undoable command that rejects stale plans.
 - [x] Provide explicit project-frame conversion and rounding helpers; enforce
   constant-rate or integrated speed-ramp source-span/duration matches and
   registered-media source boundaries.

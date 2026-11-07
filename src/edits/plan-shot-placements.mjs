@@ -1,4 +1,5 @@
 import { previewTimelineEdit } from '../timeline/edit.mjs';
+import { timelineFingerprint } from '../timeline/fingerprint.mjs';
 
 const MAXIMUM_PLACEMENTS = 500;
 
@@ -90,6 +91,7 @@ export function planSceneReviewPlacements(timeline, sceneReview, assetId, trackI
     schemaVersion: 1,
     type: 'scene-review-placement-plan',
     reviewRequired: true,
+    baseTimelineSha256: timelineFingerprint(timeline),
     assetId,
     trackId,
     operations,

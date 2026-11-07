@@ -701,23 +701,23 @@ optional source trim selections:
 ```
 
 ```sh
-node src/cli.mjs timeline plan-broll timeline.json scene-review.json broll-source video-broll placements.json
+node src/cli.mjs timeline plan-broll timeline.json scene-review.json broll-source video-broll placements.json edits/broll-plan.json
 ```
 
-The command prints a `reviewRequired` plan with validated `add-clip`
-operations and a before/after preview. It does not change the timeline or
-choose semantically relevant shots. The selected source ranges must fit within
-their reviewed shot; the caller must use the same registered source as the
-scene-review pack. Apply the returned `operations` only after editorial review
-by saving that array to an operations JSON file, then applying it through the
-undoable project-edit command:
+The command writes a `reviewRequired` plan with validated `add-clip` operations,
+a before/after preview, and a SHA-256 identity for the timeline it was based on.
+It does not change the timeline or choose semantically relevant shots. The
+selected source ranges must fit within their reviewed shot; the caller must use
+the same registered source as the scene-review pack. Review the saved plan,
+then explicitly apply it through the undoable command:
 
 ```sh
-node src/cli.mjs timeline project-edit timeline.json edits/approved-broll-operations.json
+node src/cli.mjs timeline apply-plan timeline.json edits/broll-plan.json
 ```
 
-The API is
-`planSceneReviewPlacements(timeline, sceneReview, assetId, trackId, placements)`.
+Application refuses if the timeline has changed since planning. The JavaScript
+APIs are `planSceneReviewPlacements(timeline, sceneReview, assetId, trackId,
+placements)` and `applyTimelineReviewPlan(timelinePath, plan)`.
 
 ```js
 const { analysis } = await analyzeMediaWithProvider(mediaPath, {

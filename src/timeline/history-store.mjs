@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { editTimeline, editTimelineBatch } from './edit.mjs';
 import { validateTimeline } from './validate.mjs';
+import { timelineFingerprint } from './fingerprint.mjs';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -23,6 +24,37 @@ export function editTimelineFile(timelinePath, operation, { limit } = {}) {
       undo,
       redo: [],
     });
+  });
+}
+
+/** Apply an explicitly approved review plan if it was created from the current timeline. */
+export function applyTimelineReviewPlan(timelinePath, plan, { limit } = {}) {
+  validateReviewPlan(plan);
+  return withHistoryLock(timelinePath, () => {
+    const { path, timeline } = readTimeline(timelinePath);
+    const baseHash = hashTimeline(timeline);
+    if (baseHash !== plan.baseTimelineSha256) {
+      throw new Error('Review plan is stale because the timeline changed after the plan was created. Generate a new plan.');
+    }
+    const next = editTimelineBatch(timeline, plan.operations);
+    const history = loadHistory(path, limit);
+    if (history.timelineHash !== baseHash) {
+      throw new Error('Review plan is stale because the timeline history changed after the plan was created. Generate a new plan.');
+    }
+    const undo = [...history.undo, history.timeline].slice(-history.limit);
+    const result = commitHistory(path, {
+      ...history,
+      timeline: next,
+      timelineHash: hashTimeline(next),
+      previousTimelineHash: history.timelineHash,
+      undo,
+      redo: [],
+    });
+    return {
+      ...result,
+      appliedReviewPlan: plan.type,
+      appliedOperationCount: plan.operations.length,
+    };
   });
 }
 
@@ -235,9 +267,15 @@ function getHistoryPath(timelinePath) {
 }
 
 function hashTimeline(timeline) {
-  return hashBytes(Buffer.from(JSON.stringify(timeline)));
+  return timelineFingerprint(timeline);
 }
 
-function hashBytes(bytes) {
-  return createHash('sha256').update(bytes).digest('hex');
+function validateReviewPlan(plan) {
+  if (!plan || typeof plan !== 'object' || Array.isArray(plan)
+      || plan.schemaVersion !== 1 || plan.reviewRequired !== true
+      || !/^[a-z][a-z0-9-]*$/.test(plan.type ?? '')
+      || !/^[a-f0-9]{64}$/.test(plan.baseTimelineSha256 ?? '')
+      || !Array.isArray(plan.operations) || plan.operations.length === 0 || plan.operations.length > 2000) {
+    throw new TypeError('Review plan must be a schemaVersion 1 review-required plan with a SHA-256 timeline base and 1–2000 operations.');
+  }
 }

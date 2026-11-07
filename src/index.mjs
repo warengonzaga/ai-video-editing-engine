@@ -14,7 +14,8 @@ export { renderTimeline, renderTimelineAsync, renderTimelineRange, renderTimelin
 export { DEFAULT_SOURCE_FIT, SOURCE_FIT_MODES, resolveSourceFit, validateSourceFit } from './timeline/source-fit.mjs';
 export { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, extractTimelineRange, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineMarker, removeTimelineTrack, reorderTimelineTrack, replaceTimelineClipAsset, rippleDeleteTimelineClip, rippleDeleteTimelineRange, setTimelineAudioMastering, setTimelineAudioMix, setTimelineClipAudioEffects, setTimelineClipAudioState, setTimelineClipState, setTimelineClipVideoState, setTimelineClipFraming, setTimelineClipKeyframes, setTimelineClipReverse, setTimelineClipSpeed, setTimelineClipVolumeKeyframes, setTimelineMarker, setTimelineOverlay, setTimelineProjectState, setTimelineTrackAudioEffects, setTimelineTrackState, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from './timeline/edit.mjs';
 export { createTimelineHistory } from './timeline/history.mjs';
-export { editTimelineFile, undoTimelineFile, redoTimelineFile, getTimelineFileHistory, resetTimelineFileHistory } from './timeline/history-store.mjs';
+export { applyTimelineReviewPlan, editTimelineFile, undoTimelineFile, redoTimelineFile, getTimelineFileHistory, resetTimelineFileHistory } from './timeline/history-store.mjs';
+export { timelineFingerprint } from './timeline/fingerprint.mjs';
 export { createProjectTimeline } from './timeline/project.mjs';
 export { createCaptionTrack } from './timeline/captions.mjs';
 export { CAPTION_LAYOUT_PRESETS, listCaptionLayoutPresets, resolveCaptionLayoutPreset } from './timeline/caption-layouts.mjs';

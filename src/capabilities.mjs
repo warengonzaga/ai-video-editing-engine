@@ -186,6 +186,13 @@ export function getEngineCapabilities(options = {}) {
         appliesChanges: false,
         maximumPlacements: 500,
       },
+      reviewPlanApplication: {
+        available: true,
+        explicitCommandRequired: true,
+        staleTimelineRejected: true,
+        undoable: true,
+        maximumOperations: 2000,
+      },
     },
     interchange: {
       openTimelineIO: {

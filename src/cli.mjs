@@ -26,7 +26,7 @@ import { inspectTimeline } from './timeline/inspect.mjs';
 import { timelineFromEdl } from './timeline/from-edl.mjs';
 import { renderTimelineAsync, renderTimelineRangeAsync } from './timeline/render.mjs';
 import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
-import { editTimelineFile, getTimelineFileHistory, redoTimelineFile, resetTimelineFileHistory, undoTimelineFile } from './timeline/history-store.mjs';
+import { applyTimelineReviewPlan, editTimelineFile, getTimelineFileHistory, redoTimelineFile, resetTimelineFileHistory, undoTimelineFile } from './timeline/history-store.mjs';
 import { createProjectTimeline } from './timeline/project.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
 import { applyTranscriptCorrections } from './transcript/corrections.mjs';
@@ -195,8 +195,8 @@ async function main(args) {
     console.log(JSON.stringify(previewTimelineEdit(readJson(resolve(inputPath)), readJson(resolve(operationPath))), null, 2));
     return;
   }
-  if (command === 'timeline' && commandArgs[0] === 'plan-broll' && commandArgs.length === 6) {
-    const [, timelinePath, sceneReviewPath, assetId, trackId, placementsPath] = commandArgs;
+  if (command === 'timeline' && commandArgs[0] === 'plan-broll' && commandArgs.length >= 6 && commandArgs.length <= 7) {
+    const [, timelinePath, sceneReviewPath, assetId, trackId, placementsPath, outputPath] = commandArgs;
     const plan = planSceneReviewPlacements(
       readJson(resolve(timelinePath)),
       readJson(resolve(sceneReviewPath)),
@@ -204,7 +204,15 @@ async function main(args) {
       trackId,
       readJson(resolve(placementsPath)),
     );
-    console.log(JSON.stringify(plan, null, 2));
+    if (outputPath) {
+      writeNewFile(resolve(outputPath), plan);
+      console.log(`Wrote ${resolve(outputPath)} (review required)`);
+    } else console.log(JSON.stringify(plan, null, 2));
+    return;
+  }
+  if (command === 'timeline' && commandArgs[0] === 'apply-plan' && commandArgs.length === 3) {
+    const [, timelinePath, planPath] = commandArgs;
+    console.log(JSON.stringify(applyTimelineReviewPlan(resolve(timelinePath), readJson(resolve(planPath))), null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'project-edit' && commandArgs.length >= 3 && commandArgs.length <= 4) {
@@ -647,7 +655,7 @@ async function main(args) {
   asset relink <project> <assetId> <replacement-media>
   asset proxy create <project> <assetId> [maxDimension] [crf] [frameRate]
   edit <project> <assetId> <transcript.json> <approved-edl.json> [output.mp4] [draft|standard|high]
-  timeline create <project> [output.json|durationSeconds] [durationSeconds] | timeline validate <timeline.json> | timeline preview-edit <timeline.json> <operation.json> | timeline plan-broll <timeline.json> <scene-review.json> <asset-id> <video-track-id> <placements.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
+  timeline create <project> [output.json|durationSeconds] [durationSeconds] | timeline validate <timeline.json> | timeline preview-edit <timeline.json> <operation.json> | timeline plan-broll <timeline.json> <scene-review.json> <asset-id> <video-track-id> <placements.json> [new-plan.json] | timeline apply-plan <timeline.json> <review-plan.json> | timeline edit <timeline.json> <operation.json> <new-timeline.json>
   timeline project-edit <timeline.json> <operation.json> [history-limit] | timeline undo|redo <timeline.json> | timeline history <timeline.json> [show|reset [limit]]
   timeline export-otio <project> <timeline.json> <new-output.otio>
   timeline import-otio <project> <input.otio> <new-timeline.json>
