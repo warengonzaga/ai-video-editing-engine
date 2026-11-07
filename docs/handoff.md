@@ -1451,6 +1451,7 @@ smoke render alone.
   narration, B-roll, a still, a reusable lower-third composition, and timed
   captions. HyperFrames lint reports 0 errors and 0 warnings; ffprobe confirms
   640×360 H.264 at 30 fps with stereo 48 kHz AAC. The rendered still was
-  visually inspected in contain and fill modes. This is synthetic local
-  integration evidence, not the deferred automated suite or real-media quality
-  review.
+  visually inspected in contain, cover, and fill modes; cover used a patterned
+  16:9 source in a narrower clip viewport to confirm cropping. This is
+  synthetic local integration evidence, not the deferred automated suite or
+  real-media quality review.

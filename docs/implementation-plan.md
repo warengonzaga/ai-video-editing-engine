@@ -350,7 +350,8 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   640×360/30 fps H.264 with stereo AAC. The still-image renderer uses a clipped
   background layer to satisfy HyperFrames' top-level timeline structure while
   retaining fit, object-position, and zoom behavior. CSS `fill` maps to
-  `100% 100%`; local contain/fill renders both show the still layer. Human
+  `100% 100%`; local contain, cover, and fill renders show the still layer, and
+  a patterned wide source visibly crops in the narrower cover viewport. Human
   review and real-footage coverage remain open.
 - [x] Convert SDR video output to named Rec.709 or Rec.2020 profiles with a
   pixel colorspace transform and verify the encoded stream tags. Add an HDR10
