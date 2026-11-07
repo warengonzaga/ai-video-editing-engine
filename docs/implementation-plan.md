@@ -406,7 +406,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   10-second 1080×1920/30 fps DJI camera clip was also profiled: Windows automatic
   workers used 7,821.1 MiB and took 36.01 seconds; one-worker low-memory mode
   used 1,835.7 MiB and took 49.11 seconds, with identical decoded video and
-  audio. Broader source and platform coverage remain open.
+  audio. The complete 27.4274-second DJI source also rendered through the
+  low-memory timeline workflow in 1m 53.1s at 1080×1920/30 fps, producing
+  H.264/AAC output. Broader source, resource, and platform coverage remain open.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
   transcripts to SRT or WebVTT through the CLI and JavaScript API.
 - [x] Render no-audio video and audio-only timelines in the integration smoke;

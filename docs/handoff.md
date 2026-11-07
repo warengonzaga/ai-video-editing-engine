@@ -1762,3 +1762,11 @@ smoke render alone.
   clip, low-memory mode reduced sampled peak memory by 76.5% for 36.4% more
   render time. These results do not characterize other footage, hardware, or
   operating systems, and the sample interval can miss short peaks.
+- Rendered the complete 27.4274-second source in a separate project using one
+  worker and low-memory mode. The 823-frame output is 1080×1920/30 fps H.264
+  with 48 kHz stereo AAC and a frame-quantized duration of 27.433333 seconds;
+  it completed in 1m 53.1s. The audio scan reports -29.2 dB mean and -6.1 dB
+  peak. A contact sheet samples the start, middle, and end of the recording and
+  confirms consistent full-frame camera framing. This is a longer Windows
+  render and stream-integrity check, not cross-platform proof or human audio
+  approval. The source, project, and outputs remain ignored local artifacts.
