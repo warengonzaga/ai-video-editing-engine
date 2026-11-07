@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, createReadStream, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { open, readdir, rename, rm } from 'node:fs/promises';
+import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { normalizeTranscript } from '../transcript/normalize.mjs';
@@ -219,14 +221,16 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
       const expectedFrames = Math.round(meta.durationSeconds * frameRateNumber(meta.fps ?? 30));
       if (frames.length !== expectedFrames || frames.length === 0) throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
       for (const frame of frames) {
-        const data = readFileSync(join(temporaryOutput, frame.name));
-        if (data.length < 24 || data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
-            || data.readUInt32BE(16) !== meta.width || data.readUInt32BE(20) !== meta.height) {
+        control.signal.throwIfAborted();
+        if (!await hasExpectedPngHeader(join(temporaryOutput, frame.name), meta.width, meta.height)) {
           throw new Error(`PNG sequence frame ${frame.name} has an invalid signature or dimensions.`);
         }
       }
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
-      renameSync(temporaryOutput, output);
+      control.signal.throwIfAborted();
+      await rename(temporaryOutput, output);
+      outputCreated = true;
+      control.signal.throwIfAborted();
       return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
     }
     const renderArtifact = checkpointArtifact ?? temporaryOutput;
@@ -234,22 +238,50 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     const rendered = await probeMediaAsync(encodedOutput ?? renderArtifact, { signal: control.signal });
     validateRenderedMedia(rendered, meta, finalEncoder.codecId);
     validateColorProfile(rendered, colorProfile);
-    closeSync(openSync(output, 'wx'));
+    const outputFile = await open(output, 'wx');
     outputCreated = true;
-    copyFileSync(encodedOutput ?? renderArtifact, output);
+    await pipeline(createReadStream(encodedOutput ?? renderArtifact, { signal: control.signal }),
+      outputFile.createWriteStream(), { signal: control.signal });
     completed = true;
     return { project, output, format, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height, frameRate: rendered.frameRate, videoCodec: rendered.videoCodec, ...(colorProfile ? { colorProfile: colorProfile.id } : {}), ...(resumeCheckpoint ? { resumedFromCheckpoint } : {}) };
   } catch (error) {
-    if (outputCreated && existsSync(output)) unlinkSync(output);
+    if (outputCreated && existsSync(output)) await rm(output, { recursive: true, force: true });
     if (checkpointArtifact) error.message += ' The completed capture is preserved for resume; retry the same render options to reuse it.';
     throw error;
   } finally {
-    cleanupTemporaryRenderOutputs(outputDir, temporaryOutput, encodedOutput);
+    await cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput);
     if (checkpoint && completed) {
       await removeRenderCheckpoint(checkpoint).catch((error) => process.emitWarning(`Could not remove completed render checkpoint: ${error.message}`));
     }
     control.dispose();
   }
+}
+
+async function hasExpectedPngHeader(path, width, height) {
+  const file = await open(path, 'r');
+  try {
+    const header = Buffer.alloc(24);
+    const { bytesRead } = await file.read(header, 0, header.length, 0);
+    return bytesRead === header.length && header.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
+      && header.readUInt32BE(16) === width && header.readUInt32BE(20) === height;
+  } finally {
+    await file.close();
+  }
+}
+
+async function cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput) {
+  await rm(temporaryOutput, { recursive: true, force: true });
+  const outputName = basename(temporaryOutput);
+  const transactionStem = outputName.replace(/\.(?:mp4|webm|mov|gif)$/i, '');
+  const transactionPrefix = `.${transactionStem}.hf-transaction-`;
+  if (existsSync(outputDir)) {
+    for (const entry of await readdir(outputDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith(transactionPrefix)) {
+        await rm(join(outputDir, entry.name), { recursive: true, force: true });
+      }
+    }
+  }
+  if (encodedOutput) await rm(encodedOutput, { force: true });
 }
 
 function validateRenderedMedia(rendered, meta, codecId) {

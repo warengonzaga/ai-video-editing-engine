@@ -440,7 +440,9 @@ in this order:
    capture workers, low-memory mode, and PNG image-sequence export are
   implemented. `renderTimelineAsync` applies a bounded deadline and shared
   cancellation across asynchronous preprocessing, HyperFrames, final encoding,
-  probing, and audio mastering. Rec.709 and
+  probing, and audio mastering. Async project rendering streams final artifact
+  publication, and PNG-sequence validation reads frame headers without loading
+  full images into memory. Rec.709 and
   Rec.2020 SDR output profiles perform an
   FFmpeg colorspace transform; HDR10 output converts SDR renders to 10-bit
   BT.2020/PQ with HEVC Main 10 and HDR metadata. Runtime and visual validation
