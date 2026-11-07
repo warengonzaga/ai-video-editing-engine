@@ -1405,3 +1405,10 @@ smoke render alone.
   skills can distinguish structural validation from visual approval. The CLI
   accepted the existing user-supplied A-H/X pack at 280x171, returned all four
   review items, and passed syntax checks. No full test suite was run.
+- Rendered `video-projects/waren-avatar-viseme-v5/renders/waren-talking-crossfade-v5.mp4`
+  from the generic Engine avatar composition and existing `Voice 015.mp3`.
+  ffprobe confirms an 11.133-second 1920x1080 H.264 video at 30 fps with
+  48 kHz stereo AAC. A close-up sample across a viseme boundary shows the
+  mouth changing without an obvious double outline. The v4 render remains
+  untouched for comparison. This was a local media review render, not an
+  automated test; speech timing and audio still need human review.

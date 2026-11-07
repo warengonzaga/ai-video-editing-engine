@@ -308,9 +308,14 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   assets. A sampled G frame
   confirms the new sprite appears at the existing mouth anchor. The v4 render
   was regenerated after moving mouth-file and dimension preflight ahead of the
-  Rhubarb call. The earlier v2 render remains available for comparison. Human
-  speech-alignment review remains
-  outstanding; Rhubarb is an optional external runtime and is not bundled.
+  Rhubarb call. The earlier v2 render remains available for comparison. After
+  adding configurable viseme crossfades, a v5 preview was rendered locally with
+  `Voice 015.mp3` at 1920×1080/30 fps; ffprobe confirms 11.133 seconds, H.264,
+  and stereo AAC. A close-up sample across a viseme boundary shows the mouth
+  changing without an obvious double outline. The v5 output and frame sheets
+  are under the ignored `video-projects/waren-avatar-viseme-v5/renders/` path.
+  Human speech-alignment and audio review remain outstanding; Rhubarb is an
+  optional external runtime and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
 optional talking-avatar scene; inspect animation and listen to the actual audio.
