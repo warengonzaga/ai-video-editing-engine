@@ -1637,3 +1637,9 @@ smoke render alone.
   sequence produced all 30 expected 320×180 frames. Temporary render folders
   were removed. Node syntax and diff checks passed; the automated test suite
   remains deferred.
+- The async PNG-sequence publisher copies frames with abort-aware streams into
+  its destination-side staging directory and removes partial staging on
+  cancellation before the final rename. This preserves the atomic publish
+  boundary while allowing the shared render timeout and cancellation signal to
+  stop long sequence publication. Syntax and diff checks passed; no automated
+  tests were run.

@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { closeSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { cp, mkdtemp, open, readdir, rename, rm } from 'node:fs/promises';
+import { closeSync, copyFileSync, cpSync, createReadStream, createWriteStream, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, open, readdir, rename, rm } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
@@ -245,7 +245,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
       control.signal.throwIfAborted();
       emitRenderProgress(onProgress, 'publish', 'started');
-      await publishPngSequenceAsync(temporaryOutput, output, outputDir);
+      await publishPngSequenceAsync(temporaryOutput, output, outputDir, control.signal);
       outputCreated = true;
       control.signal.throwIfAborted();
       emitRenderProgress(onProgress, 'publish', 'completed');
@@ -362,11 +362,21 @@ function publishPngSequenceSync(temporaryOutput, output, outputDir) {
   }
 }
 
-async function publishPngSequenceAsync(temporaryOutput, output, outputDir) {
+async function publishPngSequenceAsync(temporaryOutput, output, outputDir, signal) {
   const stagingDirectory = await mkdtemp(join(outputDir, '.aive-sequence-'));
   const stagingOutput = join(stagingDirectory, 'frames');
   try {
-    await cp(temporaryOutput, stagingOutput, { recursive: true, force: false, errorOnExist: true });
+    await mkdir(stagingOutput);
+    for (const entry of await readdir(temporaryOutput, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.png')) continue;
+      signal.throwIfAborted();
+      await pipeline(
+        createReadStream(join(temporaryOutput, entry.name), { signal }),
+        createWriteStream(join(stagingOutput, entry.name), { flags: 'wx' }),
+        { signal },
+      );
+    }
+    signal.throwIfAborted();
     if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
     await rename(stagingOutput, output);
   } finally {

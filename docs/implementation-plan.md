@@ -600,6 +600,7 @@ Recheck branch and remote state before publishing.
 
 Both sync and async render paths now use short OS-temp capture paths to avoid
 Windows path-length failures. PNG sequences are staged in the destination
-directory before an atomic rename. Long-path MP4 and 30-frame PNG-sequence
-smokes passed through both render APIs on Windows; broader cross-platform
-validation remains open.
+directory before an atomic rename; the async publisher copies frames with the
+render cancellation signal and removes incomplete staging on abort. Long-path
+MP4 and 30-frame PNG-sequence smokes passed through both render APIs on Windows;
+broader cross-platform validation remains open.
