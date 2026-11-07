@@ -113,23 +113,23 @@ export async function rhubarbLipSyncCuesAsync(inputPath, options = {}) {
   const source = resolve(inputPath);
   validateAbortSignal(signal);
   throwIfAborted(signal);
-  const timeoutSignal = AbortSignal.timeout(settings.timeoutMs);
-  const operationSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
-  const media = await probeMediaAsync(source, { requireVideo: false, signal: operationSignal });
+  const probeSignal = createTimedSignal(signal, settings.timeoutMs);
+  const media = await probeMediaAsync(source, { requireVideo: false, signal: probeSignal });
   if (!media.hasAudio) throw new TypeError('Lip-sync input must contain an audio stream.');
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'aive-rhubarb-'));
   const wavPath = join(temporaryDirectory, 'input.wav');
   const cuePath = join(temporaryDirectory, 'mouth-cues.json');
   try {
-    throwIfAborted(operationSignal);
+    throwIfAborted(signal);
+    const conversionSignal = createTimedSignal(signal, settings.timeoutMs);
     try {
       await runProcess(settings.ffmpeg, [
         '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', source,
         '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wavPath,
-      ], { signal: operationSignal, stdio: 'capture' });
+      ], { signal: conversionSignal, stdio: 'capture' });
     } catch (error) {
-      if (operationSignal.aborted) throw operationSignal.reason ?? error;
+      if (conversionSignal.aborted) throw conversionSignal.reason ?? error;
       throw new Error(`Could not prepare lip-sync audio: ${error.message}`);
     }
 
@@ -142,13 +142,15 @@ export async function rhubarbLipSyncCuesAsync(inputPath, options = {}) {
     if (dialogFile) args.push('--dialogFile', dialogFile);
     args.push('--output', cuePath);
     args.push(wavPath);
+    throwIfAborted(signal);
+    const rhubarbSignal = createTimedSignal(signal, settings.timeoutMs);
     try {
-      await runProcess(settings.rhubarb, args, { signal: operationSignal, stdio: 'capture' });
+      await runProcess(settings.rhubarb, args, { signal: rhubarbSignal, stdio: 'capture' });
     } catch (error) {
-      if (operationSignal.aborted) throw operationSignal.reason ?? error;
+      if (rhubarbSignal.aborted) throw rhubarbSignal.reason ?? error;
       throw new Error(`Rhubarb lip-sync generation failed: ${error.message}`);
     }
-    throwIfAborted(operationSignal);
+    throwIfAborted(signal);
     const output = await readFile(cuePath, 'utf8').catch((error) => {
       if (error.code === 'ENOENT') throw new Error('Rhubarb completed without creating its cue file.');
       throw error;
@@ -158,6 +160,11 @@ export async function rhubarbLipSyncCuesAsync(inputPath, options = {}) {
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
+}
+
+function createTimedSignal(signal, timeoutMs) {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
 }
 
 function validateAbortSignal(signal) {
