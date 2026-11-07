@@ -1684,3 +1684,12 @@ smoke render alone.
   capture server in this sandbox; no video render or automated tests ran.
 - Refined the public mouth-art guidance: the open F/"oo" shape should read from
   the cavity itself, without an added outline or skin halo.
+- `npm run doctor` confirms the core Windows runtime is available: Node.js 22,
+  FFmpeg/ffprobe, HyperFrames, GSAP, the required encoders and filters, and a
+  local Chrome runtime. Optional Rhubarb, whisper-cpp, local TTS/music models,
+  and Docker are absent. The attempted OTIO dependency install could not reach
+  PyPI because DNS/network access is unavailable, so nested OTIO runtime
+  behavior remains unverified. A render-range retry using local Chrome still
+  fails when the browser opens HyperFrames' localhost capture page; this is a
+  sandbox network restriction, not a missing browser installation. No test
+  suite ran.
