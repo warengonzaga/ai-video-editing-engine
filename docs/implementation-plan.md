@@ -521,9 +521,10 @@ through the documented engine interface; Studio retains its review gates.
 
 At the user's direction, automatic test, render-smoke, and dependency-audit
 workflows are temporarily disabled during implementation. The workflow remains
-available through manual dispatch; restore automatic checks for the manual
-debugging phase. Do not treat earlier green runs as verification of current
-unverified changes.
+available through manual dispatch with a platform selector: choose Linux,
+macOS, Windows, or the complete three-OS matrix (the default). Restore automatic
+checks for the manual debugging phase. Do not treat earlier green runs as
+verification of current unverified changes.
 
 ## Full-editor capability backlog
 

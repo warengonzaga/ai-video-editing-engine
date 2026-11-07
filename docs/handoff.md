@@ -1934,3 +1934,8 @@ smoke render alone.
   background (`#10141c`). Its first attempt was blocked by sandbox localhost
   restrictions; the authorized local-render run completed all scenarios.
   Neither command invoked GitHub Actions.
+- Added a manual CI platform selector (`all`, `linux`, `macos`, `windows`) so
+  targeted cross-platform verification does not require billing all three
+  runners. The default remains the full matrix; branch pushes still do not
+  trigger checks. YAML parsing and the dispatch choice list were validated
+  locally. Current-head Linux/macOS runs are the remaining platform gate.
