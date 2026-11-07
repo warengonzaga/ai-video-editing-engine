@@ -1601,3 +1601,14 @@ smoke render alone.
   and validated the resulting timeline. The copied asset is 89,643 bytes. This
   verifies packed-file runtime behavior, not npm dependency resolution or a
   registry install; no package was published.
+- Rendered that packed package's API consumer project with the registered
+  Voice 015 clip and generated six-second footage. HyperFrames produced and
+  validated 180 frames at 640×360/30 fps with H.264 video and AAC audio; the
+  final file is 825,878 bytes. The first attempt exposed Windows path-length
+  sensitivity in the deeply nested disposable consumer, so the successful
+  rerun used a shorter ignored project path. The sandbox also required a local
+  HyperFrames cache override and permission for the localhost-only render
+  server. This confirms the packed API can render in this environment when its
+  runtime prerequisites are available; npm dependency installation remains
+  unverified because offline metadata for `gsap` is absent. Output:
+  `video-projects/pkg-project/renders/smoke.mp4`.
