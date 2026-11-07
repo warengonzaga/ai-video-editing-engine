@@ -3,7 +3,7 @@ import { basename, extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { validateAnimationCues } from './cues.mjs';
 import { pngDimensions } from './png-image.mjs';
-import { mapRhubarbCuesToSpriteStates, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './rhubarb.mjs';
+import { mapRhubarbCuesToSpriteStates, RHUBARB_SPRITE_CONTRACT, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './rhubarb.mjs';
 
 /** Build a generic sprite-avatar composition from user-supplied images and timed cues. */
 export function createAvatarComposition(projectPath, specification) {
@@ -39,14 +39,24 @@ export function createAvatarComposition(projectPath, specification) {
   }
   const names = new Set();
   const layouts = new Map();
+  const transitionDurations = new Map();
   const canvasAspect = meta.width / meta.height;
   for (let index = 0; index < layers.length; index += 1) {
     const layer = layers[index];
     if (!layer || names.has(layer.name) || !/^[a-z][a-z0-9-]*$/.test(layer.name) || !['eyes', 'mouth', 'body', 'custom'].includes(layer.role)) throw new TypeError('Invalid or duplicate avatar layer.');
     names.add(layer.name);
+    const { minimumSeconds, maximumSeconds, defaultSeconds } = RHUBARB_SPRITE_CONTRACT.mouthTransition;
+    const transitionSeconds = layer.transitionSeconds ?? (layer.role === 'mouth' ? defaultSeconds : 0);
+    if (!Number.isFinite(transitionSeconds) || transitionSeconds < minimumSeconds || transitionSeconds > maximumSeconds) {
+      throw new TypeError(`Avatar layer ${layer.name} transitionSeconds must be from ${minimumSeconds} to ${maximumSeconds} seconds.`);
+    }
+    transitionDurations.set(layer.name, transitionSeconds);
     const track = index === lipSyncLayerIndex ? undefined : validateAnimationCues(layer.track);
     if (track && Math.abs(track.durationSeconds - durationSeconds) > 0.001) throw new TypeError('Avatar layer timing does not match the scene.');
     const states = { default: layer.image, ...(layer.states ?? {}) };
+    if (layer.restState !== undefined && (layer.role !== 'mouth' || typeof layer.restState !== 'string' || !Object.hasOwn(states, layer.restState))) {
+      throw new TypeError(`Avatar layer ${layer.name} has an invalid restState; only mouth layers can use a defined sprite state.`);
+    }
     const dimensionsByState = [];
     let defaultDimensions;
     for (const [state, path] of Object.entries(states)) {
@@ -90,7 +100,7 @@ export function createAvatarComposition(projectPath, specification) {
     const generatedTrack = rhubarbLipSyncCues(lipSync.audioPath, rhubarbOptions);
     const spriteTrack = mapRhubarbCuesToSpriteStates(generatedTrack, spriteStateMap);
     layers = layers.map((layer, index) => index === lipSyncLayerIndex
-      ? { ...layer, track: {
+      ? { ...layer, restState: spriteStateMap?.x ?? layer.restState ?? 'default', track: {
         schemaVersion: spriteTrack.schemaVersion,
         durationSeconds,
         cues: spriteTrack.cues
@@ -104,6 +114,7 @@ export function createAvatarComposition(projectPath, specification) {
     const source = resolve(layer.image ?? '');
     const cues = validateAnimationCues(layer.track);
     const states = { default: source, ...(layer.states ?? {}) };
+    const restState = layer.restState ?? 'default';
     for (const [state, image] of Object.entries(states)) {
       const stateSource = resolve(image);
       const target = join(assetDir, `${layer.name}-${state}-${basename(stateSource)}`);
@@ -117,11 +128,18 @@ export function createAvatarComposition(projectPath, specification) {
       states[state] = `assets/avatar/${encodeURIComponent(basename(target))}`;
     }
     const layout = layouts.get(layer.name);
-    return { name: layer.name, role: layer.role, image: states.default, states, ...layout, cues };
+    return { name: layer.name, role: layer.role, image: states[restState], states, restState, ...layout, cues, transitionSeconds: transitionDurations.get(layer.name) };
   });
   const id = 'avatar-scene';
-  const timeline = safeLayers.map((layer) => ({ name: layer.name, states: layer.states, cues: layer.cues })).map(({name,states,cues}) => ({name,states,cues:cues.cues}));
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><script src="assets/gsap.min.js"></script><style>*{box-sizing:border-box}html,body,#${id}{margin:0;width:${meta.width}px;height:${meta.height}px;overflow:hidden}#${id}{position:relative;background:transparent}.sprite{position:absolute;left:calc(var(--x)*100%);top:calc(var(--y)*100%);width:calc(var(--w)*100%);height:auto;transform:translate(-50%,-50%)}</style></head><body><div id="${id}" data-composition-id="${id}" data-start="0" data-duration="${durationSeconds}" data-width="${meta.width}" data-height="${meta.height}">${safeLayers.map((layer, index) => `<img id="avatar-${layer.name}" class="clip sprite" data-track-index="${index}" data-start="0" data-duration="${durationSeconds}" src="${layer.image}" style="--x:${layer.x};--y:${layer.y};--w:${layer.width}">`).join('')}</div><script>const tracks=${JSON.stringify(timeline)};const tl=gsap.timeline({paused:true});for(let i=0;i<tracks.length;i++){const t=tracks[i],el=document.querySelector('.sprite[data-track-index="'+i+'"]');for(const c of t.cues){const src=t.states[c.state];if(!src)throw new Error('Missing sprite for '+t.name+': '+c.state);tl.set(el,{attr:{src}},c.start);tl.set(el,{attr:{src:t.states.default}},c.end)}}window.__timelines=window.__timelines||{};window.__timelines['${id}']=tl;</script></body></html>`;
+  const timeline = safeLayers.map((layer) => ({
+    name: layer.name,
+    role: layer.role,
+    states: layer.states,
+    restState: layer.restState,
+    cues: layer.cues.cues,
+    transitionSeconds: layer.transitionSeconds,
+  }));
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><script src="assets/gsap.min.js"></script><style>*{box-sizing:border-box}html,body,#${id}{margin:0;width:${meta.width}px;height:${meta.height}px;overflow:hidden}#${id}{position:relative;background:transparent}.sprite{position:absolute;left:calc(var(--x)*100%);top:calc(var(--y)*100%);width:calc(var(--w)*100%);height:auto;transform:translate(-50%,-50%)}.sprite-buffer{opacity:0}</style></head><body><div id="${id}" data-composition-id="${id}" data-start="0" data-duration="${durationSeconds}" data-width="${meta.width}" data-height="${meta.height}">${safeLayers.map(avatarLayerMarkup).join('')}</div><script>${buildAvatarTimelineScript(timeline, id)}</script></body></html>`;
   const mount = `\n    <div id="avatar-scene-instance" data-composition-id="avatar-scene-instance" data-composition-src="compositions/avatar-scene.html" data-start="0" data-duration="${durationSeconds}" data-track-index="10"></div>`;
   const withoutStarterTitle = index
     .replace(/\s*<div id="title" class="clip" data-start="0" data-duration="[^"]+" data-track-index="0">[^<]*<\/div>/, '')
@@ -183,4 +201,15 @@ export function createAvatarComposition(projectPath, specification) {
     if (temporaryDirectory) rmSync(temporaryDirectory, { recursive: true, force: true });
   }
   return { compositionPath: output, layers: safeLayers.length };
+}
+
+function avatarLayerMarkup(layer, index) {
+  const style = `--x:${layer.x};--y:${layer.y};--w:${layer.width}`;
+  const base = `<img id="avatar-${layer.name}" class="clip sprite" data-track-index="${index}" data-start="0" data-duration="${layer.cues.durationSeconds}" src="${layer.image}" style="${style}">`;
+  if (layer.role !== 'mouth' || layer.transitionSeconds === 0) return base;
+  return base + [0, 1].map((buffer) => `<img class="clip sprite sprite-buffer" data-track-index="${index}" data-mouth-layer="${index}" data-mouth-buffer="${buffer}" data-start="0" data-duration="${layer.cues.durationSeconds}" src="${layer.image}" style="${style}">`).join('');
+}
+
+function buildAvatarTimelineScript(timeline, id) {
+  return `const tracks=${JSON.stringify(timeline)};const tl=gsap.timeline({paused:true});for(let i=0;i<tracks.length;i++){const t=tracks[i],el=document.querySelector('.sprite[data-track-index="'+i+'"]');if(t.role==='mouth'&&t.transitionSeconds>0&&t.cues.length){const buffers=[...document.querySelectorAll('.sprite-buffer[data-mouth-layer="'+i+'"]')];let active=-1,previous;for(let j=0;j<t.cues.length;j++){const c=t.cues[j],src=t.states[c.state];if(!src)throw new Error('Missing sprite for '+t.name+': '+c.state);const incoming=active===0?1:0,span=c.end-c.start,contiguous=previous&&Math.abs(previous.end-c.start)<1e-6,fade=Math.min(t.transitionSeconds,span/2,previous?(previous.end-previous.start)/2:span/2),at=contiguous?c.start-fade/2:c.start;tl.set(buffers[incoming],{attr:{src},opacity:0},at);tl.to(buffers[incoming],{opacity:1,duration:fade,ease:'none'},at);tl.to(el,{opacity:0,duration:fade,ease:'none'},at);if(active>=0&&contiguous)tl.to(buffers[active],{opacity:0,duration:fade,ease:'none'},at);else if(active>=0)tl.set(buffers[active],{opacity:0},at);active=incoming;const next=t.cues[j+1];if(!next||next.start>c.end){const fadeOut=Math.min(t.transitionSeconds,span/2),fadeOutAt=c.end-fadeOut;tl.to(buffers[active],{opacity:0,duration:fadeOut,ease:'none'},fadeOutAt);tl.to(el,{opacity:1,duration:fadeOut,ease:'none'},fadeOutAt)}previous=c}}else{for(const c of t.cues){const src=t.states[c.state];if(!src)throw new Error('Missing sprite for '+t.name+': '+c.state);tl.set(el,{attr:{src}},c.start);tl.set(el,{attr:{src:t.restState? t.states[t.restState]:t.states.default}},c.end)}}}window.__timelines=window.__timelines||{};window.__timelines['${id}']=tl;`;
 }

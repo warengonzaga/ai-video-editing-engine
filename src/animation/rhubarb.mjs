@@ -14,6 +14,12 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
   requiredAvatarShapes: Object.freeze(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']),
   restShape: 'x',
   defaultExtendedShapes: 'GHX',
+  mouthTransition: Object.freeze({
+    method: 'crossfade',
+    defaultSeconds: 0.06,
+    minimumSeconds: 0,
+    maximumSeconds: 0.25,
+  }),
   mouthArtworkGuidance: Object.freeze({
     layerPlacement: 'Keep one fixed layer position and size for every mouth state.',
     artworkAnchor: 'Align the upper-lip center and mouth centerline to the same normalized canvas coordinates in every state.',
@@ -27,6 +33,7 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
   mouthVisualReviewChecklist: Object.freeze([
     'Confirm the upper-lip center and mouth centerline stay aligned across A-H and X.',
     'Confirm teeth, tongue, outlines, palette, and shading remain consistent across states.',
+    'Confirm crossfades do not create visible double outlines or conflicting teeth.',
     'Confirm each drawing reads as its intended Rhubarb articulation.',
     'Watch the states as a sequence with the target audio and review cue timing.',
   ]),

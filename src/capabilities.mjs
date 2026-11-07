@@ -117,6 +117,7 @@ export function getEngineCapabilities(options = {}) {
         restShape: RHUBARB_SPRITE_CONTRACT.restShape,
         optionalMouthShapes: RHUBARB_SPRITE_CONTRACT.optionalShapes,
         defaultExtendedShapes: RHUBARB_SPRITE_CONTRACT.defaultExtendedShapes,
+        mouthTransition: RHUBARB_SPRITE_CONTRACT.mouthTransition,
         mouthShapeGuidance: RHUBARB_SPRITE_CONTRACT.mouthShapeGuidance,
         mouthArtworkGuidance: RHUBARB_SPRITE_CONTRACT.mouthArtworkGuidance,
         animationArtworkGuidance: RHUBARB_SPRITE_CONTRACT.animationArtworkGuidance,

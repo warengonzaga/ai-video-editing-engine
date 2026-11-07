@@ -210,7 +210,8 @@ Last updated: 2026-11-07
 - `getEngineCapabilities()` now exposes the phonetic mouth-shape contract and
   Rhubarb availability so any consumer can discover Rhubarb's base A-F shapes,
   the Engine avatar requirement A-H plus X rest, the default GHX cue setting,
-  and the distinct-state invariant at runtime.
+  the distinct-state invariant, and the mouth crossfade duration range at
+  runtime.
   Existing assertions in `test/animation-cues.test.mjs` still expect the former
   five-state adapter default; update those assertions when the deferred test
   work resumes. Tests remain unrun per user direction.
@@ -666,10 +667,11 @@ smoke render alone.
 - Reviewed an A-H render contact sheet and Rhubarb's official
   shape guidance. Rhubarb 1.x uses replacement animation; its C and E shapes
   also act as in-betweens, so the artwork and cue timing must make adjacent
-  changes read smoothly. The Engine cannot synthesize convincing intermediate
-  mouth drawings by fading raster sprites. Strengthened the public mouth-pack
-  validator to require readable PNGs with matching canvas dimensions and reject
-  byte-identical files before invoking Rhubarb. Perceptual similarity,
+  changes read smoothly. A short configurable sprite crossfade softens the
+  replacement, but does not synthesize a new articulation or replace complete
+  mouth artwork. Strengthened the public mouth-pack validator to require
+  readable PNGs with matching canvas dimensions and reject byte-identical files
+  before invoking Rhubarb. Perceptual similarity,
   within-canvas alignment, and phoneme accuracy still require review. No test
   suite or new render was run for this change, per the implementation-first
   direction.

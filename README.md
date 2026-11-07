@@ -110,6 +110,9 @@ and [license](https://github.com/DanielSWolf/rhubarb-lip-sync/blob/master/LICENS
 The Engine exposes its machine-readable articulation guide through capability
 discovery. See [mouth-pack authoring](docs/avatar-mouth-packs.md) for the
 shape meanings, visual consistency requirements, and preflight workflow.
+Avatar mouth layers crossfade between viseme sprites by default; tune or disable
+the transition with the layer's `transitionSeconds` setting. Capability discovery
+reports the default and supported range.
 
 ```sh
 node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json

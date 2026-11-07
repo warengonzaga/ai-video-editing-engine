@@ -26,8 +26,14 @@ every shape.
 
 These are broad viseme groups, not one mouth shape per alphabetic vowel. In
 particular, C and E are useful transition drawings: make A-C-D, B-C-D, C-E-F,
-and D-E-F read smoothly when the art changes by replacement. The Engine does
-not crossfade sprite images to synthesize intermediate mouth positions.
+and D-E-F read smoothly as the shapes change. Mouth layers crossfade between
+viseme sprites over 60 ms by default, which softens hard image swaps without
+inventing new mouth artwork. Set a mouth layer's `transitionSeconds` from `0`
+to `0.25` to tune the blend; use `0` for direct cuts. By default, the mouth
+layer's `default` sprite is its rest state. For a manually authored cue track,
+set `restState` to a different mouth state when needed. Phonetic composition
+uses the sprite mapped from Rhubarb's X cue as the rest state. Crossfading does
+not replace a complete, well-aligned A-H/X pack or phoneme-timing review.
 
 ## Keep the pack visually consistent
 
@@ -43,6 +49,9 @@ not crossfade sprite images to synthesize intermediate mouth positions.
   across every state. If a style does not normally expose teeth, keep teeth
   exposure consistent with that character's design rather than adding a new
   rendering style to only one shape.
+- Review the 60 ms default crossfade at speaking speed; overlapping outlines or
+  inconsistent teeth can look like ghosting. Reduce the transition duration or
+  use direct cuts if the overlap distracts from the articulation.
 - Keep the X rest mouth closed and relaxed. A may look nearly identical, but
   should show subtle lip pressure where the design supports it.
 - Export each state as a valid PNG on the same canvas dimensions and with

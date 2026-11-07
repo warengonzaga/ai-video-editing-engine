@@ -294,7 +294,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   cannot prove artwork alignment or phoneme accuracy. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
   arbitrary external cue tracks. `avatar-compose` validates the required mouth
-  PNGs and shared canvas dimensions before invoking Rhubarb.
+  PNGs and shared canvas dimensions before invoking Rhubarb. Mouth layers now
+  crossfade between viseme sprites over a configurable 60 ms default interval;
+  capability discovery reports the default and allowed range.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an
@@ -535,7 +537,9 @@ neutral Engine capabilities.
 
 Latest avatar implementation requires distinct A-H viseme states plus X/rest,
 defaults Rhubarb extended cues to GHX, and checks mouth PNG files and shared
-canvas dimensions before phonetic analysis. A fresh avatar composition was
+canvas dimensions before phonetic analysis. Mouth-layer sprite changes now
+crossfade over a configurable 60 ms default, with its range exposed through
+capability discovery. A fresh avatar composition was
 generated and rendered at 1920×1080/30 fps with the complete A-H/X pack. Human
 Taglish audio-alignment review remains open.
 
