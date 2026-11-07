@@ -1805,6 +1805,20 @@ smoke render alone.
   work. The private 0.1.0 package contains 74 files (219,508 packed bytes) and
   no source clip, rendered video, audio recording, or `video-projects` artifact.
   This was a dry run only: no tarball was written and no registry was contacted.
+- Created a fresh ignored project from the registered DJI source, reviewed a
+  three-operation edit plan, and rendered a 10-second real-camera composition
+  with synchronized audio, a 0.25-second fade-in, a 0.5-second fade-out, and a
+  lower-third visible from 1.0 to 4.5 seconds. The output is
+  `video-projects/dji-layered-review-20261107/renders/dji-layered-review.mp4`;
+  `ffprobe` confirms 1080×1920/30 fps H.264, 48 kHz stereo AAC, and exact
+  10-second video/audio/container durations. A contact sheet at 0.5, 2.5, and
+  5.5 seconds confirms the overlay appears only in the middle sample and does
+  not cover the subject's face. FFmpeg `volumedetect` measures mean volume at
+  -63.5 dB in the opening 150 ms, -22.8 dB in a middle 150 ms, and -43.7 dB in
+  the final 150 ms, consistent with the fade envelope on this clip. A non-blocking
+  404 was logged by the browser probe despite successful media extraction and
+  output validation; its resource should be identified before treating the
+  render log as clean. Human listening review remains open.
 - Exercised real-camera clip volume automation and final audio mastering in a
   separate 10-second DJI project. The first mastered render exposed a 100 ms
   audio tail beyond the video. Both synchronous and asynchronous mastering now

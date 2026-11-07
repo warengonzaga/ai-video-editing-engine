@@ -400,8 +400,10 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   A frame-by-frame contact sheet from a supplied narration/avatar render shows
   stable full-body framing, no obvious clipping, and changing mouth/blink
   states. The user confirmed the borderless F/"oo" mouth as the desired visual
-  baseline; broader transition, speech-alignment, and human audio review remain
-  open.
+  baseline. A separate 10-second real DJI render combines camera video, its
+  audio with fades, and a timed lower-third; sampled frames confirm the title
+  is visible only during its 1.0–4.5 second interval without covering the face.
+  Broader transition, speech-alignment, and human audio review remain open.
 - [ ] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows
   synthetic-suite baseline and three settings profiles on an 11-second
