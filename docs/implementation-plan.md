@@ -302,8 +302,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   same timeout and Ctrl+C process-tree cancellation as other media commands.
   The API exposes `rhubarbLipSyncCuesAsync` and
   `createAvatarCompositionAsync` with `AbortSignal` support while preserving
-  synchronous APIs for existing consumers. Final composition file staging is
-  still synchronous; cancellation applies to media probing and Rhubarb analysis.
+  synchronous APIs for existing consumers. Composition staging streams
+  narration and sprite copies asynchronously, and cancellation rolls back
+  newly published files before replacing `index.html` as the final commit step.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an

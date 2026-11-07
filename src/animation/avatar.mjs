@@ -1,12 +1,18 @@
-import { copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createReadStream, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { link, mkdir, mkdtemp, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { pipeline } from 'node:stream/promises';
 import { validateAnimationCues } from './cues.mjs';
 import { pngDimensions } from './png-image.mjs';
 import { mapRhubarbCuesToSpriteStates, RHUBARB_SPRITE_CONTRACT, rhubarbLipSyncCues, rhubarbLipSyncCuesAsync, validateRhubarbSpriteStates } from './rhubarb.mjs';
 
 /** Build a generic sprite-avatar composition from user-supplied images and timed cues. */
 export function createAvatarComposition(projectPath, specification) {
+  return publishAvatarCompositionSync(prepareAvatarComposition(projectPath, specification));
+}
+
+function prepareAvatarComposition(projectPath, specification) {
   const project = resolve(projectPath);
   const meta = JSON.parse(readFileSync(join(project, 'meta.json'), 'utf8'));
   const { durationSeconds, narration, lipSync } = specification ?? {};
@@ -146,6 +152,11 @@ export function createAvatarComposition(projectPath, specification) {
     .replace(/^\s*timeline\.from\('#title',\s*\{[^}]+\}\);\s*$/m, '');
   const updated = withoutStarterTitle.replace(/\n\s*<\/div>\s*\n\s*<script>/, (match) => `${mount}${match}`);
   if (updated === index) throw new Error('Could not find the generated project root composition.');
+  return { project, assetDir, output, indexPath, updated, narrationPath, durationSeconds, spriteCopies, html, layerCount: safeLayers.length };
+}
+
+function publishAvatarCompositionSync(prepared) {
+  const { project, assetDir, output, indexPath, updated, narrationPath, durationSeconds, spriteCopies, html, layerCount } = prepared;
   const committedFiles = [];
   let temporaryDirectory;
   let temporaryIndex;
@@ -200,7 +211,75 @@ export function createAvatarComposition(projectPath, specification) {
     if (temporaryIndex) rmSync(temporaryIndex, { force: true });
     if (temporaryDirectory) rmSync(temporaryDirectory, { recursive: true, force: true });
   }
-  return { compositionPath: output, layers: safeLayers.length };
+  return { compositionPath: output, layers: layerCount };
+}
+
+async function publishAvatarCompositionAsync(prepared, signal) {
+  const { project, assetDir, output, indexPath, updated, narrationPath, durationSeconds, spriteCopies, html, layerCount } = prepared;
+  const committedFiles = [];
+  let temporaryDirectory;
+  let temporaryIndex;
+  try {
+    throwIfAborted(signal);
+    temporaryDirectory = await mkdtemp(join(project, '.avatar-scene-'));
+    const stagedSprites = [];
+    for (const [index, { source, target }] of spriteCopies.entries()) {
+      throwIfAborted(signal);
+      const staged = join(temporaryDirectory, `sprite-${index}.png`);
+      await pipeline(createReadStream(source), createWriteStream(staged, { flags: 'wx' }), { signal });
+      stagedSprites.push({ staged, target });
+    }
+    const stagedComposition = join(temporaryDirectory, 'avatar-scene.html');
+    await writeFile(stagedComposition, html, { flag: 'wx', signal });
+    let stagedNarration;
+    let narrationName;
+    if (narrationPath) {
+      throwIfAborted(signal);
+      const audio = resolve(narrationPath);
+      narrationName = `narration${extname(audio).toLowerCase()}`;
+      stagedNarration = join(temporaryDirectory, narrationName);
+      await pipeline(createReadStream(audio), createWriteStream(stagedNarration, { flags: 'wx' }), { signal });
+    }
+    const finalIndex = narrationName
+      ? updated.replace('</body>', `<audio id="narration" src="assets/${encodeURIComponent(narrationName)}" data-start="0" data-duration="${durationSeconds}" data-volume="1" hidden></audio></body>`)
+      : updated;
+    temporaryIndex = join(project, `.index.html.${randomUUID()}.tmp`);
+    await writeFile(temporaryIndex, finalIndex, { flag: 'wx', signal });
+    throwIfAborted(signal);
+
+    await mkdir(assetDir, { recursive: true });
+    for (const { staged, target } of stagedSprites) {
+      throwIfAborted(signal);
+      await link(staged, target);
+      committedFiles.push(target);
+      await unlink(staged);
+    }
+    if (stagedNarration) {
+      throwIfAborted(signal);
+      const narrationTarget = join(project, 'assets', narrationName);
+      await link(stagedNarration, narrationTarget);
+      committedFiles.push(narrationTarget);
+      await unlink(stagedNarration);
+    }
+    throwIfAborted(signal);
+    await link(stagedComposition, output);
+    committedFiles.push(output);
+    await unlink(stagedComposition);
+    throwIfAborted(signal);
+    await rename(temporaryIndex, indexPath);
+    temporaryIndex = undefined;
+  } catch (error) {
+    const rollbackErrors = [];
+    for (const path of committedFiles.reverse()) {
+      try { await rm(path, { force: true }); } catch (rollbackError) { rollbackErrors.push(rollbackError); }
+    }
+    if (rollbackErrors.length) throw new AggregateError([error, ...rollbackErrors], `Avatar composition failed and rollback was incomplete. Preserve project files and inspect ${project}.`);
+    throw error;
+  } finally {
+    if (temporaryIndex) await rm(temporaryIndex, { force: true });
+    if (temporaryDirectory) await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+  return { compositionPath: output, layers: layerCount };
 }
 
 /** Build an avatar composition while keeping phonetic analysis interruptible. */
@@ -210,7 +289,7 @@ export async function createAvatarCompositionAsync(projectPath, specification, {
   }
   if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
   const lipSync = specification?.lipSync;
-  if (!lipSync) return createAvatarComposition(projectPath, specification);
+  if (!lipSync) return publishAvatarCompositionAsync(prepareAvatarComposition(projectPath, specification), signal);
 
   if (!lipSync || typeof lipSync.audioPath !== 'string' || !lipSync.audioPath.trim()
       || typeof lipSync.layer !== 'string' || !/^[a-z][a-z0-9-]*$/.test(lipSync.layer)
@@ -235,11 +314,16 @@ export async function createAvatarCompositionAsync(projectPath, specification, {
     } }
     : layer);
   const { lipSync: _lipSync, ...scene } = specification;
-  return createAvatarComposition(projectPath, {
+  const prepared = prepareAvatarComposition(projectPath, {
     ...scene,
     layers,
     ...(specification.narration === undefined ? { narration: lipSync.audioPath } : {}),
   });
+  return publishAvatarCompositionAsync(prepared, signal);
+}
+
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
 }
 
 function avatarLayerMarkup(layer, index) {

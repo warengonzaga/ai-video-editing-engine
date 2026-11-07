@@ -199,9 +199,9 @@ Last updated: 2026-11-07
   ffprobe, FFmpeg, and Rhubarb child processes. JavaScript consumers can use
   `rhubarbLipSyncCuesAsync(path, { signal })` and
   `createAvatarCompositionAsync(project, spec, { signal })`; synchronous APIs
-  remain available for compatibility. Cancellation covers media probing and
-  phonetic cue generation; the final composition file staging is still a short
-  synchronous operation.
+  remain available for compatibility. Cancellation covers media probing,
+  phonetic cue generation, streamed sprite/narration staging, and each atomic
+  publish step before `index.html` is replaced last.
 - Phonetic avatar composition now enforces a complete, distinct mouth set before
   Rhubarb runs: A-H and X are required. GHX is the default extended-shape set;
   consumers can request a reduced cue set, but still supply all nine pack states.
@@ -1432,3 +1432,13 @@ smoke render alone.
   stereo AAC; ffprobe verified the streams and sampled frames show mouth states
   changing with stable body framing. Speech timing and human audio review remain
   open. This was an end-to-end manual workflow check, not the deferred test suite.
+- The async `createAvatarCompositionAsync` path now streams sprite and narration
+  staging through abort-aware pipelines and performs asynchronous hard-link
+  publication with rollback until the final `index.html` replacement. A fresh
+  v8 composition using the same real voice and avatar pack completed, linted with
+  0 warnings, and rendered to
+  `video-projects/waren-avatar-viseme-v8/renders/waren-talking-async-v8.mp4`.
+  ffprobe confirms 1920x1080/30 fps H.264 with 48 kHz stereo AAC and 11.133
+  seconds. The synchronous API remains intact. This was a local end-to-end
+  workflow verification; the automated suite and human phoneme/audio review
+  remain outstanding.
