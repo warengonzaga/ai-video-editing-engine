@@ -221,8 +221,10 @@ This lets a consumer create and render a speech-driven avatar from one
 `avatar-compose` specification instead of writing an intermediate cue file.
 Composition files, narration, and new sprites are staged before publishing;
 `index.html` is replaced last so a failed composition does not leave a partial
-scene mounted in the project. Copied asset URLs are percent-encoded so filenames
-with URL-reserved characters remain valid in the generated HTML.
+scene mounted in the project. The Engine uses hard links when supported and
+falls back to exclusive, cancellable file copies on filesystems that reject
+them. Copied asset URLs are percent-encoded so filenames with URL-reserved
+characters remain valid in the generated HTML.
 For example, the spec can supply a body track and mouth sprites while asking
 the Engine to generate the mouth track:
 

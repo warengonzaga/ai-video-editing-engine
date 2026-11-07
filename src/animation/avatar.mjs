@@ -1,5 +1,5 @@
-import { createReadStream, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
-import { link, mkdir, mkdtemp, rename, rm, unlink, writeFile } from 'node:fs/promises';
+import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, linkSync, mkdirSync, mkdtempSync, openSync, readFileSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
+import { link, mkdir, mkdtemp, open, rename, rm, unlink, writeFile } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
@@ -155,6 +155,62 @@ function prepareAvatarComposition(projectPath, specification) {
   return { project, assetDir, output, indexPath, updated, narrationPath, durationSeconds, spriteCopies, html, layerCount: safeLayers.length };
 }
 
+function linkOrCopySync(source, destination) {
+  try {
+    linkSync(source, destination);
+  } catch (error) {
+    if (!isUnsupportedHardLinkError(error)) throw error;
+    copyExclusiveSync(source, destination);
+  }
+}
+
+function copyExclusiveSync(source, destination) {
+  let sourceDescriptor;
+  let destinationDescriptor;
+  try {
+    sourceDescriptor = openSync(source, 'r');
+    destinationDescriptor = openSync(destination, 'wx');
+    const buffer = Buffer.allocUnsafe(1024 * 1024);
+    let bytesRead;
+    while ((bytesRead = readSync(sourceDescriptor, buffer, 0, buffer.length, null)) > 0) {
+      let offset = 0;
+      while (offset < bytesRead) offset += writeSync(destinationDescriptor, buffer, offset, bytesRead - offset);
+    }
+    closeSync(destinationDescriptor);
+    destinationDescriptor = undefined;
+  } catch (error) {
+    if (destinationDescriptor !== undefined) {
+      try { closeSync(destinationDescriptor); } catch { /* Preserve the original copy error. */ }
+      destinationDescriptor = undefined;
+      try { rmSync(destination, { force: true }); } catch { /* Preserve the original copy error. */ }
+    }
+    throw error;
+  } finally {
+    if (sourceDescriptor !== undefined) closeSync(sourceDescriptor);
+    if (destinationDescriptor !== undefined) closeSync(destinationDescriptor);
+  }
+}
+
+async function linkOrCopyAsync(source, destination, signal) {
+  try {
+    await link(source, destination);
+  } catch (error) {
+    if (!isUnsupportedHardLinkError(error)) throw error;
+    const destinationHandle = await open(destination, 'wx');
+    try {
+      await pipeline(createReadStream(source, { signal }), destinationHandle.createWriteStream(), { signal });
+    } catch (copyError) {
+      await destinationHandle.close().catch(() => {});
+      await rm(destination, { force: true }).catch(() => {});
+      throw copyError;
+    }
+  }
+}
+
+function isUnsupportedHardLinkError(error) {
+  return ['EPERM', 'EXDEV', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP'].includes(error.code);
+}
+
 function publishAvatarCompositionSync(prepared) {
   const { project, assetDir, output, indexPath, updated, narrationPath, durationSeconds, spriteCopies, html, layerCount } = prepared;
   const committedFiles = [];
@@ -185,17 +241,17 @@ function publishAvatarCompositionSync(prepared) {
 
     mkdirSync(assetDir, { recursive: true });
     for (const { staged, target } of stagedSprites) {
-      linkSync(staged, target);
+      linkOrCopySync(staged, target);
       committedFiles.push(target);
       unlinkSync(staged);
     }
     if (stagedNarration) {
       const narrationTarget = join(project, 'assets', narrationName);
-      linkSync(stagedNarration, narrationTarget);
+      linkOrCopySync(stagedNarration, narrationTarget);
       committedFiles.push(narrationTarget);
       unlinkSync(stagedNarration);
     }
-    linkSync(stagedComposition, output);
+    linkOrCopySync(stagedComposition, output);
     committedFiles.push(output);
     unlinkSync(stagedComposition);
     renameSync(temporaryIndex, indexPath);
@@ -250,19 +306,19 @@ async function publishAvatarCompositionAsync(prepared, signal) {
     await mkdir(assetDir, { recursive: true });
     for (const { staged, target } of stagedSprites) {
       throwIfAborted(signal);
-      await link(staged, target);
+      await linkOrCopyAsync(staged, target, signal);
       committedFiles.push(target);
       await unlink(staged);
     }
     if (stagedNarration) {
       throwIfAborted(signal);
       const narrationTarget = join(project, 'assets', narrationName);
-      await link(stagedNarration, narrationTarget);
+      await linkOrCopyAsync(stagedNarration, narrationTarget, signal);
       committedFiles.push(narrationTarget);
       await unlink(stagedNarration);
     }
     throwIfAborted(signal);
-    await link(stagedComposition, output);
+    await linkOrCopyAsync(stagedComposition, output, signal);
     committedFiles.push(output);
     await unlink(stagedComposition);
     throwIfAborted(signal);

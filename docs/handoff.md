@@ -1534,3 +1534,17 @@ smoke render alone.
   progress through both asset-copy and fallback asset-publish stages; both
   assets passed integrity verification. Node syntax and diff checks passed;
   automated tests remain deferred.
+- A fresh Windows avatar build exposed `EPERM` in sprite publication through
+  hard links. Sync and async avatar composition now retry unsupported hard-link
+  publication with an exclusive copy, clean partial copies, and retain the
+  existing staged-index/rollback flow. The sync API now also imports its
+  existing `copyFileSync` use correctly. Manual calls to both APIs produced a
+  mounted avatar scene with all 11 sprite files. A separate comparison project
+  rendered the A-H/X pack with Voice 015 at 1920×1080/30 fps for 11.133 seconds;
+  ffprobe confirms 48 kHz stereo audio. The baseline v8 and 30 ms transition
+  contact sheets plus six-frame mouth-transition strips are preserved under
+  their ignored project render folders. Visual inspection confirms stable body
+  framing and changing mouth/blink states; detailed speech alignment and human
+  listening review remain open. Render needed the local HyperFrames lock
+  disabled because the standard sandbox cannot write its user cache lock; the
+  temporary localhost render server was permitted only for this manual render.
