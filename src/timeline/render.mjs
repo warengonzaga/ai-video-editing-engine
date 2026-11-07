@@ -184,8 +184,9 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
     const windowStyle = `position:absolute;left:${x}%;top:${y}%;width:${width}%;height:${height}%;overflow:hidden;${maskStyle}${transitionStyle}${blendStyle}`;
     if (asset.type === 'image') {
       const stillSource = escapeAttr(`url("${escapeCssString(assetRelativePath)}")`);
+      const stillFit = fit === 'fill' ? '100% 100%' : fit;
       const stillCommon = common.replace('class="clip media-window', 'class="clip media-window still-window');
-      return `<div ${stillCommon}${fadeAttributes(clip)} data-still-image="true" style="${windowStyle}--engine-still-source:${stillSource};--engine-still-fit:${fit};"></div>`;
+      return `<div ${stillCommon}${fadeAttributes(clip)} data-still-image="true" style="${windowStyle}--engine-still-source:${stillSource};--engine-still-fit:${stillFit};"></div>`;
     }
     const engineKeyframes = clip.keyframes === undefined ? '' : ` data-engine-keyframes="${escapeAttr(JSON.stringify(clip.keyframes))}"`;
     const engineFades = `${clip.fadeInSeconds !== undefined ? ` data-engine-fade-in-seconds="${clip.fadeInSeconds}"` : ''}${clip.fadeOutSeconds !== undefined ? ` data-engine-fade-out-seconds="${clip.fadeOutSeconds}"` : ''}`;

@@ -1445,10 +1445,12 @@ smoke render alone.
 - Refined generic still-image timeline markup to render the image as a clipped
   background layer instead of nesting an `<img>` inside a timeline row. This
   removes the HyperFrames `nested_structure_needs_subcomposition` warning while
-  preserving contain/cover/fill behavior, object positioning, and zoom. A
+  preserving contain/cover/fill behavior, object positioning, and zoom. Fill
+  maps to CSS `100% 100%` because CSS has no `background-size: fill` value. A
   synthetic six-second integration render combines main footage, external
   narration, B-roll, a still, a reusable lower-third composition, and timed
   captions. HyperFrames lint reports 0 errors and 0 warnings; ffprobe confirms
   640×360 H.264 at 30 fps with stereo 48 kHz AAC. The rendered still was
-  visually inspected. This is synthetic local integration evidence, not the
-  deferred automated suite or real-media quality review.
+  visually inspected in contain and fill modes. This is synthetic local
+  integration evidence, not the deferred automated suite or real-media quality
+  review.
