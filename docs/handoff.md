@@ -1665,3 +1665,8 @@ smoke render alone.
   background contract, including its default color, transparent output option,
   and accepted hex lengths. Updated README and architecture references so
   consumers can discover this timeline feature through the API/CLI report.
+- Tightened the generic avatar mouth-art contract for rounded E and puckered F
+  visemes: require a thin, consistent lip edge and reject heavy-ring/broad-halo
+  styling during visual review. Capability discovery and the mouth-pack guide
+  now expose the same requirement; automatic pixel-level enforcement is not
+  claimed.

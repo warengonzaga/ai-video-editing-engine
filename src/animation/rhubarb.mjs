@@ -27,6 +27,7 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
     artworkAnchor: 'Align the upper-lip center and mouth centerline to the same normalized canvas coordinates in every state.',
     jawMotion: 'Keep the upper lip anchored and extend more-open jaw shapes downward instead of shifting the whole mouth upward or sideways.',
     faceDirection: 'Keep the face and glasses front-facing; express pointing direction with the eyes or pose layer, not by moving the mouth.',
+    lipContour: 'Use a thin, consistent lip edge; do not surround rounded openings with a heavy black ring or broad skin-colored halo.',
   }),
   animationArtworkGuidance: Object.freeze({
     blinking: 'Use a dedicated eyes layer for blink states; keep the body sprite unchanged during a blink to avoid whole-avatar flicker.',
@@ -34,6 +35,7 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
   }),
   mouthVisualReviewChecklist: Object.freeze([
     'Confirm the upper-lip center and mouth centerline stay aligned across A-H and X.',
+    'Confirm rounded E/F shapes have a natural opening with a thin lip edge, not a heavy ring or broad skin halo.',
     'Confirm teeth, tongue, outlines, palette, and shading remain consistent across states.',
     'Confirm crossfades do not create visible double outlines or conflicting teeth.',
     'Confirm each drawing reads as its intended Rhubarb articulation.',
