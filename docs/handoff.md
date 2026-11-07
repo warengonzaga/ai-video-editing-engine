@@ -1921,13 +1921,16 @@ smoke render alone.
   sprites, and timing; the v12 render remains available for comparison. The
   v13 MP4 is 1920×1080 H.264, 30 fps, 11.133 seconds. Further mouth-size work
   is deferred at the user's direction.
-- Latest local validation on the active branch: `npm test` passes 132 tests with
-  0 failures and 3 skips because optional OpenTimelineIO is not installed. The
-  source-bound scene-review plan has a focused test for SHA mismatch rejection,
-  explicit application, stale-plan rejection, and undo. `npm run doctor` passes
-  required tool checks; `npm audit --omit=dev --offline` reports 0
-  vulnerabilities. The Windows render smoke passes after correcting its hidden-track assertion to
-  compare output pixels to the configured project background (`#10141c`). The
-  first smoke attempt was blocked by sandbox localhost restrictions; the
-  authorized local-render run completed all render scenarios successfully.
+- Latest local validation on the active branch: `npm test` passes all 135 tests
+  with 0 failures and 0 skips after installing the pinned optional
+  OpenTimelineIO 0.18.1 wheel into a disposable workspace directory. The three
+  OTIO round-trip, transition-import, and overlap-rejection tests all pass;
+  `npm run doctor` detects OTIO and its native adapter from that temporary
+  environment and passes core Engine requirements. The source-bound scene-review
+  plan test covers SHA mismatch rejection, explicit application, stale-plan
+  rejection, and undo. `npm audit --omit=dev --offline` reports 0
+  vulnerabilities. The Windows render smoke passes after correcting its
+  hidden-track assertion to compare output pixels to the configured project
+  background (`#10141c`). Its first attempt was blocked by sandbox localhost
+  restrictions; the authorized local-render run completed all scenarios.
   Neither command invoked GitHub Actions.
