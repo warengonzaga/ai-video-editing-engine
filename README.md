@@ -67,8 +67,10 @@ extended-shape setting, and whether the Rhubarb adapter is installed instead
 of hard-coding Engine-specific avatar assumptions.
 
 The package exposes an `ai-video-engine` CLI binary for local or Git-based
-consumer installs. The repository remains private and is not configured for
-public npm publication.
+consumer installs. Running `npm install` installs the Engine's pinned
+dependencies and may download them from the npm registry; it does not publish
+the Engine. The repository remains private, and `package.json` marks the Engine
+package as private to prevent public npm publication.
 
 ## Verify the local engine
 
