@@ -1725,3 +1725,14 @@ smoke render alone.
   lower-third layers. The source clips remain synthetic patterns. The original
   demo project and render are unchanged; no Engine source or test files were
   changed.
+- Updated proxy profile v2 after the generic render exposed a six-second GOP
+  in source footage and an unnecessary 640×360-to-960×540 proxy upscale.
+  Profile v2 forces one-second keyframes, keeps sources smaller than the size
+  cap at their original dimensions, and versions cache records and paths to
+  rebuild old proxies. Manual API generation produced a 640×360 main proxy and
+  a 200×112 CFR B-roll proxy; `ffprobe` shows keyframes at 0–5 seconds and
+  0–2 seconds respectively. Proxy resolution selected both, a `useProxies`
+  timeline render completed at 640×360/30 fps H.264 with 48 kHz stereo AAC,
+  and the second generation hit the v2 cache. Capability discovery reports
+  profile v2, no upscaling, and the one-second keyframe interval. Syntax and
+  whitespace checks passed; no automated test suite ran.

@@ -608,8 +608,10 @@ video asset. The optional arguments set maximum dimension, CRF, and output
 frame rate (defaults: 960 and 28, with no frame-rate conversion); valid ranges
 are 160–3840 pixels, CRF 18–40, and frame rate 1–240 fps. A specified frame
 rate normalizes source timestamps to a CFR proxy, which can help browser
-previews of VFR media. Match the proxy frame rate to the project and enable
-proxy rendering. The Engine records the proxy fingerprint and media metadata
+previews of VFR media. Proxies preserve smaller source dimensions instead of
+upscaling and force a keyframe every second to make timeline seeking faster.
+Match the proxy frame rate to the project and enable proxy rendering. The
+Engine records the proxy profile, fingerprint, and media metadata
 in the asset manifest and reuses a matching current proxy. To use proxies for
 draft review, set
 `{ "useProxies": true }` in the timeline render options JSON. This switches

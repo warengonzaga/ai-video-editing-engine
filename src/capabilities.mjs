@@ -140,6 +140,10 @@ export function getEngineCapabilities(options = {}) {
       },
       proxyGeneration: {
         available: ffmpeg.available && ffprobe.available,
+        profileVersion: 2,
+        sourceUpscaling: false,
+        keyframeIntervalSeconds: 1,
+        forcedKeyframes: true,
         progressCallbacks: {
           supported: true,
           asyncApiOnly: true,

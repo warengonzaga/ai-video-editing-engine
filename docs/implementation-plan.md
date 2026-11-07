@@ -88,7 +88,9 @@ audio policy, cross-platform and broader format coverage remain open.
   cancellable async generation through the API and Ctrl+C-aware CLI. Async
   hashing and file publication avoid blocking the event loop on large media;
   async proxy resolution verifies source and proxy identity with streamed,
-  cancellable hashes.
+  cancellable hashes. Profile v2 proxies never upscale smaller sources and
+  force a keyframe every second so browser preview seeks do not inherit sparse
+  source GOPs.
 - [x] Model ordered tracks, clips, source ranges, trim, split, move, cuts,
   placement, and layer order with deterministic timing and source provenance.
 - [x] Replace clip source assets through a validated reviewable edit operation,

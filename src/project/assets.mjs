@@ -14,6 +14,9 @@ import { runProcess } from '../render/process.mjs';
 import { createFfmpegProgressParser, emitRenderProgress } from '../render/progress.mjs';
 import { linkOrCopyAsync, linkOrCopySync } from '../files.mjs';
 
+const PROXY_PROFILE_VERSION = 2;
+const PROXY_KEYFRAME_INTERVAL_SECONDS = 1;
+
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 export function registerMediaAsset(projectPath, sourcePath, options = {}) {
@@ -751,7 +754,8 @@ function prepareAssetProxy(projectPath, assetId, options) {
   const details = inspectAssetProxyInputs(projectPath, assetId, options);
   const sourceHash = hashFile(details.sourcePath);
   const output = assetProxyOutput(details, sourceHash);
-  const existing = findAssetProxy(details.asset, details.maxDimension, details.crf, details.targetFrameRate, sourceHash);
+  const existing = findAssetProxy(details.asset, details.maxDimension, details.crf, details.targetFrameRate,
+    details.keyframeIntervalSeconds, details.profileVersion, sourceHash);
   const cachedProxyHash = existing && existing.path === output.relativePath && output.destinationExists
     ? hashFile(output.destination)
     : undefined;
@@ -763,7 +767,8 @@ async function prepareAssetProxyAsync(projectPath, assetId, options, signal) {
   const sourceHash = await hashFileAsync(details.sourcePath, signal);
   signal?.throwIfAborted();
   const output = assetProxyOutput(details, sourceHash);
-  const existing = findAssetProxy(details.asset, details.maxDimension, details.crf, details.targetFrameRate, sourceHash);
+  const existing = findAssetProxy(details.asset, details.maxDimension, details.crf, details.targetFrameRate,
+    details.keyframeIntervalSeconds, details.profileVersion, sourceHash);
   const cachedProxyHash = existing && existing.path === output.relativePath && output.destinationExists
     ? await hashFileAsync(output.destination, signal)
     : undefined;
@@ -781,22 +786,36 @@ function inspectAssetProxyInputs(projectPath, assetId, options) {
   for (const field of Object.keys(options)) if (!['maxDimension', 'crf', 'frameRate'].includes(field)) throw new TypeError(`Unsupported proxy option: ${field}.`);
   const { maxDimension = 960, crf = 28 } = options;
   const targetFrameRate = options.frameRate === undefined ? undefined : String(normalizeFrameRate(options.frameRate));
+  const keyframeIntervalSeconds = PROXY_KEYFRAME_INTERVAL_SECONDS;
+  const profileVersion = PROXY_PROFILE_VERSION;
   if (!Number.isSafeInteger(maxDimension) || maxDimension < 160 || maxDimension > 3840) throw new TypeError('Proxy maxDimension must be an integer from 160 to 3840.');
   if (!Number.isSafeInteger(crf) || crf < 18 || crf > 40) throw new TypeError('Proxy CRF must be an integer from 18 to 40.');
   const sourcePath = resolveProjectAsset(root, asset.path);
   if (!existsSync(sourcePath) || !statSync(sourcePath).isFile() || lstatSync(sourcePath).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or not a regular project file.`);
-  return { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate };
+  return { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate, keyframeIntervalSeconds, profileVersion };
 }
 
-function findAssetProxy(asset, maxDimension, crf, targetFrameRate, sourceHash) {
+function findAssetProxy(
+  asset,
+  maxDimension,
+  crf,
+  targetFrameRate,
+  keyframeIntervalSeconds,
+  profileVersion,
+  sourceHash,
+) {
   return (asset.proxies ?? []).find((proxy) => proxy.maxDimension === maxDimension && proxy.crf === crf
-    && proxy.targetFrameRate === targetFrameRate && proxy.sourceSha256 === sourceHash);
+    && proxy.targetFrameRate === targetFrameRate
+    && proxy.keyframeIntervalSeconds === keyframeIntervalSeconds
+    && proxy.profileVersion === profileVersion
+    && proxy.sourceSha256 === sourceHash);
 }
 
 function assetProxyOutput(details, sourceHash) {
-  const { root, asset, maxDimension, crf, targetFrameRate } = details;
+  const { root, asset, maxDimension, crf, targetFrameRate, keyframeIntervalSeconds, profileVersion } = details;
   const frameRateSuffix = targetFrameRate === undefined ? '' : `-fps${targetFrameRate.replace('/', '-')}`;
-  const fileName = `${asset.id}-${maxDimension}-crf${crf}${frameRateSuffix}-${sourceHash.slice(0, 12)}.mp4`;
+  const gopSuffix = `-gop${keyframeIntervalSeconds}s`;
+  const fileName = `${asset.id}-p${profileVersion}-${maxDimension}-crf${crf}${frameRateSuffix}${gopSuffix}-${sourceHash.slice(0, 12)}.mp4`;
   const relativePath = `assets/proxies/${fileName}`;
   const destination = join(root, ...relativePath.split('/'));
   const destinationExists = existsSync(destination);
@@ -805,7 +824,8 @@ function assetProxyOutput(details, sourceHash) {
 }
 
 function finalizeAssetProxyPreparation(details, output, sourceHash, existing, cachedProxyHash) {
-  const { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate } = details;
+  const { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate,
+    keyframeIntervalSeconds, profileVersion } = details;
   const assetId = asset.id;
   const { relativePath, destination, destinationExists } = output;
   if (sourceHash !== asset.sha256) throw new Error(`Asset ${asset.id} failed integrity verification; relink it before generating a proxy.`);
@@ -818,16 +838,34 @@ function finalizeAssetProxyPreparation(details, output, sourceHash, existing, ca
   const backupPath = join(proxyDirectory, `.${assetId}.${randomUUID()}.backup.mp4`);
   const filters = [
     ...(targetFrameRate !== undefined ? [`fps=${targetFrameRate}`] : []),
-    `scale=${maxDimension}:${maxDimension}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
+    `scale='min(iw,${maxDimension})':'min(ih,${maxDimension})':force_original_aspect_ratio=decrease:force_divisible_by=2`,
   ];
   const args = [
     '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', sourcePath,
     '-map', '0:v:0', '-vf', filters.join(','),
     ...(targetFrameRate !== undefined ? ['-fps_mode', 'cfr'] : []),
     '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(crf), '-pix_fmt', 'yuv420p',
+    '-force_key_frames', `expr:gte(t,n_forced*${keyframeIntervalSeconds})`,
     '-movflags', '+faststart', stagedPath,
   ];
-  return { root, manifest, assetIndex, asset, sourceHash, relativePath, destination, destinationExists, stagedPath, backupPath, maxDimension, crf, targetFrameRate, args };
+  return {
+    root,
+    manifest,
+    assetIndex,
+    asset,
+    sourceHash,
+    relativePath,
+    destination,
+    destinationExists,
+    stagedPath,
+    backupPath,
+    maxDimension,
+    crf,
+    targetFrameRate,
+    keyframeIntervalSeconds,
+    profileVersion,
+    args,
+  };
 }
 
 function storeAssetProxy(context, probe, sha256 = hashFile(context.stagedPath)) {
@@ -857,7 +895,7 @@ async function storeAssetProxyAsync(context, probe, sha256, signal) {
 
 function buildAssetProxyRecord(context, probe, sha256) {
   const { asset, assetIndex, root, manifest, stagedPath, destination, destinationExists,
-    sourceHash, relativePath, maxDimension, crf, targetFrameRate } = context;
+    sourceHash, relativePath, maxDimension, crf, targetFrameRate, keyframeIntervalSeconds, profileVersion } = context;
   const expectedRatio = asset.width / asset.height;
   const actualRatio = probe.width / probe.height;
   if (probe.width > maxDimension || probe.height > maxDimension || Math.abs(expectedRatio - actualRatio) > 0.01) {
@@ -875,6 +913,8 @@ function buildAssetProxyRecord(context, probe, sha256) {
     maxDimension,
     crf,
     ...(targetFrameRate !== undefined ? { targetFrameRate } : {}),
+    keyframeIntervalSeconds,
+    profileVersion,
     width: probe.width,
     height: probe.height,
     durationSeconds: probe.durationSeconds,
