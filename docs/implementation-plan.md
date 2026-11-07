@@ -406,6 +406,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   Chrome's implicit `GET /favicon.ico` caused the initial browser-probe 404;
   generated timeline, starter, and avatar HTML now declare an inline favicon.
   A fresh one-second render completed without browser network-failure warnings.
+  A separate DJI render adds a four-second PiP clip with 350 ms fade transitions;
+  sampled frames show it entering and leaving on schedule while keeping the
+  lower-third and subject visible.
   Broader transition, speech-alignment, and human audio review remain open.
 - [ ] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows

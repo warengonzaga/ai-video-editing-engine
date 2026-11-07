@@ -1821,6 +1821,17 @@ smoke render alone.
   after the fix has no browser network-failure or asset-load-failure log and
   `ffprobe` confirms matching 1-second video/audio streams. Human listening
   review remains open.
+- Extended the real DJI project with a second video track using source seconds
+  8–12 as a four-second picture-in-picture B-roll clip at timeline seconds 3–7,
+  with 350 ms fade transitions at both edges. The full 10-second render is
+  `video-projects/dji-pip-review-20261107/renders/dji-pip-review.mp4`;
+  `ffprobe` confirms 1080×1920/30 fps H.264, 48 kHz stereo AAC, and matching
+  10.000-second video/audio/container durations. A six-frame contact sheet at
+  0.5, 2.5, 3.1, 3.5, 6.8, and 7.5 seconds shows the inset entering and leaving
+  at the expected times, while the lower-third and main subject remain visible.
+  The post-favicon-fix render log has no browser network or asset-load warnings.
+  The source, timeline, and output stay in ignored `video-projects/`; human
+  audiovisual approval remains open.
 - Exercised real-camera clip volume automation and final audio mastering in a
   separate 10-second DJI project. The first mastered render exposed a 100 ms
   audio tail beyond the video. Both synchronous and asynchronous mastering now
