@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { probeMedia } from '../media/probe.mjs';
+import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
+import { runProcess } from '../render/process.mjs';
 import { pngDimensions } from './png-image.mjs';
 import { validateAnimationCues } from './cues.mjs';
 
@@ -101,6 +103,71 @@ export function rhubarbLipSyncCues(inputPath, options = {}) {
   } finally {
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
+}
+
+/** Generate Rhubarb mouth cues without blocking the event loop; abort cancels child processes. */
+export async function rhubarbLipSyncCuesAsync(inputPath, options = {}) {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Lip-sync options must be an object.');
+  const { signal, ...rhubarbOptions } = options;
+  const settings = validateOptions(rhubarbOptions);
+  const source = resolve(inputPath);
+  validateAbortSignal(signal);
+  throwIfAborted(signal);
+  const timeoutSignal = AbortSignal.timeout(settings.timeoutMs);
+  const operationSignal = signal ? AbortSignal.any([signal, timeoutSignal]) : timeoutSignal;
+  const media = await probeMediaAsync(source, { requireVideo: false, signal: operationSignal });
+  if (!media.hasAudio) throw new TypeError('Lip-sync input must contain an audio stream.');
+
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'aive-rhubarb-'));
+  const wavPath = join(temporaryDirectory, 'input.wav');
+  const cuePath = join(temporaryDirectory, 'mouth-cues.json');
+  try {
+    throwIfAborted(operationSignal);
+    try {
+      await runProcess(settings.ffmpeg, [
+        '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', source,
+        '-map', '0:a:0', '-vn', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', wavPath,
+      ], { signal: operationSignal, stdio: 'capture' });
+    } catch (error) {
+      if (operationSignal.aborted) throw operationSignal.reason ?? error;
+      throw new Error(`Could not prepare lip-sync audio: ${error.message}`);
+    }
+
+    const args = ['--exportFormat', 'json', '--recognizer', settings.recognizer, '--extendedShapes', settings.extendedShapes, '--quiet'];
+    let dialogFile = settings.dialogFile;
+    if (settings.dialogText !== undefined) {
+      dialogFile = join(temporaryDirectory, 'dialog.txt');
+      await writeFile(dialogFile, settings.dialogText, 'utf8');
+    }
+    if (dialogFile) args.push('--dialogFile', dialogFile);
+    args.push('--output', cuePath);
+    args.push(wavPath);
+    try {
+      await runProcess(settings.rhubarb, args, { signal: operationSignal, stdio: 'capture' });
+    } catch (error) {
+      if (operationSignal.aborted) throw operationSignal.reason ?? error;
+      throw new Error(`Rhubarb lip-sync generation failed: ${error.message}`);
+    }
+    throwIfAborted(operationSignal);
+    const output = await readFile(cuePath, 'utf8').catch((error) => {
+      if (error.code === 'ENOENT') throw new Error('Rhubarb completed without creating its cue file.');
+      throw error;
+    });
+    const track = normalizeRhubarbOutput(output, media.durationSeconds);
+    return settings.spriteStateMap ? mapRhubarbCuesToSpriteStates(track, settings.spriteStateMap) : track;
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
+function validateAbortSignal(signal) {
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Lip-sync signal must be an AbortSignal.');
+  }
+}
+
+function throwIfAborted(signal) {
+  if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
 }
 
 /** Convert Rhubarb JSON mouth cues to the Engine's lowercase animation-state contract. */

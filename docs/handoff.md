@@ -194,6 +194,14 @@ Last updated: 2026-11-07
   files. This removes the intermediate cue-file step for the common
   speech-avatar workflow. No tests were run per the user's direction to focus
   on implementation before manual debugging.
+- `lip-sync` and `avatar-compose` now use asynchronous Rhubarb cue generation.
+  The CLI applies the existing lip-sync timeout and Ctrl+C abort handling to
+  ffprobe, FFmpeg, and Rhubarb child processes. JavaScript consumers can use
+  `rhubarbLipSyncCuesAsync(path, { signal })` and
+  `createAvatarCompositionAsync(project, spec, { signal })`; synchronous APIs
+  remain available for compatibility. Cancellation covers media probing and
+  phonetic cue generation; the final composition file staging is still a short
+  synchronous operation.
 - Phonetic avatar composition now enforces a complete, distinct mouth set before
   Rhubarb runs: A-H and X are required. GHX is the default extended-shape set;
   consumers can request a reduced cue set, but still supply all nine pack states.

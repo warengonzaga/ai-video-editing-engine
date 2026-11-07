@@ -297,6 +297,13 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   PNGs and shared canvas dimensions before invoking Rhubarb. Mouth layers now
   crossfade between viseme sprites over a configurable 60 ms default interval;
   capability discovery reports the default and allowed range.
+- [x] Make optional Rhubarb cue generation asynchronous and cancellable. The
+  standalone `lip-sync` and generated `avatar-compose` CLI paths now use the
+  same timeout and Ctrl+C process-tree cancellation as other media commands.
+  The API exposes `rhubarbLipSyncCuesAsync` and
+  `createAvatarCompositionAsync` with `AbortSignal` support while preserving
+  synchronous APIs for existing consumers. Final composition file staging is
+  still synchronous; cancellation applies to media probing and Rhubarb analysis.
 - [ ] Validate speech-driven avatar animation; evaluate Rhubarb cues on the
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an

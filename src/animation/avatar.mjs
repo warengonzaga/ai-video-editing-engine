@@ -3,7 +3,7 @@ import { basename, extname, join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { validateAnimationCues } from './cues.mjs';
 import { pngDimensions } from './png-image.mjs';
-import { mapRhubarbCuesToSpriteStates, RHUBARB_SPRITE_CONTRACT, rhubarbLipSyncCues, validateRhubarbSpriteStates } from './rhubarb.mjs';
+import { mapRhubarbCuesToSpriteStates, RHUBARB_SPRITE_CONTRACT, rhubarbLipSyncCues, rhubarbLipSyncCuesAsync, validateRhubarbSpriteStates } from './rhubarb.mjs';
 
 /** Build a generic sprite-avatar composition from user-supplied images and timed cues. */
 export function createAvatarComposition(projectPath, specification) {
@@ -201,6 +201,45 @@ export function createAvatarComposition(projectPath, specification) {
     if (temporaryDirectory) rmSync(temporaryDirectory, { recursive: true, force: true });
   }
   return { compositionPath: output, layers: safeLayers.length };
+}
+
+/** Build an avatar composition while keeping phonetic analysis interruptible. */
+export async function createAvatarCompositionAsync(projectPath, specification, { signal } = {}) {
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Avatar composition signal must be an AbortSignal.');
+  }
+  if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+  const lipSync = specification?.lipSync;
+  if (!lipSync) return createAvatarComposition(projectPath, specification);
+
+  if (!lipSync || typeof lipSync.audioPath !== 'string' || !lipSync.audioPath.trim()
+      || typeof lipSync.layer !== 'string' || !/^[a-z][a-z0-9-]*$/.test(lipSync.layer)
+      || (lipSync.options !== undefined && (!lipSync.options || typeof lipSync.options !== 'object' || Array.isArray(lipSync.options)))) {
+    throw new TypeError('Avatar lipSync requires an audioPath, a mouth layer name, and optional Rhubarb options.');
+  }
+  const mouthLayer = specification.layers?.find((layer) => layer?.name === lipSync.layer && layer.role === 'mouth');
+  if (!mouthLayer) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} must name a mouth layer.`);
+  if (mouthLayer.track !== undefined) throw new TypeError(`Avatar lipSync layer ${lipSync.layer} already has a track.`);
+  validateRhubarbSpriteStates({ default: mouthLayer.image, ...(mouthLayer.states ?? {}) }, lipSync.options ?? {});
+  const { spriteStateMap, ...rhubarbOptions } = lipSync.options ?? {};
+  const generatedTrack = await rhubarbLipSyncCuesAsync(lipSync.audioPath, { ...rhubarbOptions, signal });
+  if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+  const spriteTrack = mapRhubarbCuesToSpriteStates(generatedTrack, spriteStateMap);
+  const layers = specification.layers.map((layer) => layer.name === lipSync.layer
+    ? { ...layer, restState: spriteStateMap?.x ?? layer.restState ?? 'default', track: {
+      schemaVersion: spriteTrack.schemaVersion,
+      durationSeconds: specification.durationSeconds,
+      cues: spriteTrack.cues
+        .filter((cue) => cue.start < specification.durationSeconds)
+        .map((cue) => ({ ...cue, end: Math.min(cue.end, specification.durationSeconds) })),
+    } }
+    : layer);
+  const { lipSync: _lipSync, ...scene } = specification;
+  return createAvatarComposition(projectPath, {
+    ...scene,
+    layers,
+    ...(specification.narration === undefined ? { narration: lipSync.audioPath } : {}),
+  });
 }
 
 function avatarLayerMarkup(layer, index) {

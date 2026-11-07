@@ -113,6 +113,11 @@ shape meanings, visual consistency requirements, and preflight workflow.
 Avatar mouth layers crossfade between viseme sprites by default; tune or disable
 the transition with the layer's `transitionSeconds` setting. Capability discovery
 reports the default and supported range.
+The CLI runs cue generation asynchronously, applies the configured timeout, and
+cancels FFmpeg/Rhubarb child processes on Ctrl+C. JavaScript consumers can use
+`rhubarbLipSyncCuesAsync(path, { signal })` or
+`createAvatarCompositionAsync(project, spec, { signal })`; the synchronous APIs
+remain available for existing integrations.
 
 ```sh
 node src/cli.mjs lip-sync Voice.mp3 mouth-cues.json lip-sync-options.json
@@ -269,6 +274,8 @@ the Engine to generate the mouth track:
 ```
 
 Run it with `node src/cli.mjs avatar-compose video-projects/my-video avatar.json`.
+For Node.js integrations, `createAvatarCompositionAsync(projectPath, spec,
+{ signal })` supports cancellation while Rhubarb prepares and analyzes audio.
 Layers can use normalized canvas coordinates (`x`, `y`, `width`) or anchor to an
 earlier layer with `relativeTo`, `anchor: [x, y]`, and a `width` fraction of the
 parent sprite. This keeps face features aligned when the avatar is resized or

@@ -16,8 +16,8 @@ import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
 import { audioLevelCues } from './animation/audio-cues.mjs';
-import { rhubarbLipSyncCues, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
-import { createAvatarComposition } from './animation/avatar.mjs';
+import { rhubarbLipSyncCuesAsync, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
+import { createAvatarCompositionAsync } from './animation/avatar.mjs';
 import { validateTimeline } from './timeline/validate.mjs';
 import { inspectTimeline } from './timeline/inspect.mjs';
 import { timelineFromEdl } from './timeline/from-edl.mjs';
@@ -267,7 +267,8 @@ async function main(args) {
   if (command === 'lip-sync' && (commandArgs.length === 2 || commandArgs.length === 3)) {
     const [audio, output, optionsPath] = commandArgs;
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    writeNewFile(resolve(output), rhubarbLipSyncCues(resolve(audio), options));
+    const track = await runWithInterrupt((signal) => rhubarbLipSyncCuesAsync(resolve(audio), { ...options, signal }), 'Lip-sync generation');
+    writeNewFile(resolve(output), track);
     console.log(`Wrote ${resolve(output)}`);
     return;
   }
@@ -289,7 +290,8 @@ async function main(args) {
   }
   if (command === 'avatar-compose' && commandArgs.length === 2) {
     const [project, spec] = commandArgs;
-    console.log(JSON.stringify(createAvatarComposition(resolve(project), readJson(resolve(spec))), null, 2));
+    const result = await runWithInterrupt((signal) => createAvatarCompositionAsync(resolve(project), readJson(resolve(spec)), { signal }), 'Avatar composition');
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
   if (command === 'retime') {
