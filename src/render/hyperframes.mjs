@@ -62,6 +62,7 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
   if (options.signal !== undefined || options.timeoutSeconds !== undefined) {
     throw new TypeError('Cancellation and render timeouts require renderProjectAsync.');
   }
+  if (options.onProgress !== undefined) throw new TypeError('Render progress callbacks require renderProjectAsync.');
   const project = resolve(projectPath);
   const indexPath = join(project, 'index.html');
   const metaPath = join(project, 'meta.json');
@@ -150,10 +151,11 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
   if (!existsSync(indexPath) || !existsSync(metaPath)) throw new Error(`Not a video project: ${project}`);
   if (!['draft', 'standard', 'high'].includes(quality)) throw new TypeError('Quality must be draft, standard, or high.');
 
-  const { signal: externalSignal, ...renderOptions } = options;
+  const { signal: externalSignal, onProgress, ...renderOptions } = options;
   if (externalSignal !== undefined && (typeof externalSignal.aborted !== 'boolean' || typeof externalSignal.addEventListener !== 'function')) {
     throw new TypeError('Render signal must be an AbortSignal.');
   }
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Render onProgress must be a function.');
   const controls = resolveRenderControlArgs(renderOptions);
   const resumeCheckpoint = renderOptions.resumeCheckpoint === true;
   const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
@@ -210,7 +212,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
 
   try {
     if (!checkpointArtifact) {
-      await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal);
+      await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal, onProgress);
       if (checkpoint) {
         validateRenderedMedia(await probeMediaAsync(temporaryOutput, { signal: control.signal }), meta);
         checkpointArtifact = await saveRenderCheckpoint(checkpoint, temporaryOutput);
@@ -407,24 +409,80 @@ function runHyperframes(args, projectPath) {
   return true;
 }
 
-async function runHyperframesAsync(args, projectPath, signal) {
+async function runHyperframesAsync(args, projectPath, signal, onProgress) {
   const project = resolve(projectPath);
   const packagePath = resolveHyperframesPackage();
   const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
   const bin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.hyperframes;
   if (!bin) throw new Error('Installed HyperFrames package has no CLI entry point.');
   const cliPath = resolve(dirname(packagePath), bin);
+  const progressParser = onProgress ? createHyperframesProgressParser(onProgress) : undefined;
   try {
     await runProcess(process.execPath, [cliPath, ...args], {
       cwd: project,
       signal,
       windowsHide: false,
+      ...(progressParser ? {
+        stdio: 'capture',
+        onStdout: progressParser.push,
+        onStderr: (chunk) => process.stderr.write(chunk),
+      } : {}),
     });
+    progressParser?.flush();
   } catch (error) {
     if (error.name === 'AbortError' || error.name === 'TimeoutError') throw error;
     throw new Error(`HyperFrames ${args[0]} failed: ${error.message}`);
   }
   return true;
+}
+
+function createHyperframesProgressParser(onProgress) {
+  let pending = '';
+  const parseLine = (line) => {
+    const marker = line.indexOf('@hf-progress ');
+    if (marker < 0) return;
+    try {
+      const progress = JSON.parse(line.slice(marker + '@hf-progress '.length));
+      if (typeof progress.code !== 'string' || !Number.isFinite(progress.pct)) return;
+      const event = {
+        stage: 'capture',
+        phase: progress.code,
+        percent: Math.max(0, Math.min(100, progress.pct)),
+        ...(Number.isFinite(progress.done) ? { completed: progress.done } : {}),
+        ...(Number.isFinite(progress.total) ? { total: progress.total } : {}),
+      };
+      try {
+        const result = onProgress(event);
+        if (result && typeof result.then === 'function') {
+          Promise.resolve(result).catch(warnProgressCallback);
+        }
+      } catch (error) {
+        warnProgressCallback(error);
+      }
+    } catch {
+      // Ignore malformed third-party progress lines; the renderer still reports its process result.
+    }
+  };
+  return {
+    push(chunk) {
+      pending += chunk.toString('utf8');
+      let newline;
+      while ((newline = pending.indexOf('\n')) >= 0) {
+        parseLine(pending.slice(0, newline).replace(/\r$/, ''));
+        pending = pending.slice(newline + 1);
+      }
+      if (pending.length > 16 * 1024) pending = pending.slice(-16 * 1024);
+    },
+    flush() {
+      if (pending) parseLine(pending);
+      pending = '';
+    },
+  };
+}
+
+function warnProgressCallback(error) {
+  const detail = error instanceof Error ? error.message : String(error);
+  process.emitWarning(`Render progress callback failed: ${detail}`);
 }
 
 function processTranscript(project, inputPath, durationSeconds, command) {

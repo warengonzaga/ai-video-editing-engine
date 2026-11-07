@@ -35,11 +35,13 @@ export function renderTimeline(projectPath, timeline, outputPath, quality = 'dra
   if (renderOptions.signal !== undefined || renderOptions.timeoutSeconds !== undefined) {
     throw new TypeError('Cancellation and render timeouts require renderTimelineAsync.');
   }
+  if (renderOptions.onProgress !== undefined) throw new TypeError('Render progress callbacks require renderTimelineAsync.');
   return renderTimelineWith(projectPath, timeline, outputPath, quality, renderOptions, renderProject, undefined, undefined, isRangeRender);
 }
 
 export async function renderTimelineAsync(projectPath, timeline, outputPath, quality = 'draft', options = {}) {
-  const { timeoutSeconds, signal, [RENDER_TIMELINE_RANGE]: isRangeRender = false, ...renderOptions } = options;
+  const { timeoutSeconds, signal, onProgress, [RENDER_TIMELINE_RANGE]: isRangeRender = false, ...renderOptions } = options;
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Render onProgress must be a function.');
   const renderControl = createTimelineRenderControl(signal, timeoutSeconds);
   let prepared;
   try {
@@ -55,7 +57,7 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
     if (audioMastering && ['gif', 'png-sequence'].includes(outputFormat)) throw new TypeError(`Timeline audioMastering cannot be used with ${outputFormat} output.`);
     if (['gif', 'png-sequence'].includes(outputFormat) && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0)) throw new TypeError(`${outputFormat} output cannot include audio clips.`);
     prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl);
-    return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, signal: renderControl.signal }, renderProjectAsync, renderControl, prepared, isRangeRender);
+    return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, ...(onProgress ? { onProgress } : {}), signal: renderControl.signal }, renderProjectAsync, renderControl, prepared, isRangeRender);
   } finally {
     if (prepared) await cleanupTemporaryAssetsAsync(prepared.temporaryAssets);
     renderControl.dispose();
@@ -75,7 +77,7 @@ export function renderTimelineRangeAsync(projectPath, timeline, startSeconds, en
 function renderTimelineWith(projectPath, timeline, outputPath, quality, options, renderProjectFunction, renderControl, prepared, isRangeRender = false) {
   const root = resolve(projectPath);
   if (options.useProxies !== undefined && typeof options.useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
-  const { useProxies, ...renderOptions } = options;
+  const { useProxies, onProgress, ...renderOptions } = options;
   validateTimeline(timeline);
   const renderTimeline = timelineForRender(timeline);
   const proxyRecords = prepared?.proxyRecords ?? (useProxies ? resolveAssetProxies(root, renderTimeline) : new Map());
@@ -250,7 +252,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
       return result;
     };
     renderControl?.assertActive();
-    const rendered = renderProjectFunction(root, outputPath, quality, renderOptions);
+    const rendered = renderProjectFunction(root, outputPath, quality, { ...renderOptions, ...(onProgress ? { onProgress } : {}) });
     if (rendered && typeof rendered.then === 'function') {
       deferTemporaryCleanup = true;
       return rendered.then((result) => {

@@ -131,6 +131,13 @@ export function getEngineCapabilities(options = {}) {
     },
     render: {
       requirementsAvailable: renderRuntimeAvailable,
+      progressCallbacks: {
+        supported: true,
+        asyncApiOnly: true,
+        stage: 'capture',
+        eventFields: ['stage', 'phase', 'percent'],
+        optionalEventFields: ['completed', 'total'],
+      },
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
       outputs: {
         mp4: {

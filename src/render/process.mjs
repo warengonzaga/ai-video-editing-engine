@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-export function runProcess(command, args, { cwd, signal, stdio = 'inherit', windowsHide = true } = {}) {
+export function runProcess(command, args, { cwd, signal, stdio = 'inherit', windowsHide = true, onStdout, onStderr } = {}) {
   if (signal?.aborted) return Promise.reject(abortReason(signal));
   return new Promise((resolve, reject) => {
     const capture = stdio === 'capture';
@@ -15,8 +15,9 @@ export function runProcess(command, args, { cwd, signal, stdio = 'inherit', wind
     let forceTimer;
     const outputLimit = 16 * 1024 * 1024;
     const output = { stdout: [], stderr: [], stdoutBytes: 0, stderrBytes: 0 };
-    const captureOutput = (stream, key, byteKey) => {
+    const captureOutput = (stream, key, byteKey, onChunk) => {
       stream?.on('data', (chunk) => {
+        onChunk?.(chunk);
         if (output[byteKey] >= outputLimit) return;
         const retained = chunk.subarray(0, outputLimit - output[byteKey]);
         output[key].push(retained);
@@ -24,8 +25,8 @@ export function runProcess(command, args, { cwd, signal, stdio = 'inherit', wind
       });
     };
     if (capture) {
-      captureOutput(child.stdout, 'stdout', 'stdoutBytes');
-      captureOutput(child.stderr, 'stderr', 'stderrBytes');
+      captureOutput(child.stdout, 'stdout', 'stdoutBytes', onStdout);
+      captureOutput(child.stderr, 'stderr', 'stderrBytes', onStderr);
     }
     const finish = (callback, value) => {
       if (settled) return;

@@ -47,8 +47,8 @@ export function assembleEditedTimeline(projectPath, assetId, transcript, edl, op
 }
 
 export function renderEditedProject(projectPath, assetId, transcript, edl, options = {}) {
-  if (options.signal !== undefined || options.timeoutSeconds !== undefined) {
-    throw new TypeError('Cancellation and render timeouts require renderEditedProjectAsync.');
+  if (options.signal !== undefined || options.timeoutSeconds !== undefined || options.onProgress !== undefined) {
+    throw new TypeError('Cancellation, timeouts, and progress callbacks require renderEditedProjectAsync.');
   }
   return renderEditedProjectWith(projectPath, assetId, transcript, edl, options, renderTimeline);
 }
@@ -74,7 +74,7 @@ function renderEditedProjectWith(projectPath, assetId, transcript, edl, options,
   const originalHtml = readFileSync(indexPath);
   const nextMeta = { ...JSON.parse(originalMeta), durationSeconds: timeline.project.durationSeconds };
   const renderOptions = Object.fromEntries(
-    ['format', 'encoder', 'colorProfile', 'workers', 'lowMemoryMode', 'timeoutSeconds', 'signal']
+    ['format', 'encoder', 'colorProfile', 'workers', 'lowMemoryMode', 'timeoutSeconds', 'signal', 'onProgress']
       .filter((field) => options[field] !== undefined)
       .map((field) => [field, options[field]]),
   );
