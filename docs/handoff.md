@@ -633,11 +633,11 @@ passed against the real OTIO adapter. The package is not installed globally.
 - Validate speed-ramp easing and expand real-media validation for visual
   effects and transitions. Animated crop-window/zoom, color controls, animated
   masks, and reusable fade/wipe transitions are implemented.
-- Render a reusable HyperFrames composition alongside footage, external audio,
-  B-roll, still images, and captions in one end-to-end project. Existing
-  evidence covers the media layers and timed captions, but not that exact
-  combination with a nested composition. Listen to output audio with varied
-  real narration/music.
+- Listen to output audio with varied real narration/music in an end-to-end
+  project combining a reusable HyperFrames composition, footage, external
+  audio, B-roll, still image, and captions. A synthetic integration render now
+  covers that exact layer combination; real-source quality and listening review
+  remain open.
 - Validate no-audio video, audio-only input, and unsupported codec behavior
   across Windows, macOS, and Linux. JSON/SRT/VTT transcript import and SRT/VTT
   export now have local coverage.
@@ -1442,3 +1442,13 @@ smoke render alone.
   seconds. The synchronous API remains intact. This was a local end-to-end
   workflow verification; the automated suite and human phoneme/audio review
   remain outstanding.
+- Refined generic still-image timeline markup to render the image as a clipped
+  background layer instead of nesting an `<img>` inside a timeline row. This
+  removes the HyperFrames `nested_structure_needs_subcomposition` warning while
+  preserving contain/cover/fill behavior, object positioning, and zoom. A
+  synthetic six-second integration render combines main footage, external
+  narration, B-roll, a still, a reusable lower-third composition, and timed
+  captions. HyperFrames lint reports 0 errors and 0 warnings; ffprobe confirms
+  640×360 H.264 at 30 fps with stereo 48 kHz AAC. The rendered still was
+  visually inspected. This is synthetic local integration evidence, not the
+  deferred automated suite or real-media quality review.
