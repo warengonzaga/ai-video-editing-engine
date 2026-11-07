@@ -495,7 +495,8 @@ in this order:
   parent timeline timing must be mapped explicitly. Export converts
   explicitly faded two-clip overlaps into `SMPTE_Dissolve` transitions and
   rejects unmarked/chained overlaps, clip-edge transitions, and retimed
-  crossfades. The three OTIO interchange tests pass on Windows
+  crossfades or crossfades with additional Engine-only clip settings. The three
+  OTIO interchange tests pass on Windows
   with the pinned optional dependency installed in an isolated temporary
   environment; cross-platform OTIO execution remains unverified.
 5. **Workflow quality:** visual preview/review artifacts, richer caption

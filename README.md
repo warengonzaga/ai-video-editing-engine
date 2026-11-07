@@ -1348,7 +1348,9 @@ and export. Export converts explicitly faded two-clip overlaps into standard
 `SMPTE_Dissolve` transitions. Unmarked or chained overlaps are rejected rather
 than silently reinterpreted. Standalone fades, clip-edge transitions, clip
 settings, track-level audio effects and automation, and overlay tracks are
-retained in namespaced metadata for Engine round trips.
+retained in namespaced metadata for Engine round trips. Crossfade participants
+with additional Engine-only clip settings are rejected because splitting those
+clips would change the settings' timing or scope.
 Crossfade offsets and source ranges are derived from the overlapping Engine
 clips.
 Standard OTIO playback still represents only the interoperable subset; other

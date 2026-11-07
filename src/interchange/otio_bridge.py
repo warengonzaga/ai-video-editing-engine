@@ -116,6 +116,7 @@ def export_timeline(request):
                 source_clip["timelineStart"] + source_clip["durationSeconds"] - next_clip["timelineStart"]
             )
             if overlap > 1e-6:
+                validate_crossfade_engine_settings(source_clip, next_clip)
                 if source_clip.get("transitionIn") or source_clip.get("transitionOut"):
                     raise ValueError(f"Clip {source_clip['id']} combines an Engine transition with an OTIO crossfade, which is not supported by the interchange profile.")
                 if abs(source_clip.get("playbackRate", 1) - 1) > 1e-9:
@@ -199,6 +200,19 @@ def validate_crossfade_pair(track, outgoing, incoming, overlap):
         )
     if outgoing.get("fadeInSeconds", 0) > 0 or incoming.get("fadeOutSeconds", 0) > 0:
         raise ValueError("Crossfades with additional standalone clip fades are not supported by the OTIO interchange profile.")
+
+
+def validate_crossfade_engine_settings(*clips):
+    mapped_fades = {"fadeInSeconds", "fadeOutSeconds"}
+    for clip in clips:
+        unsupported = [
+            key for key in ENGINE_CLIP_SETTINGS
+            if key not in mapped_fades and key in clip and clip[key] is not None
+        ]
+        if unsupported:
+            raise ValueError(
+                f"Clip {clip['id']} uses Engine settings ({', '.join(unsupported)}) that cannot be split across an OTIO crossfade."
+            )
 
 
 def make_otio_clip(source_clip, project_root, assets, source_in, source_out, name):

@@ -613,7 +613,8 @@ settings and audio-track effects/automation are retained in namespaced metadata
 for Engine round trips; other applications may ignore or remove it. Variable
 speed ramps, retimed crossfades, trims that cut through transitions, nested or
 combined stack trims, nested compositions, and remote references are outside
-the interoperable profile.
+the interoperable profile. Crossfade participants with additional Engine-only
+clip settings are rejected to avoid changing their timing or scope.
 Trimmed track ranges are applied to clips and gaps; trimmed stacks apply their
 range to direct tracks. Install it with
 `python -m pip install -r requirements-otio.txt`.
