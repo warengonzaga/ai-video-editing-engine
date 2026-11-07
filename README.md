@@ -533,8 +533,10 @@ replacement source. Its CLI progress stays on stderr.
 
 `asset verify` checks registered source and proxy SHA-256 identities against
 the manifest and reports missing or modified files. The CLI hashes media
-asynchronously, and Ctrl+C cancels the scan; JavaScript consumers can call
-`await verifyProjectAssetsAsync(projectPath, { signal })` for the same behavior.
+asynchronously and reports byte-based scan progress on stderr. Ctrl+C cancels
+the scan; JavaScript consumers can pass `onProgress(event)` to
+`verifyProjectAssetsAsync(projectPath, { signal, onProgress })` for the same
+overall progress in their UI.
 The synchronous `verifyProjectAssets(projectPath)` API remains available.
 `asset relink` replaces
 the media for an existing asset ID, refreshes its probe metadata and

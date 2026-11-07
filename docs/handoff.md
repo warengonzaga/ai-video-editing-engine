@@ -1505,3 +1505,8 @@ smoke render alone.
   replacement from three-second B-roll to the six-second source delivered 29
   events across copy, probe, and publish and returned refreshed media metadata.
   Its temporary project was removed after inspection.
+- Async asset verification reports byte-based progress across registered source
+  and proxy files. The CLI sends the scan percentage to stderr and preserves the
+  JSON verification report on stdout. A manual verification of the generic
+  layered demo checked six source/proxy records, all `ok`, and delivered 38
+  events from byte progress through completion (2,097,788 total bytes).

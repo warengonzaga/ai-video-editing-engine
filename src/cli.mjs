@@ -348,7 +348,25 @@ async function main(args) {
     return;
   }
   if (command === 'asset' && commandArgs[0] === 'verify' && commandArgs.length === 2) {
-    const results = await runWithInterrupt((signal) => verifyProjectAssetsAsync(resolve(commandArgs[1]), { signal }), 'Asset verification');
+    let reportedVerifyPercent = -1;
+    const results = await runWithInterrupt((signal) => verifyProjectAssetsAsync(resolve(commandArgs[1]), {
+      signal,
+      onProgress(event) {
+        if (event.phase === 'progress') {
+          const percent = Math.floor(event.percent);
+          if (percent > reportedVerifyPercent) {
+            reportedVerifyPercent = percent;
+            process.stderr.write('Asset integrity scan: ' + percent + '%\n');
+          }
+        } else if (event.phase === 'started') {
+          process.stderr.write('Asset integrity scan: started\n');
+        } else if (event.phase === 'completed') {
+          process.stderr.write('Asset integrity scan: complete\n');
+        } else if (event.phase === 'failed') {
+          process.stderr.write('Asset integrity scan: failed\n');
+        }
+      },
+    }), 'Asset verification');
     console.log(JSON.stringify(results, null, 2));
     if (results.some((asset) => asset.status !== 'ok')) process.exitCode = 1;
     return;

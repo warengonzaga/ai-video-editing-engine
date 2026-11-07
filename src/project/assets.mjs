@@ -278,53 +278,84 @@ export function verifyProjectAssets(projectPath) {
   });
 }
 
-export async function verifyProjectAssetsAsync(projectPath, { signal } = {}) {
+export async function verifyProjectAssetsAsync(projectPath, { signal, onProgress } = {}) {
   if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
     throw new TypeError('Asset verification signal must be an AbortSignal.');
   }
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Asset verification onProgress must be a function.');
   signal?.throwIfAborted();
   const root = resolve(projectPath);
   const manifest = readAssetManifest(root);
+  const filePaths = manifest.assets.flatMap((asset) => [
+    resolveProjectAsset(root, asset.path),
+    ...(asset.proxies ?? []).map((proxy) => resolveProjectProxy(root, proxy.path)),
+  ]);
+  const totalBytes = filePaths.reduce((total, path) => {
+    try {
+      const file = lstatSync(path);
+      return file.isFile() && !file.isSymbolicLink() ? total + file.size : total;
+    } catch {
+      return total;
+    }
+  }, 0);
+  let completedBytes = 0;
   const results = [];
-  for (const asset of manifest.assets) {
-    signal?.throwIfAborted();
-    const path = resolveProjectAsset(root, asset.path);
-    const sourceStatus = (status, actualSha256) => ({
-      id: asset.id,
-      variant: 'source',
-      path: asset.path,
-      status,
-      expectedSha256: asset.sha256,
-      ...(actualSha256 ? { actualSha256 } : {}),
+  emitRenderProgress(onProgress, 'asset-verification', 'started', { total: totalBytes });
+  const onFileBytes = (assetId, variant) => (bytes) => {
+    completedBytes += bytes;
+    emitRenderProgress(onProgress, 'asset-verification', 'progress', {
+      percent: totalBytes > 0 ? Math.min(99, completedBytes / totalBytes * 100) : 0,
+      completed: completedBytes,
+      total: totalBytes,
+      assetId,
+      variant,
     });
-    if (!existsSync(path) || !statSync(path).isFile()) {
-      results.push(sourceStatus('missing'));
-      continue;
-    }
-    if (lstatSync(path).isSymbolicLink()) {
-      results.push(sourceStatus('modified'));
-      continue;
-    }
-    const actualSha256 = await hashFileAsync(path, signal);
-    results.push(sourceStatus(actualSha256 === asset.sha256 ? 'ok' : 'modified', actualSha256));
-    for (const proxy of asset.proxies ?? []) {
+  };
+  try {
+    for (const asset of manifest.assets) {
       signal?.throwIfAborted();
-      const proxyPath = resolveProjectProxy(root, proxy.path);
-      if (!existsSync(proxyPath) || !statSync(proxyPath).isFile() || lstatSync(proxyPath).isSymbolicLink()) {
-        results.push({ id: asset.id, variant: 'proxy', path: proxy.path, status: 'missing', expectedSha256: proxy.sha256 });
+      const path = resolveProjectAsset(root, asset.path);
+      const sourceStatus = (status, actualSha256) => ({
+        id: asset.id,
+        variant: 'source',
+        path: asset.path,
+        status,
+        expectedSha256: asset.sha256,
+        ...(actualSha256 ? { actualSha256 } : {}),
+      });
+      if (!existsSync(path) || !statSync(path).isFile()) {
+        results.push(sourceStatus('missing'));
         continue;
       }
-      const actualProxySha256 = await hashFileAsync(proxyPath, signal);
-      results.push({
-        id: asset.id,
-        variant: 'proxy',
-        path: proxy.path,
-        status: actualProxySha256 === proxy.sha256 && proxy.sourceSha256 === asset.sha256 ? 'ok' : 'modified',
-        expectedSha256: proxy.sha256,
-        actualSha256: actualProxySha256,
-      });
+      if (lstatSync(path).isSymbolicLink()) {
+        results.push(sourceStatus('modified'));
+        continue;
+      }
+      const actualSha256 = await hashFileAsync(path, signal, onFileBytes(asset.id, 'source'));
+      results.push(sourceStatus(actualSha256 === asset.sha256 ? 'ok' : 'modified', actualSha256));
+      for (const proxy of asset.proxies ?? []) {
+        signal?.throwIfAborted();
+        const proxyPath = resolveProjectProxy(root, proxy.path);
+        if (!existsSync(proxyPath) || !statSync(proxyPath).isFile() || lstatSync(proxyPath).isSymbolicLink()) {
+          results.push({ id: asset.id, variant: 'proxy', path: proxy.path, status: 'missing', expectedSha256: proxy.sha256 });
+          continue;
+        }
+        const actualProxySha256 = await hashFileAsync(proxyPath, signal, onFileBytes(asset.id, 'proxy'));
+        results.push({
+          id: asset.id,
+          variant: 'proxy',
+          path: proxy.path,
+          status: actualProxySha256 === proxy.sha256 && proxy.sourceSha256 === asset.sha256 ? 'ok' : 'modified',
+          expectedSha256: proxy.sha256,
+          actualSha256: actualProxySha256,
+        });
+      }
     }
+  } catch (error) {
+    emitRenderProgress(onProgress, 'asset-verification', 'failed', { completed: completedBytes, total: totalBytes });
+    throw error;
   }
+  emitRenderProgress(onProgress, 'asset-verification', 'completed', { completed: completedBytes, total: totalBytes });
   return results;
 }
 
@@ -1012,9 +1043,12 @@ function hashFile(path) {
   return hash.digest('hex');
 }
 
-async function hashFileAsync(path, signal) {
+async function hashFileAsync(path, signal, onBytes) {
   const hash = createHash('sha256');
-  for await (const chunk of createReadStream(path, { signal })) hash.update(chunk);
+  for await (const chunk of createReadStream(path, { signal })) {
+    hash.update(chunk);
+    onBytes?.(chunk.length);
+  }
   signal?.throwIfAborted();
   return hash.digest('hex');
 }

@@ -106,6 +106,16 @@ export function getEngineCapabilities(options = {}) {
           optionalEventFields: ['percent', 'completed', 'total', 'assetId'],
         },
       },
+      assetVerification: {
+        available: true,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['asset-verification'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'variant'],
+        },
+      },
       input: {
         available: ffmpeg.available && ffprobe.available,
         inventoryChecked: ffmpeg.available && ffprobe.available && !inputInspectionError,
