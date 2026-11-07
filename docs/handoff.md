@@ -61,7 +61,9 @@ Last updated: 2026-11-07
   waveform samples for assets with audio. Preview records verify source and
   cached-file SHA-256 values before reuse; hashing and cache publication use
   asynchronous file operations with abort checks. Generation options control
-  thumbnail spacing/size and waveform point count.
+  thumbnail spacing/size and waveform point count. The async API reports source
+  integrity, probing, thumbnail, waveform, cache, and publication progress;
+  CLI status stays on stderr while preview JSON remains on stdout.
 - Audio tracks and clips support gain, clip fades, clip-timing ducking, and
   signal-aware track sidechain compression. Optional timeline loudness
   mastering accepts integrated LUFS, true-peak, loudness-range, EQ-band, and
@@ -1510,3 +1512,10 @@ smoke render alone.
   JSON verification report on stdout. A manual verification of the generic
   layered demo checked six source/proxy records, all `ok`, and delivered 38
   events from byte progress through completion (2,097,788 total bytes).
+- Asset preview now reports source hashing, media probing, FFmpeg thumbnail
+  extraction, streamed waveform decoding, cache reuse, and publication through
+  `onProgress`; the CLI keeps these status updates on stderr. Manual CLI
+  validation generated a 2,000-point waveform from the existing Voice 015
+  recording and three thumbnails from the generic sample footage. Both runs
+  emitted progress events and returned parseable JSON on stdout. Node syntax and
+  diff checks passed; automated tests remain deferred.

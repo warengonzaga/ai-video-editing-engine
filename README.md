@@ -612,7 +612,10 @@ Pass an options JSON file to override `thumbnailIntervalSeconds` (default 2,
 (default 2000, 32–20000). The JavaScript API is
 `await generateAssetPreview(projectPath, assetId, { signal, ...options })`;
 thumbnail extraction, waveform decoding, and media probing respond to the
-signal. The CLI also cancels active preview processes on Ctrl+C.
+signal. Pass `onProgress(event)` to receive integrity hashing, media probing,
+thumbnail extraction, waveform decoding, and cache publication status. The CLI
+writes these updates to stderr and keeps preview JSON on stdout; Ctrl+C cancels
+active preview processes.
 
 Media-analysis providers use the same injected approach. Their findings are
 time-checked against the probed source and returned as suggestions for an AI or

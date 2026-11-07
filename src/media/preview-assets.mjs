@@ -10,8 +10,14 @@ const WAVEFORM_SAMPLE_RATE = 4000;
 const MAX_THUMBNAILS = 20000;
 
 export async function generateAssetPreview(projectPath, assetId, options = {}) {
-  const { signal, ...previewOptions } = options;
+  const { signal, onProgress, ...previewOptions } = options;
   validateAbortSignal(signal);
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Preview onProgress must be a function.');
+  const report = (event) => {
+    try { onProgress?.({ assetId, ...event }); } catch { /* Progress observers must not interrupt media processing. */ }
+  };
+  report({ stage: 'preview-preflight', phase: 'started' });
+  report({ stage: 'preview', phase: 'started' });
   const root = resolve(projectPath);
   if (!existsSync(join(root, 'meta.json'))) throw new Error(`Not an Engine project: ${root}`);
   if (!/^[a-z][a-z0-9-]*$/.test(assetId ?? '')) throw new TypeError('Asset id must be a lowercase kebab-case identifier.');
@@ -45,12 +51,21 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   const sourceRelative = relative(root, source);
   if (!sourceRelative || sourceRelative.startsWith('..') || sourceRelative.includes(':') || asset.path.includes('\\')) throw new TypeError(`Asset path is invalid: ${assetId}`);
   if (!existsSync(source) || !statSync(source).isFile() || lstatSync(source).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or unsafe.`);
-  const sourceSha256 = await hashFileAsync(source, signal);
+  const sourceSize = statSync(source).size;
+  let hashedBytes = 0;
+  report({ stage: 'preview-integrity', phase: 'started', totalBytes: sourceSize });
+  const sourceSha256 = await hashFileAsync(source, signal, (bytes) => {
+    hashedBytes += bytes;
+    report({ stage: 'preview-integrity', phase: 'progress', currentBytes: hashedBytes, totalBytes: sourceSize, percent: sourceSize ? Math.min(100, hashedBytes / sourceSize * 100) : 100 });
+  });
+  report({ stage: 'preview-integrity', phase: 'completed', currentBytes: sourceSize, totalBytes: sourceSize, percent: 100 });
   if (sourceSha256 !== asset.sha256) throw new Error(`Asset ${assetId} failed integrity verification; relink it before preview generation.`);
   signal?.throwIfAborted();
 
   const isImage = asset.type === 'image';
+  report({ stage: 'preview-probe', phase: isImage ? 'skipped' : 'started', ...(isImage ? { reason: 'image asset' } : {}) });
   const media = isImage ? undefined : await probeMediaAsync(source, { requireVideo: false, signal });
+  if (!isImage) report({ stage: 'preview-probe', phase: 'completed' });
   const hasVideo = isImage || Number.isFinite(media?.width);
   const hasAudio = !isImage && media?.hasAudio === true;
   const durationSeconds = isImage ? 0 : media.durationSeconds;
@@ -62,7 +77,15 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   mkdirSync(previewRoot, { recursive: true });
   const destination = join(previewRoot, `${assetId}-${key}`);
   const expected = { assetId, sourceSha256, settings, durationSeconds, isImage, hasVideo, hasAudio };
-  if (existsSync(destination)) return await readCachedPreview(destination, expected, signal);
+  report({ stage: 'preview-preflight', phase: 'completed' });
+  if (existsSync(destination)) {
+    report({ stage: 'preview-cache', phase: 'started' });
+    const cached = await readCachedPreview(destination, expected, signal);
+    report({ stage: 'preview-cache', phase: 'completed', result: 'hit' });
+    report({ stage: 'preview-generation', phase: 'skipped', reason: 'cache hit' });
+    report({ stage: 'preview', phase: 'completed', result: 'cached' });
+    return cached;
+  }
 
   const staging = join(previewRoot, `.preview-${randomUUID()}.tmp`);
   mkdirSync(staging, { recursive: false });
@@ -72,23 +95,28 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
       const count = isImage ? 1 : Math.max(1, Math.ceil(durationSeconds / thumbnailIntervalSeconds - 1e-9));
       if (count > MAX_THUMBNAILS) throw new RangeError(`Preview would create ${count} thumbnails; increase thumbnailIntervalSeconds to stay within ${MAX_THUMBNAILS}.`);
       const pattern = join(staging, 'thumbnail-%05d.jpg');
+      report({ stage: 'preview-thumbnails', phase: 'started', total: count });
       if (isImage) {
-        await runFfmpeg(['-i', source, '-frames:v', '1', '-vf', `scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-q:v', '3', join(staging, 'thumbnail-00001.jpg')], signal);
+        await runFfmpeg(['-i', source, '-frames:v', '1', '-vf', `scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-q:v', '3', join(staging, 'thumbnail-00001.jpg')], signal, { onProgress: report, durationSeconds: 0 });
       } else {
-        await runFfmpeg(['-i', source, '-map', '0:v:0', '-vf', `fps=1/${thumbnailIntervalSeconds},scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-frames:v', String(count), '-q:v', '3', pattern], signal);
+        await runFfmpeg(['-i', source, '-map', '0:v:0', '-vf', `fps=1/${thumbnailIntervalSeconds},scale=${thumbnailMaxDimension}:${thumbnailMaxDimension}:force_original_aspect_ratio=decrease`, '-frames:v', String(count), '-q:v', '3', pattern], signal, { onProgress: report, durationSeconds });
       }
       for (let index = 1; index <= count; index++) {
         const file = `thumbnail-${String(index).padStart(5, '0')}.jpg`;
         const path = join(staging, file);
         if (!existsSync(path) || statSync(path).size === 0) throw new Error(`FFmpeg did not create expected preview frame ${index} for ${assetId}.`);
         thumbnails.push({ timeSeconds: isImage ? 0 : Number(((index - 1) * thumbnailIntervalSeconds).toFixed(6)), file, sha256: await hashFileAsync(path, signal) });
+        report({ stage: 'preview-thumbnails', phase: 'progress', current: index, total: count, percent: index / count * 100 });
       }
+      report({ stage: 'preview-thumbnails', phase: 'completed', current: count, total: count, percent: 100 });
     }
 
     let waveform;
     if (hasAudio) {
-      waveform = await createWaveform(source, durationSeconds, waveformPoints, signal);
-      writeFileSync(join(staging, 'waveform.json'), `${JSON.stringify(waveform)}\n`, { flag: 'wx' });
+      report({ stage: 'preview-waveform', phase: 'started', totalSamples: Math.ceil(durationSeconds * WAVEFORM_SAMPLE_RATE) });
+      waveform = await createWaveform(source, durationSeconds, waveformPoints, signal, report);
+      writeFileSync(join(staging, 'waveform.json'), `${JSON.stringify({ sampleRate: waveform.sampleRate, points: waveform.points })}\n`, { flag: 'wx' });
+      report({ stage: 'preview-waveform', phase: 'completed', currentSamples: waveform.sampleCount, percent: 100 });
     }
     const result = {
       schemaVersion: 1,
@@ -104,12 +132,16 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
       ...(waveform ? [{ file: 'waveform.json', sha256: await hashFileAsync(join(staging, 'waveform.json'), signal) }] : []),
     ] }, null, 2)}\n`, { flag: 'wx' });
     signal?.throwIfAborted();
+    report({ stage: 'preview-publish', phase: 'started' });
     try {
       await rename(staging, destination);
     } catch (error) {
       if (existsSync(destination)) {
         await rm(staging, { recursive: true, force: true });
-        return await readCachedPreview(destination, expected, signal);
+        const cached = await readCachedPreview(destination, expected, signal);
+        report({ stage: 'preview-publish', phase: 'skipped', reason: 'another process published matching preview' });
+        report({ stage: 'preview', phase: 'completed', result: 'cached' });
+        return cached;
       }
       if (!['EPERM', 'EXDEV'].includes(error.code)) throw error;
       mkdirSync(destination, { recursive: false });
@@ -124,14 +156,17 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
         throw copyError;
       }
     }
+    report({ stage: 'preview-publish', phase: 'completed' });
+    report({ stage: 'preview', phase: 'completed', result: 'generated' });
     return result;
   } catch (error) {
+    report({ stage: 'preview', phase: 'failed', message: error.message });
     await rm(staging, { recursive: true, force: true });
     throw error;
   }
 }
 
-function createWaveform(source, durationSeconds, pointCount, signal) {
+function createWaveform(source, durationSeconds, pointCount, signal, onProgress) {
   signal?.throwIfAborted();
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn('ffmpeg', [
@@ -142,6 +177,7 @@ function createWaveform(source, durationSeconds, pointCount, signal) {
     let sampleIndex = 0;
     let remainder = Buffer.alloc(0);
     let stderr = '';
+    let reportedPercent = -1;
     let settled = false;
     const timer = setTimeout(() => child.kill(), 300000);
     const fail = (error) => {
@@ -165,6 +201,11 @@ function createWaveform(source, durationSeconds, pointCount, signal) {
         sampleIndex++;
       }
       remainder = data.subarray(usableBytes);
+      const percent = Math.min(99, Math.floor(sampleIndex / (durationSeconds * WAVEFORM_SAMPLE_RATE) * 100));
+      if (percent > reportedPercent) {
+        reportedPercent = percent;
+        onProgress({ stage: 'preview-waveform', phase: 'progress', currentSamples: sampleIndex, totalSamples: Math.ceil(durationSeconds * WAVEFORM_SAMPLE_RATE), percent });
+      }
     });
     child.stderr.on('data', (chunk) => { if (stderr.length < 32768) stderr += chunk.toString(); });
     child.on('error', (error) => fail(new Error(`Could not start FFmpeg waveform preview: ${error.message}`)));
@@ -175,7 +216,7 @@ function createWaveform(source, durationSeconds, pointCount, signal) {
       if (signal?.aborted) return fail(signal.reason ?? new DOMException('Asset preview was aborted.', 'AbortError'));
       if (code !== 0) return fail(new Error(`FFmpeg waveform preview failed: ${stderr.trim() || `exit code ${code}`}`));
       if (sampleIndex === 0) return fail(new Error('FFmpeg returned no audio samples for waveform preview.'));
-      resolvePromise({ sampleRate: WAVEFORM_SAMPLE_RATE, points: points.map((point) => ({
+      resolvePromise({ sampleRate: WAVEFORM_SAMPLE_RATE, sampleCount: sampleIndex, points: points.map((point) => ({
         min: point.min === 1 ? 0 : Number(point.min.toFixed(5)),
         max: point.max === -1 ? 0 : Number(point.max.toFixed(5)),
       })) });
@@ -247,7 +288,7 @@ function validateAbortSignal(signal) {
   }
 }
 
-async function runFfmpeg(args, signal) {
+async function runFfmpeg(args, signal, { onProgress, durationSeconds } = {}) {
   const controller = new AbortController();
   const relayAbort = () => controller.abort(signal.reason);
   if (signal?.aborted) relayAbort();
@@ -258,7 +299,24 @@ async function runFfmpeg(args, signal) {
     controller.abort(error);
   }, 120000);
   try {
-    await runProcess('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-y', ...args], { signal: controller.signal, stdio: 'capture' });
+    let outputBuffer = '';
+    await runProcess('ffmpeg', ['-nostdin', '-hide_banner', '-v', 'error', '-y', '-progress', 'pipe:1', '-nostats', ...args], {
+      signal: controller.signal,
+      stdio: 'capture',
+      onStdout(chunk) {
+        outputBuffer += chunk.toString();
+        const lines = outputBuffer.split(/\r?\n/);
+        outputBuffer = lines.pop() ?? '';
+        for (const line of lines) {
+          const [key, value] = line.split('=', 2);
+          if (key !== 'out_time' || !durationSeconds) continue;
+          const match = /^(\d+):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(value);
+          if (!match) continue;
+          const elapsed = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]) + Number(`0.${match[4] ?? 0}`);
+          onProgress({ stage: 'preview-thumbnails', phase: 'progress', percent: Math.min(99, elapsed / durationSeconds * 100) });
+        }
+      },
+    });
   } catch (error) {
     if (signal?.aborted || error.name === 'TimeoutError') throw error;
     throw new Error(`FFmpeg thumbnail generation failed: ${error.message}`, { cause: error });
@@ -268,9 +326,12 @@ async function runFfmpeg(args, signal) {
   }
 }
 
-async function hashFileAsync(path, signal) {
+async function hashFileAsync(path, signal, onBytes) {
   const hash = createHash('sha256');
-  for await (const chunk of createReadStream(path, { signal })) hash.update(chunk);
+  for await (const chunk of createReadStream(path, { signal })) {
+    hash.update(chunk);
+    onBytes?.(chunk.length);
+  }
   signal?.throwIfAborted();
   return hash.digest('hex');
 }

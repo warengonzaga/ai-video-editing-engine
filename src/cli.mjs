@@ -425,7 +425,30 @@ async function main(args) {
   if (command === 'asset' && commandArgs[0] === 'preview' && (commandArgs.length === 3 || commandArgs.length === 4)) {
     const [, project, assetId, optionsPath] = commandArgs;
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    const preview = await runWithInterrupt((signal) => generateAssetPreview(resolve(project), assetId, { ...options, signal }), 'Asset preview');
+    const reportedPreviewProgress = new Map();
+    const preview = await runWithInterrupt((signal) => generateAssetPreview(resolve(project), assetId, {
+      ...options,
+      signal,
+      onProgress(event) {
+        const stageName = event.stage === 'preview' ? '' : event.stage.replace('preview-', '');
+        const label = `Asset preview${stageName ? ` ${stageName}` : ''}`;
+        if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+          const percent = Math.floor(event.percent);
+          if (percent > (reportedPreviewProgress.get(event.stage) ?? -1)) {
+            reportedPreviewProgress.set(event.stage, percent);
+            process.stderr.write(`${label}: ${percent}%\n`);
+          }
+        } else if (event.phase === 'started') {
+          process.stderr.write(`${label}: started\n`);
+        } else if (event.phase === 'completed') {
+          process.stderr.write(`${label}: complete\n`);
+        } else if (event.phase === 'skipped') {
+          process.stderr.write(`${label}: skipped (${event.reason})\n`);
+        } else if (event.phase === 'failed') {
+          process.stderr.write(`${label}: failed\n`);
+        }
+      },
+    }), 'Asset preview');
     console.log(JSON.stringify(preview, null, 2));
     return;
   }
