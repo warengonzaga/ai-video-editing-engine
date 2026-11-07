@@ -37,7 +37,7 @@ export { assertFfmpegDecoder, assertFfmpegDemuxer, assertFfmpegEncoder, hasFfmpe
 export { secondsToFrame, frameToSeconds, snapTimeToFrame } from './media/frame-time.mjs';
 export { createFilterGraph, getKeepRanges, renderCuts } from './media/render-cuts.mjs';
 export { createVideoProject } from './project/create.mjs';
-export { createAssetProxy, createAssetProxyAsync, listProjectAssets, registerMediaAsset, registerMediaAssetAsync, relinkProjectAsset, relinkProjectAssetAsync, resolveAssetProxies, unregisterProjectAsset, verifyProjectAssets } from './project/assets.mjs';
+export { createAssetProxy, createAssetProxyAsync, listProjectAssets, registerMediaAsset, registerMediaAssetAsync, relinkProjectAsset, relinkProjectAssetAsync, resolveAssetProxies, resolveAssetProxiesAsync, unregisterProjectAsset, verifyProjectAssets } from './project/assets.mjs';
 export { CANVAS_PRESETS, listCanvasPresets, resolveCanvasPreset } from './project/presets.mjs';
 export { doctorHyperframes, importProjectTranscript, lintProject, previewProject, renderProject, renderProjectAsync, transcribeProject } from './render/hyperframes.mjs';
 export { resolveColorProfile, resolveEncoderArgs, resolveProfileEncoder, resolveRenderControlArgs, resolveRenderFormat, resolveVideoEncoder } from './render/formats.mjs';

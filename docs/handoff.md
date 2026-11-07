@@ -52,6 +52,8 @@ Last updated: 2026-11-07
   by default. The asynchronous API streams source and proxy hashing and uses
   asynchronous file publication so large files do not block the event loop;
   cancellation is checked during hashing and around publication.
+  `resolveAssetProxiesAsync` provides the same integrity checks for async draft
+  renders without synchronously hashing the selected source and proxy again.
 - `generateAssetPreview` and `asset preview` create content-keyed JPEG
   thumbnails for registered images/video and streamed 4 kHz mono min/max
   waveform samples for assets with audio. Preview records verify source and

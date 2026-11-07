@@ -657,31 +657,67 @@ export function resolveAssetProxies(projectPath, timeline) {
   const proxies = new Map();
   const videoIds = new Set(timeline.tracks.filter((track) => track.kind === 'video').flatMap((track) => track.clips.map((clip) => clip.assetId)));
   for (const assetId of videoIds) {
-    const asset = manifest.assets.find((entry) => entry.id === assetId);
-    if (asset?.type !== 'video') continue;
-    const sourcePath = resolveProjectAsset(root, asset.path);
-    if (!existsSync(sourcePath) || !statSync(sourcePath).isFile() || lstatSync(sourcePath).isSymbolicLink() || hashFile(sourcePath) !== asset.sha256) {
+    const entry = inspectAssetProxyForTimeline(root, manifest, timeline, assetId);
+    if (!entry) continue;
+    if (!isSafeRegularFile(entry.sourcePath) || hashFile(entry.sourcePath) !== entry.asset.sha256) {
       throw new Error(`Video asset ${assetId} failed integrity verification; relink it before proxy rendering.`);
     }
-    const targetFrameRate = String(normalizeFrameRate(timeline.project.fps));
-    const proxy = asset?.proxies?.filter((entry) => entry.sourceSha256 === asset.sha256
-      && (entry.targetFrameRate === undefined || entry.targetFrameRate === targetFrameRate))
-      .sort((left, right) => Number(right.targetFrameRate === targetFrameRate) - Number(left.targetFrameRate === targetFrameRate)
-        || left.maxDimension - right.maxDimension || right.crf - left.crf)[0];
-    if (!proxy) throw new Error(`Video asset ${assetId} has no current proxy; create one with "asset proxy create" first.`);
-    if (!/^[\da-f]{64}$/.test(proxy.sha256 ?? '') || !Number.isSafeInteger(proxy.maxDimension) || !Number.isSafeInteger(proxy.crf)) throw new TypeError(`Proxy metadata is invalid for asset ${assetId}.`);
-    const parts = typeof proxy.path === 'string' ? proxy.path.split('/') : [];
-    if (parts.length !== 3 || parts[0] !== 'assets' || parts[1] !== 'proxies' || parts.some((part) => !part || part === '.' || part === '..') || proxy.path.includes('\\')) {
-      throw new TypeError(`Proxy path is invalid for asset ${assetId}.`);
-    }
-    const path = resolve(root, proxy.path);
-    if (!path.startsWith(`${root}\\`) && !path.startsWith(`${root}/`)) throw new TypeError(`Proxy path escapes project: ${proxy.path}`);
-    if (!existsSync(path) || !statSync(path).isFile() || lstatSync(path).isSymbolicLink() || hashFile(path) !== proxy.sha256) {
+    if (!entry.proxy) throw new Error(`Video asset ${assetId} has no current proxy; create one with "asset proxy create" first.`);
+    if (!isSafeRegularFile(entry.path) || hashFile(entry.path) !== entry.proxy.sha256) {
       throw new Error(`Proxy for asset ${assetId} is missing or modified; regenerate it before preview rendering.`);
     }
-    proxies.set(assetId, proxy);
+    proxies.set(assetId, entry.proxy);
   }
   return proxies;
+}
+
+export async function resolveAssetProxiesAsync(projectPath, timeline, { signal } = {}) {
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Proxy signal must be an AbortSignal.');
+  }
+  signal?.throwIfAborted();
+  const root = resolve(projectPath);
+  const manifest = readAssetManifest(root);
+  const proxies = new Map();
+  const videoIds = new Set(timeline.tracks.filter((track) => track.kind === 'video').flatMap((clipTrack) => clipTrack.clips.map((clip) => clip.assetId)));
+  for (const assetId of videoIds) {
+    signal?.throwIfAborted();
+    const entry = inspectAssetProxyForTimeline(root, manifest, timeline, assetId);
+    if (!entry) continue;
+    if (!isSafeRegularFile(entry.sourcePath) || await hashFileAsync(entry.sourcePath, signal) !== entry.asset.sha256) {
+      throw new Error(`Video asset ${assetId} failed integrity verification; relink it before proxy rendering.`);
+    }
+    if (!entry.proxy) throw new Error(`Video asset ${assetId} has no current proxy; create one with "asset proxy create" first.`);
+    if (!isSafeRegularFile(entry.path) || await hashFileAsync(entry.path, signal) !== entry.proxy.sha256) {
+      throw new Error(`Proxy for asset ${assetId} is missing or modified; regenerate it before preview rendering.`);
+    }
+    proxies.set(assetId, entry.proxy);
+  }
+  return proxies;
+}
+
+function inspectAssetProxyForTimeline(root, manifest, timeline, assetId) {
+  const asset = manifest.assets.find((entry) => entry.id === assetId);
+  if (asset?.type !== 'video') return undefined;
+  const sourcePath = resolveProjectAsset(root, asset.path);
+  const targetFrameRate = String(normalizeFrameRate(timeline.project.fps));
+  const proxy = asset.proxies?.filter((entry) => entry.sourceSha256 === asset.sha256
+    && (entry.targetFrameRate === undefined || entry.targetFrameRate === targetFrameRate))
+    .sort((left, right) => Number(right.targetFrameRate === targetFrameRate) - Number(left.targetFrameRate === targetFrameRate)
+      || left.maxDimension - right.maxDimension || right.crf - left.crf)[0];
+  if (!proxy) return { asset, sourcePath };
+  if (!/^[\da-f]{64}$/.test(proxy.sha256 ?? '') || !Number.isSafeInteger(proxy.maxDimension) || !Number.isSafeInteger(proxy.crf)) throw new TypeError(`Proxy metadata is invalid for asset ${assetId}.`);
+  const parts = typeof proxy.path === 'string' ? proxy.path.split('/') : [];
+  if (parts.length !== 3 || parts[0] !== 'assets' || parts[1] !== 'proxies' || parts.some((part) => !part || part === '.' || part === '..') || proxy.path.includes('\\')) {
+    throw new TypeError(`Proxy path is invalid for asset ${assetId}.`);
+  }
+  const path = resolve(root, proxy.path);
+  if (!path.startsWith(`${root}\\`) && !path.startsWith(`${root}/`)) throw new TypeError(`Proxy path escapes project: ${proxy.path}`);
+  return { asset, sourcePath, proxy, path };
+}
+
+function isSafeRegularFile(path) {
+  return existsSync(path) && statSync(path).isFile() && !lstatSync(path).isSymbolicLink();
 }
 
 function readAssetManifest(root) {

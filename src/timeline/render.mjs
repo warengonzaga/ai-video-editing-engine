@@ -18,7 +18,7 @@ import { transitionClipPath } from './transition.mjs';
 import { buildSpeedRampAudioAutomation, speedRampPtsExpression } from './speed-ramp.mjs';
 import { applySidechainDuckingProxies, applySidechainDuckingProxiesAsync } from './sidechain-render.mjs';
 import { applyAudioTrackEffectProxies, applyAudioTrackEffectProxiesAsync } from './audio-track-effects.mjs';
-import { resolveAssetProxies } from '../project/assets.mjs';
+import { resolveAssetProxies, resolveAssetProxiesAsync } from '../project/assets.mjs';
 import { blendModeStyle } from './blend-mode.mjs';
 import { timelineForRender } from './track-state.mjs';
 import { audioClipEffectRequirements, buildAudioClipEffectFilters } from './audio-effects.mjs';
@@ -76,7 +76,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   const { useProxies, ...renderOptions } = options;
   validateTimeline(timeline);
   const renderTimeline = timelineForRender(timeline);
-  const proxyRecords = useProxies ? resolveAssetProxies(root, renderTimeline) : new Map();
+  const proxyRecords = prepared?.proxyRecords ?? (useProxies ? resolveAssetProxies(root, renderTimeline) : new Map());
   const metaPath = join(root, 'meta.json');
   if (!existsSync(metaPath)) throw new Error(`Not an Engine project: ${root}`);
   const originalMeta = readFileSync(metaPath);
@@ -275,7 +275,9 @@ async function prepareTimelineRenderAsync(projectPath, timeline, options, render
   if (options.useProxies !== undefined && typeof options.useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
   validateTimeline(timeline);
   const renderTimeline = timelineForRender(timeline);
-  const proxyRecords = options.useProxies ? resolveAssetProxies(root, renderTimeline) : new Map();
+  const proxyRecords = options.useProxies
+    ? await resolveAssetProxiesAsync(root, renderTimeline, { signal: renderControl.signal })
+    : new Map();
   const temporaryAssets = [];
   try {
     renderControl.assertActive();
@@ -286,7 +288,7 @@ async function prepareTimelineRenderAsync(projectPath, timeline, options, render
     const effectedTimeline = await applyAudioTrackEffectProxiesAsync(root, playbackTimeline, temporaryAssets, renderControl);
     const renderSpec = await applySidechainDuckingProxiesAsync(root, effectedTimeline, temporaryAssets, renderControl);
     renderControl.assertActive();
-    return { renderSpec, temporaryAssets };
+    return { renderSpec, temporaryAssets, proxyRecords };
   } catch (error) {
     cleanupTemporaryAssets(temporaryAssets);
     throw error;

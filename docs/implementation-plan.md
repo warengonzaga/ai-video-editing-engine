@@ -81,7 +81,9 @@ audio policy, cross-platform and broader format coverage remain open.
 - [x] Generate reusable bounded H.264 video proxies, verify their source and
   output fingerprints, opt into proxies for timeline draft renders, and expose
   cancellable async generation through the API and Ctrl+C-aware CLI. Async
-  hashing and file publication avoid blocking the event loop on large media.
+  hashing and file publication avoid blocking the event loop on large media;
+  async proxy resolution verifies source and proxy identity with streamed,
+  cancellable hashes.
 - [x] Model ordered tracks, clips, source ranges, trim, split, move, cuts,
   placement, and layer order with deterministic timing and source provenance.
 - [x] Replace clip source assets through a validated reviewable edit operation,
