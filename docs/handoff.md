@@ -1372,3 +1372,10 @@ smoke render alone.
   and keep the face front-facing. This is guidance for consumers; the Engine
   still cannot infer perceptual anchor alignment from arbitrary PNG artwork.
   No automated test or render was run for this metadata/documentation update.
+- Compared the current avatar's idle and blink source PNGs. Their visible alpha
+  bounds differ by up to three pixels horizontally, and 80,967 pixels outside
+  an approximate eye-area crop differ, indicating that the blink state replaces
+  far more than the eyes. Added machine-readable guidance and an authoring-guide
+  section recommending a dedicated eyes layer with a static body sprite. The
+  Engine cannot safely split arbitrary raster body art into separate layers.
+  No new avatar asset or render was generated.

@@ -20,6 +20,10 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
     jawMotion: 'Keep the upper lip anchored and extend more-open jaw shapes downward instead of shifting the whole mouth upward or sideways.',
     faceDirection: 'Keep the face and glasses front-facing; express pointing direction with the eyes or pose layer, not by moving the mouth.',
   }),
+  animationArtworkGuidance: Object.freeze({
+    blinking: 'Use a dedicated eyes layer for blink states; keep the body sprite unchanged during a blink to avoid whole-avatar flicker.',
+    poseChanges: 'When body pose states change, preserve the same canvas, framing, scale, and body anchor across every state.',
+  }),
   mouthShapeGuidance: Object.freeze({
     a: Object.freeze({ articulation: 'closed with gentle lip pressure', sounds: ['P', 'B', 'M'], role: 'bilabial closure' }),
     b: Object.freeze({ articulation: 'slightly open with teeth close together', sounds: ['K', 'S', 'T', 'EE'], role: 'consonants and narrow vowels' }),

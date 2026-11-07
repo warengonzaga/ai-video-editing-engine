@@ -50,6 +50,14 @@ not crossfade sprite images to synthesize intermediate mouth positions.
 - Give each required state distinct image content. Different filenames alone do
   not make the artwork distinct.
 
+## Keep blinking isolated
+
+Use a dedicated `eyes` layer for blink states and keep the body sprite unchanged
+while the avatar blinks. Replacing a full-body PNG to close the eyes can make
+the hair, glasses, face, clothing, or silhouette flicker even when all states
+share the same canvas dimensions. For body pose changes, preserve the canvas,
+framing, scale, and body anchor across states.
+
 Matching canvas sizes keeps the sprite layer fixed, but it cannot prove that
 mouth pixels share a common anchor or art style. Review the pack as a contact
 sheet and watch a rendered sequence before treating it as production-ready.
