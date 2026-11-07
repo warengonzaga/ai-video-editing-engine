@@ -1493,3 +1493,15 @@ smoke render alone.
   percentage. The proxy fingerprint and manifest update completed. This also
   exposed and fixed an existing undefined asset ID in proxy staging. Syntax
   checks only; automated tests remain deferred.
+- Async media registration now reports streamed copy/hash progress, media
+  probing, and manifest/timeline publication. The CLI writes these updates to
+  stderr so its JSON asset result remains machine-readable on stdout. A manual
+  isolated registration of a 1,454,487-byte, six-second H.264 source delivered
+  29 events across all three stages and copied, probed, and committed the asset.
+  The run exposed a missing `node:fs/promises` `link` import in the existing
+  async path; this is fixed. The temporary project was removed after inspection.
+- Async media relinking reports replacement copy/hash progress, probing, and
+  atomic publication/rollback stages; CLI progress is kept on stderr. A manual
+  replacement from three-second B-roll to the six-second source delivered 29
+  events across copy, probe, and publish and returned refreshed media metadata.
+  Its temporary project was removed after inspection.

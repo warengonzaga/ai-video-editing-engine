@@ -316,7 +316,26 @@ async function main(args) {
   }
   if (command === 'asset' && commandArgs[0] === 'register' && commandArgs.length >= 3 && commandArgs.length <= 4) {
     const [, project, media, id] = commandArgs;
-    const asset = await runWithInterrupt((signal) => registerMediaAssetAsync(resolve(project), media, { ...(id ? { id } : {}), signal }), 'Asset registration');
+    let reportedCopyPercent = -1;
+    const asset = await runWithInterrupt((signal) => registerMediaAssetAsync(resolve(project), media, {
+      ...(id ? { id } : {}),
+      signal,
+      onProgress(event) {
+        if (event.stage === 'asset-copy' && event.phase === 'progress') {
+          const percent = Math.floor(event.percent);
+          if (percent > reportedCopyPercent) {
+            reportedCopyPercent = percent;
+            process.stderr.write('Media copy: ' + percent + '%\n');
+          }
+        } else if (event.phase === 'started') {
+          process.stderr.write(event.stage + ': started\n');
+        } else if (event.phase === 'completed') {
+          process.stderr.write(event.stage + ': complete\n');
+        } else if (event.phase === 'failed') {
+          process.stderr.write(event.stage + ': failed\n');
+        }
+      },
+    }), 'Asset registration');
     console.log(JSON.stringify(asset, null, 2));
     return;
   }
@@ -336,7 +355,25 @@ async function main(args) {
   }
   if (command === 'asset' && commandArgs[0] === 'relink' && commandArgs.length === 4) {
     const [, project, assetId, media] = commandArgs;
-    const asset = await runWithInterrupt((signal) => relinkProjectAssetAsync(resolve(project), assetId, resolve(media), { signal }), 'Asset relinking');
+    let reportedRelinkPercent = -1;
+    const asset = await runWithInterrupt((signal) => relinkProjectAssetAsync(resolve(project), assetId, resolve(media), {
+      signal,
+      onProgress(event) {
+        if (event.stage === 'asset-relink-copy' && event.phase === 'progress') {
+          const percent = Math.floor(event.percent);
+          if (percent > reportedRelinkPercent) {
+            reportedRelinkPercent = percent;
+            process.stderr.write('Replacement media copy: ' + percent + '%\n');
+          }
+        } else if (event.phase === 'started') {
+          process.stderr.write(event.stage + ': started\n');
+        } else if (event.phase === 'completed') {
+          process.stderr.write(event.stage + ': complete\n');
+        } else if (event.phase === 'failed') {
+          process.stderr.write(event.stage + ': failed\n');
+        }
+      },
+    }), 'Asset relinking');
     console.log(JSON.stringify(asset, null, 2));
     return;
   }

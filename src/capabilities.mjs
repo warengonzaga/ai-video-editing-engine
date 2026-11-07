@@ -96,6 +96,16 @@ export function getEngineCapabilities(options = {}) {
       browserRuntime: { available: null, checked: false, checkCommand: 'npm run doctor' },
     },
     media: {
+      assetIngest: {
+        available: ffmpeg.available && ffprobe.available,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['asset-copy', 'asset-probe', 'asset-publish', 'asset-relink-copy', 'asset-relink-probe', 'asset-relink-publish'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId'],
+        },
+      },
       input: {
         available: ffmpeg.available && ffprobe.available,
         inventoryChecked: ffmpeg.available && ffprobe.available && !inputInspectionError,

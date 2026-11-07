@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
-import { copyFile, rename } from 'node:fs/promises';
+import { copyFile, link, rename } from 'node:fs/promises';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
@@ -83,10 +83,11 @@ export function registerMediaAsset(projectPath, sourcePath, options = {}) {
 }
 
 export async function registerMediaAssetAsync(projectPath, sourcePath, options = {}) {
-  const { signal, ...registerOptions } = options;
+  const { signal, onProgress, ...registerOptions } = options;
   if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
     throw new TypeError('Asset registration signal must be an AbortSignal.');
   }
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Asset registration onProgress must be a function.');
   for (const field of Object.keys(registerOptions)) if (field !== 'id') throw new TypeError(`Unsupported asset registration option: ${field}.`);
   if (signal?.aborted) throw signal.reason ?? new DOMException('Asset registration was aborted.', 'AbortError');
   const root = resolve(projectPath);
@@ -107,10 +108,26 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
   const stagedPath = join(assetDirectory, `.${id}.${randomUUID()}.register.tmp`);
   let destinationLinked = false;
   let registered = false;
+  let activeStage = 'asset-copy';
   try {
-    const sha256 = await copyFileAndHash(source, stagedPath, signal);
+    const sourceBytes = statSync(source).size;
+    emitRenderProgress(onProgress, 'asset-copy', 'started', { assetId: id, total: sourceBytes });
+    let copiedBytes = 0;
+    const sha256 = await copyFileAndHash(source, stagedPath, signal, (completed) => {
+      copiedBytes = completed;
+      emitRenderProgress(onProgress, 'asset-copy', 'progress', {
+        assetId: id,
+        percent: sourceBytes > 0 ? Math.min(99, completed / sourceBytes * 100) : 0,
+        completed,
+        total: sourceBytes,
+      });
+    });
+    emitRenderProgress(onProgress, 'asset-copy', 'completed', { assetId: id, completed: copiedBytes, total: sourceBytes });
+    activeStage = 'asset-probe';
+    emitRenderProgress(onProgress, activeStage, 'started', { assetId: id });
     const probe = image ? await probeImageAsync(stagedPath, signal) : await probeMediaAsync(stagedPath, { requireVideo: false, signal });
     signal?.throwIfAborted();
+    emitRenderProgress(onProgress, activeStage, 'completed', { assetId: id });
     const asset = {
       id,
       path: relativePath,
@@ -132,6 +149,8 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
         streamTiming: probe.streamTiming,
       }),
     };
+    activeStage = 'asset-publish';
+    emitRenderProgress(onProgress, activeStage, 'started', { assetId: id });
     await link(stagedPath, destination);
     destinationLinked = true;
     const latestManifest = readAssetManifest(root);
@@ -148,8 +167,10 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
       throw error;
     }
     registered = true;
+    emitRenderProgress(onProgress, activeStage, 'completed', { assetId: id });
     return asset;
   } catch (error) {
+    emitRenderProgress(onProgress, activeStage, 'failed', { assetId: id });
     if (destinationLinked && !registered && existsSync(destination)) rmSync(destination, { force: true });
     throw error;
   } finally {
@@ -404,11 +425,12 @@ export function relinkProjectAsset(projectPath, assetId, sourcePath) {
 }
 
 export async function relinkProjectAssetAsync(projectPath, assetId, sourcePath, options = {}) {
-  const { signal } = options;
-  if (Object.keys(options).some((field) => field !== 'signal')) throw new TypeError('Unsupported asset relink option.');
+  const { signal, onProgress } = options;
+  if (Object.keys(options).some((field) => !['signal', 'onProgress'].includes(field))) throw new TypeError('Unsupported asset relink option.');
   if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
     throw new TypeError('Asset relink signal must be an AbortSignal.');
   }
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Asset relink onProgress must be a function.');
   if (signal?.aborted) throw signal.reason ?? new DOMException('Asset relinking was aborted.', 'AbortError');
   const root = resolve(projectPath);
   const manifest = readAssetManifest(root);
@@ -438,9 +460,25 @@ export async function relinkProjectAssetAsync(projectPath, assetId, sourcePath, 
   let installedNewAsset = false;
   let commitStarted = false;
   let committed = false;
+  let activeStage = 'asset-relink-copy';
   try {
-    const replacementSha256 = await copyFileAndHash(source, stagedPath, signal);
+    const sourceBytes = statSync(source).size;
+    emitRenderProgress(onProgress, activeStage, 'started', { assetId, total: sourceBytes });
+    let copiedBytes = 0;
+    const replacementSha256 = await copyFileAndHash(source, stagedPath, signal, (completed) => {
+      copiedBytes = completed;
+      emitRenderProgress(onProgress, activeStage, 'progress', {
+        assetId,
+        percent: sourceBytes > 0 ? Math.min(99, completed / sourceBytes * 100) : 0,
+        completed,
+        total: sourceBytes,
+      });
+    });
+    emitRenderProgress(onProgress, activeStage, 'completed', { assetId, completed: copiedBytes, total: sourceBytes });
+    activeStage = 'asset-relink-probe';
+    emitRenderProgress(onProgress, activeStage, 'started', { assetId });
     const probe = image ? await probeImageAsync(stagedPath, signal) : await probeMediaAsync(stagedPath, { requireVideo: false, signal });
+    emitRenderProgress(onProgress, activeStage, 'completed', { assetId });
     const type = image ? 'image' : probe.width === null ? 'audio' : 'video';
     if (type !== previous.type) throw new TypeError(`Replacement media must be a ${previous.type} asset.`);
     const updated = {
@@ -477,6 +515,8 @@ export async function relinkProjectAssetAsync(projectPath, assetId, sourcePath, 
       }
     }
     signal?.throwIfAborted();
+    activeStage = 'asset-relink-publish';
+    emitRenderProgress(onProgress, activeStage, 'started', { assetId });
     commitStarted = true;
     if (oldAssetExists) {
       await rename(destination, backupPath);
@@ -488,11 +528,13 @@ export async function relinkProjectAssetAsync(projectPath, assetId, sourcePath, 
     if (nextTimeline) writeFileAtomically(timelinePath, `${JSON.stringify(nextTimeline, null, 2)}\n`);
     if (timelineChanged) checkpointTimelineHistory({ path: timelinePath, originalHistory });
     committed = true;
+    emitRenderProgress(onProgress, activeStage, 'completed', { assetId });
     for (const proxy of previous.proxies ?? []) {
       if (proxy.sourceSha256 !== updated.sha256) rmSync(resolveProjectProxy(root, proxy.path), { force: true });
     }
     return updated;
   } catch (error) {
+    emitRenderProgress(onProgress, activeStage, 'failed', { assetId });
     if (commitStarted && !committed) {
       if (installedNewAsset) await unlink(destination).catch(() => {});
       if (movedOldAsset && !existsSync(destination)) await rename(backupPath, destination).catch(() => {});
@@ -936,11 +978,20 @@ async function probeImageAsync(path, signal) {
   return { width: stream.width, height: stream.height, codec: stream.codec_name ?? null };
 }
 
-async function copyFileAndHash(source, destination, signal) {
+async function copyFileAndHash(source, destination, signal, onProgress) {
   const hash = createHash('sha256');
+  const totalBytes = statSync(source).size;
+  let copiedBytes = 0;
+  let lastPercent = -1;
   const hasher = new Transform({
     transform(chunk, encoding, callback) {
       hash.update(chunk);
+      copiedBytes += chunk.length;
+      const percent = totalBytes > 0 ? Math.floor(copiedBytes / totalBytes * 100) : 100;
+      if (onProgress && (percent > lastPercent || copiedBytes >= totalBytes)) {
+        lastPercent = percent;
+        onProgress(copiedBytes);
+      }
       callback(null, chunk);
     },
   });

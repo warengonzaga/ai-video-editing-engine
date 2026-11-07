@@ -522,10 +522,14 @@ probe or staged copy and cleans the incomplete registration; source files and
 existing project assets are left untouched. When `timeline.json` exists, the
 new asset's probed metadata is added to its asset catalog without adding a clip;
 the editing agent can then place it on a track. JavaScript consumers can use
-`await registerMediaAssetAsync(projectPath, sourcePath, { id, signal })`.
+`await registerMediaAssetAsync(projectPath, sourcePath, { id, signal, onProgress })`
+to receive byte-based copy progress plus probe and publish stages. The CLI prints
+copy progress to stderr and keeps the registered asset JSON on stdout.
 Both synchronous and asynchronous registration now probe and fingerprint the
 staged copy, so the recorded metadata describes the bytes committed to the
 project.
+`asset relink` emits the same copy/hash, probe, and publish progress for the
+replacement source. Its CLI progress stays on stderr.
 
 `asset verify` checks registered source and proxy SHA-256 identities against
 the manifest and reports missing or modified files. The CLI hashes media
