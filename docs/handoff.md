@@ -1472,5 +1472,10 @@ smoke render alone.
   six-second 640×360/30 fps H.264 file with stereo AAC. This was manual API
   integration validation of capture progress; the automated suite remains
   deferred. The expanded stage-event implementation passes Node syntax and diff
-  checks. A rerender could not be completed in the current sandbox because it
-  blocks HyperFrames' local browser connection (`net::ERR_NETWORK_ACCESS_DENIED`).
+  checks. HyperFrames' local browser connection was denied in the normal
+  sandbox. A manually executed rerender produced
+  `video-projects/generic-multilayer-demo/renders/generic-multilayer-demo-v10.mp4`;
+  ffprobe confirms 6 seconds, 640×360 H.264 at 30 fps, with AAC audio. A direct
+  FFmpeg progress invocation reports `out_time_us` and `progress=end`. The full
+  downstream callback summary was not retained by the command output, so
+  encoding and mastering event delivery still need end-to-end confirmation.
