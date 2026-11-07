@@ -12,6 +12,7 @@ import { probeMediaAsync } from './media/probe.mjs';
 import { inspectMediaCompatibility } from './media/compatibility.mjs';
 import { generateAssetPreview } from './media/preview-assets.mjs';
 import { analyzeMediaWithProvider } from './media/analysis-provider.mjs';
+import { detectSceneChangesAsync } from './media/scene-detection.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
@@ -535,6 +536,16 @@ async function main(args) {
     console.log(`Wrote ${resolve(outputPath)}`);
     return;
   }
+  if (command === 'detect-scenes' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [mediaPath, outputPath, optionsPath] = commandArgs;
+    const result = await runWithInterrupt((signal) => detectSceneChangesAsync(resolve(mediaPath), {
+      ...(optionsPath ? readJson(resolve(optionsPath)) : {}),
+      signal,
+    }), 'Scene detection');
+    writeNewFile(resolve(outputPath), result);
+    console.log(`Wrote ${resolve(outputPath)} (review required)`);
+    return;
+  }
   if (command === 'analysis-to-edl' && commandArgs.length >= 2 && commandArgs.length <= 3) {
     const [analysisPath, outputPath, optionsPath] = commandArgs;
     const result = readJson(resolve(analysisPath));
@@ -609,6 +620,7 @@ async function main(args) {
   transcribe <project> <media> [model] [language] | import-transcript <project> <media> <transcript>
   plan-silence <transcript.json> <new-edl.json> | detect-silence <media> <new-edl.json> [options.json]
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
+  detect-scenes <media> <new-analysis.json> [options.json]
   avatar validate-mouth-pack <mouth-pack.json> | avatar-compose <project> <spec.json>
   analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
   approve-edl <reviewed-edl.json> <new-approved-edl.json>

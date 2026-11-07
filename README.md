@@ -503,6 +503,8 @@ node src/cli.mjs timeline render video-projects/my-edit timeline.json renders/re
 
 # Generate a proposal, review it, then save approved decisions as approved.json.
 node src/cli.mjs detect-silence video-projects/my-edit/assets/camera.mp4 video-projects/my-edit/edits/silence-proposal.json
+# Find candidate shot boundaries; inspect the analysis before editing.
+node src/cli.mjs detect-scenes video-projects/my-edit/assets/camera.mp4 video-projects/my-edit/edits/scene-candidates.json
 node src/cli.mjs edit video-projects/my-edit camera video-projects/my-edit/transcripts/transcript.json path/to/approved.json
 ```
 
@@ -644,6 +646,24 @@ active preview processes.
 Media-analysis providers use the same injected approach. Their findings are
 time-checked against the probed source and returned as suggestions for an AI or
 human editor to review; the Engine does not turn them into automatic cuts:
+
+For a local first-pass shot map, `detect-scenes` uses FFmpeg's scene-change
+score and returns review-required `scene-cut` findings in the same normalized
+analysis format. It accepts an optional JSON file with `threshold` (0.05–1,
+default 0.35), `minimumSpacingSeconds` (0–60, default 0.5), and
+`maximumFindings` (1–10000, default 2000). Raising the threshold finds only
+more pronounced visual changes. This detects visual differences; it does not
+identify semantic topics, camera quality, or whether a cut is editorially
+useful. The JavaScript API is `detectSceneChangesAsync(mediaPath, options)` and
+supports `AbortSignal` cancellation.
+
+```sh
+node src/cli.mjs detect-scenes path/to/source.mp4 edits/scene-candidates.json
+```
+
+Scene candidates can guide a provider or editing agent when selecting ranges
+for a rough cut, B-roll, or chapter markers. They do not create or apply edits
+by themselves.
 
 ```js
 const { analysis } = await analyzeMediaWithProvider(mediaPath, {

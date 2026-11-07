@@ -152,6 +152,16 @@ export function getEngineCapabilities(options = {}) {
           optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'reason'],
         },
       },
+      sceneDetection: {
+        available: ffmpeg.available && ffprobe.available,
+        analyzer: 'ffmpeg-scene-score',
+        defaultThreshold: 0.35,
+        thresholdRange: [0.05, 1],
+        defaultMinimumSpacingSeconds: 0.5,
+        reviewRequired: true,
+        outputTypes: ['scene-cut'],
+        cancellation: true,
+      },
     },
     interchange: {
       openTimelineIO: {

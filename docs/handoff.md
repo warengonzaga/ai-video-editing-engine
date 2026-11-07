@@ -1851,3 +1851,18 @@ smoke render alone.
   -18.0 LUFS integrated loudness and -1.0 dBFS true peak for the configured
   targets. The output directory contains no temporary master files. Automated
   tests were not run per the user's direction; human audio review remains open.
+- Added built-in FFmpeg scene-cut discovery through `detectSceneChangesAsync`
+  and `detect-scenes`. It produces confidence-scored `scene-cut` findings with
+  configurable threshold and spacing, marks them review-required, and does not
+  apply edit decisions. A six-second synthetic three-color source returned the
+  two expected boundaries at 2.0 and 4.0 seconds (0.400 scene score). The full
+  27.4274-second DJI camera source produced no candidates at the default
+  threshold, consistent with its continuous shot. This is first-pass visual
+  change detection, not semantic scene understanding or a claim that every
+  candidate is an editorial cut. The user's avatar feedback confirms that the
+  Rhubarb timing is acceptable while the mouth artwork needs a borderless,
+  lip-free style. An ignored v12 avatar preview with distinct A-H/X mouth
+  sprites renders at 1920x1080/30 fps with matching 11.133-second H.264/AAC
+  streams; its sprite pack passes structural validation. Visual and audio
+  review of that new render remain open, and no user avatar assets are part of
+  the Engine package.

@@ -167,6 +167,11 @@ and cross-platform codec coverage remain open.
 - [x] Propose transcript-gap and acoustic-silence cuts, identify adjacent
   repeated words, allow indexed transcript corrections, apply approved cuts,
   and retime words and generated captions consistently.
+- [x] Provide local FFmpeg scene-cut discovery through the JavaScript API and
+  CLI. It returns confidence-scored, review-required findings with threshold,
+  spacing, and result-count controls; it never applies cuts automatically.
+  Semantic shot understanding and editorial selection remain provider/agent
+  decisions.
 - [x] Provide explicit project-frame conversion and rounding helpers; enforce
   constant-rate or integrated speed-ramp source-span/duration matches and
   registered-media source boundaries.
