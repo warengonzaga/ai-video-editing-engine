@@ -64,8 +64,12 @@ not replace a complete, well-aligned A-H/X pack or phoneme-timing review.
 Use a dedicated `eyes` layer for blink states and keep the body sprite unchanged
 while the avatar blinks. Replacing a full-body PNG to close the eyes can make
 the hair, glasses, face, clothing, or silhouette flicker even when all states
-share the same canvas dimensions. For body pose changes, preserve the canvas,
-framing, scale, and body anchor across states.
+share the same canvas dimensions. `avatar-compose` enforces this contract: any
+state or cue named `blink`, `blink-*`, `eyes-closed`, `closed-eyes`,
+`eyes-shut`, or `shut-eyes` must belong to a layer with role `eyes`; composition
+fails before Rhubarb cue generation when a body or custom layer uses one. For
+body pose changes, preserve the canvas, framing, scale, and body anchor across
+states.
 
 Matching canvas sizes keeps the sprite layer fixed, but it cannot prove that
 mouth pixels share a common anchor or art style. Review the pack as a contact

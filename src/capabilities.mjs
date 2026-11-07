@@ -141,6 +141,11 @@ export function getEngineCapabilities(options = {}) {
       },
     },
     avatar: {
+      blinkLayerContract: {
+        blinkStatesRequireRole: 'eyes',
+        bodySpriteMustRemainUnchanged: true,
+        stateNamePatterns: ['blink', 'blink-*', 'eyes-closed', 'closed-eyes', 'eyes-shut', 'shut-eyes'],
+      },
       phoneticLipSync: {
         available: rhubarb.available,
         adapter: 'rhubarb',

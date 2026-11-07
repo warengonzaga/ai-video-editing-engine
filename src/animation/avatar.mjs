@@ -21,6 +21,7 @@ function prepareAvatarComposition(projectPath, specification) {
   if (!Number.isFinite(durationSeconds) || Math.abs(durationSeconds - meta.durationSeconds) > 0.001 || !Array.isArray(layers) || !layers.length) {
     throw new TypeError('Avatar specification duration must match project duration and include layers.');
   }
+  validateBlinkLayerRoles(layers);
   const assetDir = join(project, 'assets', 'avatar');
   const compositionDir = join(project, 'compositions');
   const output = join(compositionDir, 'avatar-scene.html');
@@ -289,6 +290,7 @@ export async function createAvatarCompositionAsync(projectPath, specification, {
     throw new TypeError('Avatar composition signal must be an AbortSignal.');
   }
   if (signal?.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+  validateBlinkLayerRoles(specification?.layers);
   const lipSync = specification?.lipSync;
   if (!lipSync) return publishAvatarCompositionAsync(prepareAvatarComposition(projectPath, specification), signal);
 
@@ -321,6 +323,24 @@ export async function createAvatarCompositionAsync(projectPath, specification, {
     ...(specification.narration === undefined ? { narration: lipSync.audioPath } : {}),
   });
   return publishAvatarCompositionAsync(prepared, signal);
+}
+
+function validateBlinkLayerRoles(layers) {
+  if (!Array.isArray(layers)) return;
+  for (const layer of layers) {
+    if (!layer || typeof layer !== 'object' || Array.isArray(layer)) continue;
+    const hasBlinkState = Object.keys(layer.states ?? {}).some(isBlinkState);
+    const hasBlinkCue = (Array.isArray(layer.track?.cues) ? layer.track.cues : [])
+      .some((cue) => isBlinkState(cue?.state));
+    if ((hasBlinkState || hasBlinkCue) && layer.role !== 'eyes') {
+      throw new TypeError(`Avatar blink states and cues must use a dedicated eyes layer; ${layer.name ?? 'unnamed layer'} has role ${layer.role ?? 'unknown'}. Keep the body sprite unchanged during blinks.`);
+    }
+  }
+}
+
+function isBlinkState(state) {
+  return typeof state === 'string'
+    && (/(?:^|-)blink(?:-|$)/i.test(state) || /^(?:eyes?-closed|closed-eyes?|eyes?-shut|shut-eyes?)$/i.test(state));
 }
 
 function throwIfAborted(signal) {

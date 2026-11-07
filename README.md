@@ -204,8 +204,10 @@ file to write mapped cues directly from the CLI.
 
 For sprite avatars, `createAvatarComposition(projectPath, spec)` accepts
 consumer-supplied image layers and state cue tracks. Each layer's default image
-is restored when a timed cue ends, so sparse blink or expression cues return to
-the default state. Use `audioLevelCues` for a rough audio-reactive mouth demo or
+is restored when a timed cue ends, so sparse eye-blink or expression cues return
+to the default state. Blink states must use a dedicated layer with role `eyes`;
+body and custom layers cannot switch to blink-named states or cues. Use
+`audioLevelCues` for a rough audio-reactive mouth demo or
 map cues from a speech recognizer onto the sprite states your asset pack has.
 To generate mouth cues as part of composition, set `lipSync` to an audio path,
 the name of a mouth layer, and optional Rhubarb options. The selected mouth
@@ -288,10 +290,11 @@ earlier layer with `relativeTo`, `anchor: [x, y]`, and a `width` fraction of the
 parent sprite. This keeps face features aligned when the avatar is resized or
 moved. Every state in a layer must use the same PNG canvas dimensions, which
 prevents blink, mouth, and pose changes from shifting the layer bounds. The
-Engine preflights generated sprite destinations and refuses to reuse a
-same-named project sprite if its image content differs from the requested
-source. The Engine does not bundle avatar artwork or claim phoneme-accurate lip
-sync.
+Engine rejects blink states on full-body and custom layers to keep the body
+sprite unchanged during a blink. It preflights generated sprite destinations
+and refuses to reuse a same-named project sprite if its image content differs
+from the requested source. The Engine does not bundle avatar artwork or claim
+phoneme-accurate lip sync.
 
 ## Create a project
 

@@ -293,10 +293,12 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   within-canvas alignment, and phoneme-to-art accuracy still require visual
   review. Machine-readable mouth-art guidance now specifies a fixed layer,
   shared upper-lip anchor, downward jaw opening, and front-facing mouth
-  placement. Animation guidance also keeps blinking on a dedicated eyes layer
-  so body artwork stays static during blinks. Mouth-pack validation returns an
-  explicit visual-review requirement and checklist because structural checks
-  cannot prove artwork alignment or phoneme accuracy. This requirement
+  placement. Animation guidance keeps blinking on a dedicated eyes layer so
+  body artwork stays static during blinks. `avatar-compose` now rejects blink-
+  named states and cues on body or custom layers before Rhubarb runs, and
+  capability discovery exposes this enforced layer contract. Mouth-pack
+  validation returns an explicit visual-review requirement and checklist.
+  Structural checks cannot prove artwork alignment or phoneme accuracy. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
   arbitrary external cue tracks. `avatar-compose` validates the required mouth
   PNGs and shared canvas dimensions before invoking Rhubarb. Mouth layers now
@@ -314,14 +316,16 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   supplied Taglish recording in a rendered avatar with matching user-supplied
   sprites. Rhubarb can now generate mapped mouth cues directly from an
   `avatar-compose` specification, while retaining the standalone `lip-sync`
-  command for reusable cue files. A separate Windows Engine render combines
-  consumer-provided body, mouth, and blink sprites with Taglish narration.
-  Representative frames verify mouth placement and full-body framing. The
-  current v8 async composition was rendered locally at 1920×1080/30 fps with
-  `Voice 015.mp3`, A-H visemes, X rest, and fixed-canvas blink assets; ffprobe
-  confirms 11.133 seconds, H.264, and stereo AAC. Its composition lints without
-  warnings, and sampled frames show changing mouth states with stable body
-  framing. A direct local Rhubarb 1.14.0 call now confirms 59 normalized cues
+  command for reusable cue files. A prior Windows Engine render combines
+  consumer-provided body, mouth, and full-body blink sprites with Taglish
+  narration. Representative frames verify mouth placement and full-body
+  framing. That v8 artifact predates the enforced isolated-eyes contract; its
+  source specification now fails preflight and needs eye-only blink artwork
+  before it can be regenerated. The archived render is 1920×1080/30 fps with
+  `Voice 015.mp3`, A-H visemes, X rest, 11.133 seconds, H.264, and stereo AAC.
+  Its composition lints without warnings, and sampled frames show changing
+  mouth states with stable body framing. A direct local Rhubarb 1.14.0 call
+  confirms 59 normalized cues
   from Voice 015 and validates the supplied 280×171 A-H/X mouth pack. These
   checks do not verify phoneme alignment or perceived audio quality; human
   speech and audio review remain outstanding. Rhubarb is an optional external

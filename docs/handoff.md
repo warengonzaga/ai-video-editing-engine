@@ -1612,3 +1612,12 @@ smoke render alone.
   runtime prerequisites are available; npm dependency installation remains
   unverified because offline metadata for `gsap` is absent. Output:
   `video-projects/pkg-project/renders/smoke.mp4`.
+- Enforced the existing avatar-art direction in `avatar-compose`: blink-named
+  states and cues must belong to an `eyes` layer, so body and custom sprites
+  cannot be swapped for a blink. The async API checks this before running
+  Rhubarb; capability discovery and `docs/avatar-mouth-packs.md` expose the
+  same rule. Manual API preflight against the current Waren v8 specification
+  now fails early with an actionable message because its blink artwork is still
+  embedded in the full-body sprite. New eye-only blink artwork is required
+  before regenerating that sample; the existing rendered comparison remains
+  available. Syntax and diff checks passed; the test suite was not run.
