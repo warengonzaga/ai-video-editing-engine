@@ -6,6 +6,7 @@ import { open, readdir, rename, rm } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
+import { emitRenderProgress } from './progress.mjs';
 import { normalizeTranscript } from '../transcript/normalize.mjs';
 import { parseSubtitleText } from '../transcript/subtitles.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
@@ -212,13 +213,20 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
 
   try {
     if (!checkpointArtifact) {
+      emitRenderProgress(onProgress, 'capture', 'started');
       await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal, onProgress);
+      emitRenderProgress(onProgress, 'capture', 'completed');
       if (checkpoint) {
+        emitRenderProgress(onProgress, 'validation', 'started', { target: 'checkpoint-capture' });
         validateRenderedMedia(await probeMediaAsync(temporaryOutput, { signal: control.signal }), meta);
+        emitRenderProgress(onProgress, 'validation', 'completed', { target: 'checkpoint-capture' });
         checkpointArtifact = await saveRenderCheckpoint(checkpoint, temporaryOutput);
       }
+    } else {
+      emitRenderProgress(onProgress, 'capture', 'skipped', { reason: 'checkpoint-resume' });
     }
     if (pngSequence) {
+      emitRenderProgress(onProgress, 'validation', 'started', { target: 'png-sequence' });
       const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'));
       const expectedFrames = Math.round(meta.durationSeconds * frameRateNumber(meta.fps ?? 30));
       if (frames.length !== expectedFrames || frames.length === 0) throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
@@ -228,22 +236,33 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
           throw new Error(`PNG sequence frame ${frame.name} has an invalid signature or dimensions.`);
         }
       }
+      emitRenderProgress(onProgress, 'validation', 'completed', { target: 'png-sequence', completed: frames.length, total: frames.length });
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
       control.signal.throwIfAborted();
+      emitRenderProgress(onProgress, 'publish', 'started');
       await rename(temporaryOutput, output);
       outputCreated = true;
       control.signal.throwIfAborted();
+      emitRenderProgress(onProgress, 'publish', 'completed');
       return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
     }
     const renderArtifact = checkpointArtifact ?? temporaryOutput;
-    if (finalEncoder.codec) await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile);
+    if (finalEncoder.codec) {
+      emitRenderProgress(onProgress, 'encoding', 'started', { codec: finalEncoder.codecId });
+      await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile);
+      emitRenderProgress(onProgress, 'encoding', 'completed', { codec: finalEncoder.codecId });
+    } else emitRenderProgress(onProgress, 'encoding', 'skipped', { reason: 'renderer-output-is-final' });
+    emitRenderProgress(onProgress, 'validation', 'started', { target: 'final-output' });
     const rendered = await probeMediaAsync(encodedOutput ?? renderArtifact, { signal: control.signal });
     validateRenderedMedia(rendered, meta, finalEncoder.codecId);
     validateColorProfile(rendered, colorProfile);
+    emitRenderProgress(onProgress, 'validation', 'completed', { target: 'final-output' });
     const outputFile = await open(output, 'wx');
     outputCreated = true;
+    emitRenderProgress(onProgress, 'publish', 'started');
     await pipeline(createReadStream(encodedOutput ?? renderArtifact, { signal: control.signal }),
       outputFile.createWriteStream(), { signal: control.signal });
+    emitRenderProgress(onProgress, 'publish', 'completed');
     completed = true;
     return { project, output, format, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height, frameRate: rendered.frameRate, videoCodec: rendered.videoCodec, ...(colorProfile ? { colorProfile: colorProfile.id } : {}), ...(resumeCheckpoint ? { resumedFromCheckpoint } : {}) };
   } catch (error) {

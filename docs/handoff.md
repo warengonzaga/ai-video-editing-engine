@@ -1458,13 +1458,18 @@ smoke render alone.
   synthetic local integration evidence, not the deferred automated suite or
   real-media quality review.
 - Async `renderProjectAsync`, `renderTimelineAsync`, and
-  `renderEditedProjectAsync` accept an `onProgress` callback with normalized
-  HyperFrames capture events (`stage`, `phase`, `percent`, and optional
-  `completed`/`total`). The callback does not receive preprocessing, encoding,
-  or probing progress; its exceptions emit a warning without cancelling the
-  render. HyperFrames stderr diagnostics remain visible. Capability discovery
-  describes the event contract. A manual v9
+  `renderEditedProjectAsync` accept an `onProgress` callback with pipeline stage
+  events for preprocessing, HyperFrames capture, encoding, output validation,
+  publishing, timeline audio validation, and mastering. Stage events report
+  `started`, `completed`, or `skipped`; HyperFrames capture also reports its
+  normalized phase percentage. Callback exceptions emit a warning without
+  cancelling the render. HyperFrames stderr diagnostics remain visible.
+  Capability discovery describes supported stages and optional event fields.
+  A manual v9
   generic layered render delivered 23 events from compile (5%) through
   assembly (99%), linted with 0 errors and 0 warnings, and rendered to a
   six-second 640×360/30 fps H.264 file with stereo AAC. This was manual API
-  integration validation; the automated suite remains deferred.
+  integration validation of capture progress; the automated suite remains
+  deferred. The expanded stage-event implementation passes Node syntax and diff
+  checks. A rerender could not be completed in the current sandbox because it
+  blocks HyperFrames' local browser connection (`net::ERR_NETWORK_ACCESS_DENIED`).

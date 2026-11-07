@@ -24,6 +24,7 @@ import { timelineForRender } from './track-state.mjs';
 import { audioClipEffectRequirements, buildAudioClipEffectFilters } from './audio-effects.mjs';
 import { createTimelineRenderControl } from '../render/timeline-control.mjs';
 import { runProcess } from '../render/process.mjs';
+import { emitRenderProgress } from '../render/progress.mjs';
 import { rm } from 'node:fs/promises';
 
 const escapeAttr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -56,7 +57,9 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
     const audioMastering = validateAudioMastering(renderTimeline);
     if (audioMastering && ['gif', 'png-sequence'].includes(outputFormat)) throw new TypeError(`Timeline audioMastering cannot be used with ${outputFormat} output.`);
     if (['gif', 'png-sequence'].includes(outputFormat) && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0)) throw new TypeError(`${outputFormat} output cannot include audio clips.`);
+    emitRenderProgress(onProgress, 'preprocessing', 'started');
     prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl);
+    emitRenderProgress(onProgress, 'preprocessing', 'completed');
     return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, ...(onProgress ? { onProgress } : {}), signal: renderControl.signal }, renderProjectAsync, renderControl, prepared, isRangeRender);
   } finally {
     if (prepared) await cleanupTemporaryAssetsAsync(prepared.temporaryAssets);
@@ -240,15 +243,22 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
       renderControl.assertActive();
       const expectsAudio = format !== 'gif' && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0);
       if (format !== 'png-sequence') {
+        emitRenderProgress(onProgress, 'timeline-validation', 'started', { target: 'audio-streams' });
         const rendered = await probeMediaAsync(result.output, { signal: renderControl.signal });
         renderControl.assertActive();
         if (rendered.hasAudio !== expectsAudio) throw new Error(`Rendered audio stream ${rendered.hasAudio ? 'exists' : 'is missing'}, but the timeline ${expectsAudio ? 'contains' : 'has no'} audio clips.`);
+        emitRenderProgress(onProgress, 'timeline-validation', 'completed', { target: 'audio-streams' });
+      } else {
+        emitRenderProgress(onProgress, 'timeline-validation', 'skipped', { reason: 'png-sequence-has-no-audio-stream' });
       }
       if (audioMastering) {
+        emitRenderProgress(onProgress, 'mastering', 'started', { target: 'audio' });
         const mastered = await masterAudioFileAsync(result.output, format, audioMastering, timeline.project.fps, renderControl.signal);
         renderControl.assertActive();
+        emitRenderProgress(onProgress, 'mastering', 'completed', { target: 'audio' });
         return { ...result, durationSeconds: mastered.durationSeconds, audioMastering: { ...audioMastering, mode: mastered.loudnessMode } };
       }
+      emitRenderProgress(onProgress, 'mastering', 'skipped', { reason: 'audio-mastering-not-configured' });
       return result;
     };
     renderControl?.assertActive();

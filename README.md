@@ -374,12 +374,13 @@ media process and removes temporary output. The JavaScript async APIs
 `AbortSignal` as `signal`. CLI renders handle Ctrl+C by cancelling the active
 render and its FFmpeg preprocessing processes. The synchronous `renderProject`
 and `renderTimeline` APIs remain available without cancellation. JavaScript
-consumers can pass an `onProgress` callback to async render APIs; it receives
-capture events shaped as `{ stage, phase, percent, completed?, total? }` for
-chat, web, or desktop progress displays. These events cover HyperFrames capture;
-preprocessing, final encoding, and probing remain part of the render deadline
-but do not emit progress events. Callback failures emit a warning and do not
-cancel the render. To render PNG frames, set
+consumers can pass an `onProgress` callback to async render APIs. Events report
+pipeline stages such as preprocessing, HyperFrames capture, encoding, output
+validation, publishing, timeline audio validation, and mastering. Each event
+includes `stage` and `phase` (`started`, `completed`, or `skipped`); capture
+events also include HyperFrames phase progress, and events may include stage
+details such as codec, target, or completed/total counts. Callback failures emit
+a warning and do not cancel the render. To render PNG frames, set
 `{ "format": "png-sequence" }`; the output path is a new directory. Defaults
 remain controlled by HyperFrames quality (`draft`, `standard`, or `high`).
 Set `"colorProfile": "rec709"` or `"colorProfile": "rec2020-sdr"` to convert

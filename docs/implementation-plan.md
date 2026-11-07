@@ -396,8 +396,9 @@ human review evidence on each claimed supported environment.
   `getEngineCapabilities()` API and JSON CLI command for consumer preflight.
   The report exposes the phonetic avatar mouth-shape contract and optional
   Rhubarb availability so consumers can discover the required states at runtime.
-  Async render APIs also expose structured HyperFrames capture progress through
-  `onProgress`, and the capability report describes its event fields.
+  Async render APIs also expose structured pipeline stage progress through
+  `onProgress`, and capability discovery describes supported stages and event
+  fields.
 - [ ] After the engine prototype passes audiovisual review, connect Explainer
   Studio as a required consumer; provide actionable setup and compatibility
   errors when the engine is unavailable.

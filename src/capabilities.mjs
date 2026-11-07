@@ -134,9 +134,9 @@ export function getEngineCapabilities(options = {}) {
       progressCallbacks: {
         supported: true,
         asyncApiOnly: true,
-        stage: 'capture',
-        eventFields: ['stage', 'phase', 'percent'],
-        optionalEventFields: ['completed', 'total'],
+        stages: ['preprocessing', 'capture', 'encoding', 'validation', 'publish', 'timeline-validation', 'mastering'],
+        eventFields: ['stage', 'phase'],
+        optionalEventFields: ['percent', 'completed', 'total', 'target', 'codec', 'reason'],
       },
       videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
       outputs: {
