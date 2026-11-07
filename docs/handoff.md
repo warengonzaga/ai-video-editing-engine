@@ -1589,3 +1589,7 @@ smoke render alone.
   existing one. Node documents that rename overwrites existing destinations and
   copy operations have no atomicity guarantee, so this path must not use the
   ordinary exclusive-copy fallback without preserving both properties.
+- Ran `npm pack --dry-run --json --ignore-scripts` against the current private
+  package. Its 73-file manifest includes the new `src/files.mjs` publisher and
+  all source modules. `package.json` still marks the Engine package private;
+  dry-run only, with no tarball written, registry request, or publication.
