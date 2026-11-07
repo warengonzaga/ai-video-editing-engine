@@ -1340,6 +1340,8 @@ smoke render alone.
   detached/audio-only media, Rec.2020 SDR, track state, layered composition,
   captions, and long A/V synchronization. The 12-second sync cues measured
   0.000021 seconds late at both ends, with effectively zero measured drift.
+  Re-ran the full render smoke on 2026-11-07 after the OTIO fixes; it exited 0
+  and repeated the same synchronization and media-mode checks successfully.
   The serial `node --test --test-concurrency=1` run passes 131 tests, skips 3
   optional OpenTimelineIO tests because `requirements-otio.txt` is unavailable,
   and has 0 failures. A sandboxed run failed six file-publication cases with
