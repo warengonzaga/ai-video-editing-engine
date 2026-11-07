@@ -253,12 +253,18 @@ rejected. Tests cover retained overlap and partial-cut rejection.
 - [x] Add clip-relative volume automation with linear keyframe interpolation;
   preserve the curve during trim, split, ripple-delete, and gap insertion, and
   expose it through reviewable CLI/API operations and timeline inspection.
-  Render and listening verification remain deferred.
+  A 10-second real DJI camera render exercised 0.25-second fade-in and fade-out
+  keyframes. Human listening review remains open.
 - [x] Add optional final-mix equalizer, limiter, loudness, true-peak, and
   loudness-range controls; validate the mastered output.
   `set-audio-mastering` provides a reviewable operation/API to replace or clear
   settings. A Windows render measured -16.01 LUFS against a -16 LUFS target and
-  confirmed temporary master files are removed.
+  confirmed temporary master files are removed. A 10-second real DJI render
+  with a -18 LUFS/-1 dBTP target exposed and fixed a 100 ms audio tail: mastered
+  output now pads or trims audio to the copied video stream duration and rejects
+  stream-duration differences greater than one frame. `ffprobe` confirms exact
+  10.000-second video, audio, and container durations; EBU R128 measures
+  -18.0 LUFS and -1.0 dBFS true peak. Human listening review remains open.
 - [x] Validate mixed audio against source samples and document frame/sample
   alignment. The Windows integration smoke measures a 220 Hz music bed at
   0.2499 peak in the mono source and 0.1763 per channel after center mapping to

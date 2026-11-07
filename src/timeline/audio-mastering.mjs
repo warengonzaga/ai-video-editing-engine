@@ -44,6 +44,7 @@ export function validateAudioMastering(timeline) {
 export function masterAudioFile(outputPath, format, settings, fps) {
   const input = probeMedia(outputPath);
   if (!input.hasAudio) throw new Error('Cannot master loudness because the rendered output has no audio stream.');
+  const targetDuration = input.streamTiming.videoDurationSeconds ?? input.durationSeconds;
   const baseFilter = `loudnorm=I=${settings.integratedLoudnessLUFS}:TP=${settings.truePeakDBTP}:LRA=${settings.loudnessRangeLU}`;
   const channelFilter = settings.channelLayout ? [`aresample=ochl=${settings.channelLayout}`] : [];
   const equalizerFilters = buildEqualizerFilters(settings.equalizer);
@@ -59,7 +60,7 @@ export function masterAudioFile(outputPath, format, settings, fps) {
     ? `${baseFilter}:measured_I=${loudness.measured.input_i}:measured_TP=${loudness.measured.input_tp}:measured_LRA=${loudness.measured.input_lra}:measured_thresh=${loudness.measured.input_thresh}:offset=${loudness.measured.target_offset}:linear=true:print_format=summary`
     : loudness.silent ? undefined : `${baseFilter}:print_format=summary`;
   const limiterFilter = settings.limiter ? buildLimiterFilter(settings.limiter) : undefined;
-  const filter = [...preLoudnessFilters, loudnessFilter, limiterFilter].filter(Boolean).join(',') || undefined;
+  const filter = buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter, targetDuration);
   const extension = extname(outputPath);
   const temporaryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`);
   try {
@@ -77,7 +78,7 @@ export function masterAudioFile(outputPath, format, settings, fps) {
     const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
     if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
         || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
-        || Math.abs(mastered.durationSeconds - input.durationSeconds) > Math.max(0.15, 1 / frameRateNumber(fps))) {
+        || Math.abs((mastered.streamTiming.audioDurationSeconds ?? mastered.durationSeconds) - targetDuration) > 1 / frameRateNumber(fps)) {
       throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
     }
     unlinkSync(outputPath);
@@ -95,6 +96,7 @@ export function masterAudioFile(outputPath, format, settings, fps) {
 export async function masterAudioFileAsync(outputPath, format, settings, fps, signal, onProgress) {
   const input = await probeMediaAsync(outputPath, { signal });
   if (!input.hasAudio) throw new Error('Cannot master loudness because the rendered output has no audio stream.');
+  const targetDuration = input.streamTiming.videoDurationSeconds ?? input.durationSeconds;
   const baseFilter = `loudnorm=I=${settings.integratedLoudnessLUFS}:TP=${settings.truePeakDBTP}:LRA=${settings.loudnessRangeLU}`;
   const channelFilter = settings.channelLayout ? [`aresample=ochl=${settings.channelLayout}`] : [];
   const equalizerFilters = buildEqualizerFilters(settings.equalizer);
@@ -114,7 +116,7 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
     ? `${baseFilter}:measured_I=${loudness.measured.input_i}:measured_TP=${loudness.measured.input_tp}:measured_LRA=${loudness.measured.input_lra}:measured_thresh=${loudness.measured.input_thresh}:offset=${loudness.measured.target_offset}:linear=true:print_format=summary`
     : loudness.silent ? undefined : `${baseFilter}:print_format=summary`;
   const limiterFilter = settings.limiter ? buildLimiterFilter(settings.limiter) : undefined;
-  const filter = [...preLoudnessFilters, loudnessFilter, limiterFilter].filter(Boolean).join(',') || undefined;
+  const filter = buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter, targetDuration);
   const extension = extname(outputPath);
   const temporaryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`);
   try {
@@ -141,7 +143,7 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
     const expectedChannels = settings.channelLayout === 'mono' ? 1 : settings.channelLayout === 'stereo' ? 2 : undefined;
     if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
         || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
-        || Math.abs(mastered.durationSeconds - input.durationSeconds) > Math.max(0.15, 1 / frameRateNumber(fps))) {
+        || Math.abs((mastered.streamTiming.audioDurationSeconds ?? mastered.durationSeconds) - targetDuration) > 1 / frameRateNumber(fps)) {
       throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
     }
     emitRenderProgress(onProgress, 'mastering-validation', 'completed');
@@ -202,6 +204,13 @@ function buildEqualizerFilters(equalizer = []) {
 function buildLimiterFilter({ limitDBFS, attackMs, releaseMs }) {
   const linearLimit = 10 ** (limitDBFS / 20);
   return `alimiter=limit=${linearLimit}:attack=${attackMs}:release=${releaseMs}:level=0`;
+}
+
+function buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter, targetDuration) {
+  const duration = Number(targetDuration.toFixed(9));
+  return [...preLoudnessFilters, loudnessFilter, limiterFilter, `apad=whole_dur=${duration}`, `atrim=duration=${duration}`]
+    .filter(Boolean)
+    .join(',');
 }
 
 function parseLoudnessAnalysis(stderr) {

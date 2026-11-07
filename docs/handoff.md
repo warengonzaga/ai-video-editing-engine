@@ -1805,3 +1805,14 @@ smoke render alone.
   work. The private 0.1.0 package contains 74 files (219,508 packed bytes) and
   no source clip, rendered video, audio recording, or `video-projects` artifact.
   This was a dry run only: no tarball was written and no registry was contacted.
+- Exercised real-camera clip volume automation and final audio mastering in a
+  separate 10-second DJI project. The first mastered render exposed a 100 ms
+  audio tail beyond the video. Both synchronous and asynchronous mastering now
+  pad or trim the audio to the actual video-stream duration, and validation
+  rejects a stream-duration mismatch greater than one frame. The corrected
+  local render is `video-projects/dji-audio-master-review-20261107/renders/dji-audio-fade-master-review-fixed.mp4`;
+  `ffprobe` confirms exact 10.000-second 1080×1920/30 fps H.264 video, 48 kHz
+  stereo AAC audio, and container duration. FFmpeg EBU R128 measures
+  -18.0 LUFS integrated loudness and -1.0 dBFS true peak for the configured
+  targets. The output directory contains no temporary master files. Automated
+  tests were not run per the user's direction; human audio review remains open.
