@@ -151,7 +151,12 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
     };
     activeStage = 'asset-publish';
     emitRenderProgress(onProgress, activeStage, 'started', { assetId: id });
-    await link(stagedPath, destination);
+    try {
+      await link(stagedPath, destination);
+    } catch (error) {
+      if (!['EPERM', 'EXDEV', 'ENOSYS', 'ENOTSUP', 'EOPNOTSUPP'].includes(error.code)) throw error;
+      await copyFile(stagedPath, destination, fsConstants.COPYFILE_EXCL);
+    }
     destinationLinked = true;
     const latestManifest = readAssetManifest(root);
     if (latestManifest.assets.some((entry) => entry.id === id)) throw new Error(`Asset already registered: ${id}`);
@@ -176,6 +181,89 @@ export async function registerMediaAssetAsync(projectPath, sourcePath, options =
   } finally {
     rmSync(stagedPath, { force: true });
   }
+}
+
+/** Register multiple media sources sequentially and return per-source outcomes. */
+export async function registerMediaAssetsAsync(projectPath, sources, options = {}) {
+  const { signal, onProgress } = options;
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Asset registration signal must be an AbortSignal.');
+  }
+  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Asset registration onProgress must be a function.');
+  for (const field of Object.keys(options)) if (!['signal', 'onProgress'].includes(field)) throw new TypeError(`Unsupported batch asset registration option: ${field}.`);
+  if (!Array.isArray(sources) || sources.length === 0) throw new TypeError('Asset registration sources must be a non-empty array.');
+  signal?.throwIfAborted();
+
+  const root = resolve(projectPath);
+  if (!existsSync(join(root, 'meta.json'))) throw new Error(`Not an Engine project: ${root}`);
+  const entries = sources.map((entry) => {
+    if (typeof entry !== 'string' && (!entry || typeof entry !== 'object' || Array.isArray(entry))) {
+      throw new TypeError('Each batch source must be a path string or an object with path and optional id.');
+    }
+    if (entry && typeof entry === 'object') {
+      for (const field of Object.keys(entry)) if (!['path', 'id'].includes(field)) throw new TypeError(`Unsupported batch source field: ${field}.`);
+      if (typeof entry.path !== 'string' || !entry.path.trim()) throw new TypeError('Each batch source object requires a non-empty path.');
+    }
+    const sourcePath = resolve(typeof entry === 'string' ? entry : entry.path ?? '');
+    const id = typeof entry === 'string' ? defaultAssetId(sourcePath) : entry.id ?? defaultAssetId(sourcePath);
+    if (!/^[a-z][a-z0-9-]*$/.test(id)) throw new TypeError(`Asset id must be a lowercase kebab-case identifier: ${id}`);
+    return { sourcePath, id };
+  });
+  const ids = new Set();
+  for (const { id } of entries) {
+    if (ids.has(id)) throw new Error(`Batch asset IDs must be unique: ${id}`);
+    ids.add(id);
+  }
+  const existingAssets = readAssetManifest(root).assets;
+  const existingIds = new Set(existingAssets.map((asset) => asset.id));
+  for (const { id, sourcePath } of entries) {
+    if (existingIds.has(id)) throw new Error(`Asset already registered: ${id}`);
+    const destination = join(root, 'assets', `${id}${extname(sourcePath).toLowerCase()}`);
+    if (existsSync(destination)) throw new Error(`Asset destination already exists: assets/${id}${extname(sourcePath).toLowerCase()}`);
+  }
+
+  emitRenderProgress(onProgress, 'asset-batch', 'started', { total: entries.length });
+  const registered = [];
+  const failed = [];
+  for (const [index, entry] of entries.entries()) {
+    if (signal?.aborted) {
+      emitRenderProgress(onProgress, 'asset-batch', 'failed', { completed: registered.length, total: entries.length });
+      signal.throwIfAborted();
+    }
+    const batchDetails = { assetId: entry.id, batchIndex: index + 1, batchTotal: entries.length };
+    emitRenderProgress(onProgress, 'asset-batch-item', 'started', batchDetails);
+    try {
+      const asset = await registerMediaAssetAsync(root, entry.sourcePath, {
+        id: entry.id,
+        signal,
+        onProgress(event) {
+          emitRenderProgress(onProgress, event.stage, event.phase, { ...event, ...batchDetails });
+        },
+      });
+      registered.push(asset);
+      emitRenderProgress(onProgress, 'asset-batch-item', 'completed', batchDetails);
+    } catch (error) {
+      if (signal?.aborted || error instanceof AggregateError) {
+        emitRenderProgress(onProgress, 'asset-batch', 'failed', { completed: registered.length, total: entries.length });
+        throw error;
+      }
+      failed.push({ ...batchDetails, path: entry.sourcePath, message: error.message });
+      emitRenderProgress(onProgress, 'asset-batch-item', 'failed', { ...batchDetails, message: error.message });
+    }
+    emitRenderProgress(onProgress, 'asset-batch', 'progress', {
+      ...batchDetails,
+      completed: index + 1,
+      total: entries.length,
+      percent: (index + 1) / entries.length * 100,
+    });
+  }
+  emitRenderProgress(onProgress, 'asset-batch', 'completed', {
+    completed: entries.length,
+    total: entries.length,
+    registered: registered.length,
+    ...(failed.length ? { failed: failed.length } : {}),
+  });
+  return { registered, failed };
 }
 
 /** Read the registered project media catalog without touching its files. */

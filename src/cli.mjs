@@ -7,7 +7,7 @@ import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
 import { detectAcousticSilence } from './edits/detect-silence.mjs';
 import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
-import { createAssetProxyAsync, listProjectAssets, registerMediaAssetAsync, relinkProjectAssetAsync, unregisterProjectAsset, verifyProjectAssetsAsync } from './project/assets.mjs';
+import { createAssetProxyAsync, listProjectAssets, registerMediaAssetAsync, registerMediaAssetsAsync, relinkProjectAssetAsync, unregisterProjectAsset, verifyProjectAssetsAsync } from './project/assets.mjs';
 import { probeMediaAsync } from './media/probe.mjs';
 import { inspectMediaCompatibility } from './media/compatibility.mjs';
 import { generateAssetPreview } from './media/preview-assets.mjs';
@@ -314,6 +314,35 @@ async function main(args) {
     console.log(`Created ${projectPath}`);
     return;
   }
+  if (command === 'asset' && commandArgs[0] === 'register-many' && commandArgs.length >= 3) {
+    const [, project, ...mediaPaths] = commandArgs;
+    let reportedBatchPercent = -1;
+    const result = await runWithInterrupt((signal) => registerMediaAssetsAsync(resolve(project), mediaPaths, {
+      signal,
+      onProgress(event) {
+        if (event.stage === 'asset-batch' && event.phase === 'started') {
+          process.stderr.write(`Media batch: started (${event.total} sources)\n`);
+        } else if (event.stage === 'asset-batch' && event.phase === 'completed') {
+          process.stderr.write(`Media batch: complete (${event.registered} registered, ${event.failed ?? 0} failed)\n`);
+        } else if (event.stage === 'asset-batch' && event.phase === 'progress') {
+          const percent = Math.floor(event.percent);
+          if (percent > reportedBatchPercent) {
+            reportedBatchPercent = percent;
+            process.stderr.write(`Media batch: ${event.completed}/${event.total} (${percent}%)\n`);
+          }
+        } else if (event.phase === 'started') {
+          process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} started\n`);
+        } else if (event.phase === 'completed' && event.stage !== 'asset-batch') {
+          process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} complete\n`);
+        } else if (event.phase === 'failed') {
+          process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} failed\n`);
+        }
+      },
+    }), 'Batch asset registration');
+    console.log(JSON.stringify(result, null, 2));
+    if (result.failed.length > 0) process.exitCode = 1;
+    return;
+  }
   if (command === 'asset' && commandArgs[0] === 'register' && commandArgs.length >= 3 && commandArgs.length <= 4) {
     const [, project, media, id] = commandArgs;
     let reportedCopyPercent = -1;
@@ -549,7 +578,8 @@ async function main(args) {
   project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>]
   project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]
   presets list | probe <media> | media support <media>
-  asset register <project> <media> [assetId] | asset unregister <project> <asset-id>
+  asset register <project> <media> [assetId] | asset register-many <project> <media>...
+  asset unregister <project> <asset-id>
   asset verify <project>
   asset relink <project> <assetId> <replacement-media>
   asset proxy create <project> <assetId> [maxDimension] [crf] [frameRate]

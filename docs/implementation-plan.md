@@ -69,7 +69,9 @@ audio policy, cross-platform and broader format coverage remain open.
   metadata and SHA-256 source identity, and synchronize newly registered asset
   metadata into an existing timeline without creating a clip. The media probe reports streams/codecs.
   `registerMediaAssetAsync` and the CLI add cancellation during staged copy,
-  hashing, and probing without exposing a partial asset.
+  hashing, and probing without exposing a partial asset. Batch registration
+  adds multiple sources sequentially and reports per-source outcomes without
+  adding clips to the timeline.
 - [x] Expose the registered media catalog through a read-only API and CLI
   command, including assets not yet referenced by the active timeline.
 - [x] Unregister unused media assets from the manifest and timeline catalog,

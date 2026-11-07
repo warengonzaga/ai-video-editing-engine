@@ -98,12 +98,14 @@ export function getEngineCapabilities(options = {}) {
     media: {
       assetIngest: {
         available: ffmpeg.available && ffprobe.available,
+        batchRegistration: true,
+        batchSemantics: 'sequential-best-effort',
         progressCallbacks: {
           supported: true,
           asyncApiOnly: true,
-          stages: ['asset-copy', 'asset-probe', 'asset-publish', 'asset-relink-copy', 'asset-relink-probe', 'asset-relink-publish'],
+          stages: ['asset-batch', 'asset-batch-item', 'asset-copy', 'asset-probe', 'asset-publish', 'asset-relink-copy', 'asset-relink-probe', 'asset-relink-publish'],
           eventFields: ['stage', 'phase'],
-          optionalEventFields: ['percent', 'completed', 'total', 'assetId'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'batchIndex', 'batchTotal', 'registered', 'failed', 'message'],
         },
       },
       assetVerification: {

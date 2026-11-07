@@ -1522,3 +1522,12 @@ smoke render alone.
   reports the overall `failed` event, and a subsequent cache-hit run returns
   the same waveform without regeneration. Source-hash events are rate-limited
   to integer percentage changes.
+- Added sequential best-effort asset batch registration to the JavaScript API
+  and CLI. Duplicate IDs and existing destination conflicts are rejected before
+  copying; each item reports progress and the result separates registered
+  assets from failures. A manual run ingested sample video and B-roll while
+  reporting one missing source; integrity verification passed for both assets,
+  and the timeline catalog gained both without creating clips. Local Windows
+  hard-link publication returned `EPERM`, so async registration now falls back
+  to exclusive copy on platforms/filesystems that reject hard links. Node
+  syntax and diff checks passed; automated tests remain deferred.

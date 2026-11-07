@@ -478,6 +478,7 @@ generate captions, and render the final composition:
 ```sh
 node src/cli.mjs project create my-edit --preset landscape
 node src/cli.mjs asset register video-projects/my-edit path/to/source.mp4 camera
+node src/cli.mjs asset register-many video-projects/my-edit path/to/camera.mp4 path/to/music.wav path/to/logo.png
 node src/cli.mjs transcribe video-projects/my-edit video-projects/my-edit/assets/camera.mp4
 
 # Check copied media and restore a moved or damaged asset under its existing ID.
@@ -528,6 +529,15 @@ copy progress to stderr and keeps the registered asset JSON on stdout.
 Both synchronous and asynchronous registration now probe and fingerprint the
 staged copy, so the recorded metadata describes the bytes committed to the
 project.
+`asset register-many` and `registerMediaAssetsAsync(projectPath, sources, {
+signal, onProgress })` add multiple sources sequentially. Each source is an
+independent transaction; the batch continues after per-source errors and
+returns `{ registered, failed }` so partial success is explicit. Duplicate IDs
+and existing destination conflicts are rejected before any files are copied.
+The CLI prints batch and per-asset stage progress to stderr, writes the complete
+result on stdout, and exits with status 1 if any source failed. Batch
+registration does not add clips to the timeline. The async API returns batch
+progress events at `asset-batch` and `asset-batch-item` stages.
 `asset relink` emits the same copy/hash, probe, and publish progress for the
 replacement source. Its CLI progress stays on stderr.
 
