@@ -1446,7 +1446,9 @@ smoke render alone.
   background layer instead of nesting an `<img>` inside a timeline row. This
   removes the HyperFrames `nested_structure_needs_subcomposition` warning while
   preserving contain/cover/fill behavior, object positioning, and zoom. Fill
-  maps to CSS `100% 100%` because CSS has no `background-size: fill` value. A
+  maps to CSS `100% 100%` because CSS has no `background-size: fill` value.
+  Timeline-used still assets are explicitly preloaded in the document head so
+  HyperFrames can fetch background images before capture. A
   synthetic six-second integration render combines main footage, external
   narration, B-roll, a still, a reusable lower-third composition, and timed
   captions. HyperFrames lint reports 0 errors and 0 warnings; ffprobe confirms
