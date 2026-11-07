@@ -1889,3 +1889,9 @@ smoke render alone.
   seconds 10–11.5 to timeline seconds 8–9.5 on its B-roll track, without
   changing the project. The caller remains responsible for using the media
   asset that produced the pack; automated tests remain deferred.
+- The user approved the borderless mouth art and lip-sync, then reported the
+  rendered mouth looked too small. A local v13 comparison preview scales the
+  mouth layer width from 0.0403 to 0.0605 (1.5×) while preserving its center,
+  sprites, and timing; the v12 render remains available for comparison. The
+  v13 MP4 is 1920×1080 H.264, 30 fps, 11.133 seconds. The updated render still
+  needs the user's visual review.

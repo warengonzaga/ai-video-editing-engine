@@ -42,6 +42,10 @@ not replace a complete, well-aligned A-H/X pack or phoneme-timing review.
   upper-lip center and mouth centerline to the same normalized canvas coordinates
   in every image; the Engine does not automatically realign artwork within a
   sprite.
+- Size the mouth layer against the visible face artwork, not just the sprite
+  canvas. Transparent margins can make a correctly aligned mouth look too small;
+  increase the layer `width` while keeping its parent-relative `anchor` fixed.
+  Use the same layer size for every mouth state.
 - Keep the upper lip anchored as the jaw opens. Extend wider-open jaw shapes
   downward instead of shifting the whole mouth up or sideways. Keep the face and
   glasses front-facing; show pointing direction through the eyes or pose layer.
