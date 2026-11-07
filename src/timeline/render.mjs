@@ -24,6 +24,7 @@ import { timelineForRender } from './track-state.mjs';
 import { audioClipEffectRequirements, buildAudioClipEffectFilters } from './audio-effects.mjs';
 import { createTimelineRenderControl } from '../render/timeline-control.mjs';
 import { runProcess } from '../render/process.mjs';
+import { rm } from 'node:fs/promises';
 
 const escapeAttr = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const RENDER_TIMELINE_RANGE = Symbol('renderTimelineRange');
@@ -55,7 +56,7 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
     prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl);
     return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, signal: renderControl.signal }, renderProjectAsync, renderControl, prepared, isRangeRender);
   } finally {
-    if (prepared) cleanupTemporaryAssets(prepared.temporaryAssets);
+    if (prepared) await cleanupTemporaryAssetsAsync(prepared.temporaryAssets);
     renderControl.dispose();
   }
 }
@@ -245,13 +246,13 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
           if (isRangeRender) restoreProjectHtml();
           restoreProjectMeta();
         });
-      }).catch((error) => {
-        if (renderedOutput && existsSync(renderedOutput)) rmSync(renderedOutput, { recursive: true, force: true });
+      }).catch(async (error) => {
+        if (renderedOutput && existsSync(renderedOutput)) await rm(renderedOutput, { recursive: true, force: true });
         if (!isRangeRender && !recordExists && existsSync(recordPath)) unlinkSync(recordPath);
         restoreProjectHtml();
         restoreProjectMeta();
         throw error;
-      }).finally(cleanupTemporaryAssets);
+      });
     }
     return finishResultSync(rendered);
   } catch (error) {
@@ -263,7 +264,7 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   }
   } finally {
     if (!deferTemporaryCleanup) {
-      cleanupTemporaryAssets();
+      if (!renderControl) cleanupTemporaryAssets();
       if (isRangeRender) restoreProjectHtml();
       restoreProjectMeta();
     }
@@ -290,13 +291,17 @@ async function prepareTimelineRenderAsync(projectPath, timeline, options, render
     renderControl.assertActive();
     return { renderSpec, temporaryAssets, proxyRecords };
   } catch (error) {
-    cleanupTemporaryAssets(temporaryAssets);
+    await cleanupTemporaryAssetsAsync(temporaryAssets);
     throw error;
   }
 }
 
 function cleanupTemporaryAssets(temporaryAssets) {
   for (const asset of temporaryAssets) rmSync(asset, { force: true });
+}
+
+async function cleanupTemporaryAssetsAsync(temporaryAssets) {
+  await Promise.all(temporaryAssets.map((asset) => rm(asset, { force: true })));
 }
 
 function writeNewFileAtomically(path, content) {

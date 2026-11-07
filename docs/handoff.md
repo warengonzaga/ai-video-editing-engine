@@ -1079,8 +1079,10 @@ smoke render alone.
   output encoders, and color-profile filters before generating temporary media.
   Final output publication now streams through the render abort signal, PNG
   sequence validation reads only each frame header, and temporary render
-  cleanup uses asynchronous filesystem operations. Temporary assets and
-  project metadata use the existing cleanup/restore path.
+  cleanup uses asynchronous filesystem operations. Timeline temporary proxy
+  cleanup and failed-output removal also use asynchronous filesystem operations
+  after an async render. Project metadata uses the existing cleanup/restore
+  path.
   JavaScript syntax checks passed; no tests or renders were run, per the user's
   instruction to defer validation.
 - Changed the `probe` CLI command to use `probeMediaAsync` and share the
