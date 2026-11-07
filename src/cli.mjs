@@ -7,7 +7,7 @@ import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
 import { detectAcousticSilence } from './edits/detect-silence.mjs';
 import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
-import { createAssetProxyAsync, listProjectAssets, registerMediaAssetAsync, relinkProjectAssetAsync, unregisterProjectAsset, verifyProjectAssets } from './project/assets.mjs';
+import { createAssetProxyAsync, listProjectAssets, registerMediaAssetAsync, relinkProjectAssetAsync, unregisterProjectAsset, verifyProjectAssetsAsync } from './project/assets.mjs';
 import { probeMediaAsync } from './media/probe.mjs';
 import { inspectMediaCompatibility } from './media/compatibility.mjs';
 import { generateAssetPreview } from './media/preview-assets.mjs';
@@ -327,7 +327,7 @@ async function main(args) {
     return;
   }
   if (command === 'asset' && commandArgs[0] === 'verify' && commandArgs.length === 2) {
-    const results = verifyProjectAssets(resolve(commandArgs[1]));
+    const results = await runWithInterrupt((signal) => verifyProjectAssetsAsync(resolve(commandArgs[1]), { signal }), 'Asset verification');
     console.log(JSON.stringify(results, null, 2));
     if (results.some((asset) => asset.status !== 'ok')) process.exitCode = 1;
     return;

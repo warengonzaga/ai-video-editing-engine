@@ -504,7 +504,11 @@ staged copy, so the recorded metadata describes the bytes committed to the
 project.
 
 `asset verify` checks registered source and proxy SHA-256 identities against
-the manifest and reports missing or modified files. `asset relink` replaces
+the manifest and reports missing or modified files. The CLI hashes media
+asynchronously, and Ctrl+C cancels the scan; JavaScript consumers can call
+`await verifyProjectAssetsAsync(projectPath, { signal })` for the same behavior.
+The synchronous `verifyProjectAssets(projectPath)` API remains available.
+`asset relink` replaces
 the media for an existing asset ID, refreshes its probe metadata and
 fingerprint, and keeps
 the project-relative path stable so existing timeline references continue to

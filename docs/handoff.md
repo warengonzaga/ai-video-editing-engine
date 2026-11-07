@@ -46,7 +46,9 @@ Last updated: 2026-11-07
   and project-relative path and refreshes probe metadata and fingerprint in
   both the asset manifest and any existing timeline; that timeline is
   revalidated before the replacement is committed, and stale proxies are
-  removed after the source fingerprint changes. `asset proxy create`
+  removed after the source fingerprint changes. The CLI and
+  `verifyProjectAssetsAsync` API perform cancellable streamed integrity scans;
+  the synchronous verification API remains available. `asset proxy create`
   generates source-fingerprinted H.264 video-only proxies; timeline draft
   renders can opt in with `useProxies: true`, while final renders use originals
   by default. The asynchronous API streams source and proxy hashing and uses

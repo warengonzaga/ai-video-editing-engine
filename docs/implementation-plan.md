@@ -78,6 +78,8 @@ audio policy, cross-platform and broader format coverage remain open.
   under the same asset ID and project-relative path; refresh the manifest and
   preserve the replacement source. The API and CLI also support cancellable,
   staged async relinking with metadata/timeline rollback on commit failure.
+  `asset verify` also has a cancellable async API and CLI path with streamed
+  source/proxy hashing.
 - [x] Generate reusable bounded H.264 video proxies, verify their source and
   output fingerprints, opt into proxies for timeline draft renders, and expose
   cancellable async generation through the API and Ctrl+C-aware CLI. Async

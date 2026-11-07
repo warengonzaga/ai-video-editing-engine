@@ -256,6 +256,56 @@ export function verifyProjectAssets(projectPath) {
   });
 }
 
+export async function verifyProjectAssetsAsync(projectPath, { signal } = {}) {
+  if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
+    throw new TypeError('Asset verification signal must be an AbortSignal.');
+  }
+  signal?.throwIfAborted();
+  const root = resolve(projectPath);
+  const manifest = readAssetManifest(root);
+  const results = [];
+  for (const asset of manifest.assets) {
+    signal?.throwIfAborted();
+    const path = resolveProjectAsset(root, asset.path);
+    const sourceStatus = (status, actualSha256) => ({
+      id: asset.id,
+      variant: 'source',
+      path: asset.path,
+      status,
+      expectedSha256: asset.sha256,
+      ...(actualSha256 ? { actualSha256 } : {}),
+    });
+    if (!existsSync(path) || !statSync(path).isFile()) {
+      results.push(sourceStatus('missing'));
+      continue;
+    }
+    if (lstatSync(path).isSymbolicLink()) {
+      results.push(sourceStatus('modified'));
+      continue;
+    }
+    const actualSha256 = await hashFileAsync(path, signal);
+    results.push(sourceStatus(actualSha256 === asset.sha256 ? 'ok' : 'modified', actualSha256));
+    for (const proxy of asset.proxies ?? []) {
+      signal?.throwIfAborted();
+      const proxyPath = resolveProjectProxy(root, proxy.path);
+      if (!existsSync(proxyPath) || !statSync(proxyPath).isFile() || lstatSync(proxyPath).isSymbolicLink()) {
+        results.push({ id: asset.id, variant: 'proxy', path: proxy.path, status: 'missing', expectedSha256: proxy.sha256 });
+        continue;
+      }
+      const actualProxySha256 = await hashFileAsync(proxyPath, signal);
+      results.push({
+        id: asset.id,
+        variant: 'proxy',
+        path: proxy.path,
+        status: actualProxySha256 === proxy.sha256 && proxy.sourceSha256 === asset.sha256 ? 'ok' : 'modified',
+        expectedSha256: proxy.sha256,
+        actualSha256: actualProxySha256,
+      });
+    }
+  }
+  return results;
+}
+
 export function relinkProjectAsset(projectPath, assetId, sourcePath) {
   const root = resolve(projectPath);
   const manifest = readAssetManifest(root);
