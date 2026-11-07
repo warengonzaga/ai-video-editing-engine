@@ -343,6 +343,7 @@ function writeNewFileAtomically(path, content) {
   const temporaryPath = join(dirname(path), `.timeline-render-${randomUUID()}.tmp`);
   try {
     writeFileSync(temporaryPath, content, { flag: 'wx' });
+    // Hard-link publication is atomic and refuses an existing timeline record.
     linkSync(temporaryPath, path);
   } finally {
     rmSync(temporaryPath, { force: true });

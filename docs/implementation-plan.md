@@ -380,7 +380,11 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   path. The generic timeline's one-worker low-memory mode preserves identical
   decoded video/audio samples while reducing sampled peak working set from
   6,240.7 to 1,141.8 MiB and increasing wall time from 21.56 to 29.96 seconds.
-  The source remains avatar footage, so varied camera footage, isolated render
+  A separate 1920×1080/30 fps, 6-second multi-layer render with synthetic
+  pattern footage measured 18.90 seconds and 2,868.3 MiB at four workers, versus
+  19.35 seconds and 1,144.5 MiB with one worker and low-memory mode. The audio
+  decode hashes matched; video was not pixel-identical (overall SSIM 0.997783).
+  These inputs are synthetic, so varied camera footage, isolated render
   estimates, and cross-platform measurements remain open.
 - [x] Import word/cue transcripts from JSON, SRT, and WebVTT; export normalized
   transcripts to SRT or WebVTT through the CLI and JavaScript API.

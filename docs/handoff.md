@@ -1572,3 +1572,20 @@ smoke render alone.
   mounted successfully with all 11 PNG sprites, and async media registration
   reported copy, probe, and publish progress. The three disposable projects
   were removed. Node syntax and diff checks passed; no test suite was run.
+- Profiled the generic six-track multi-layer timeline at 1920×1080/30 fps for
+  six seconds on Windows x64, Node 22.22.2, HyperFrames 0.9.17, with 250 ms
+  process-tree sampling. Sources are generated color/timecode patterns, B-roll,
+  a still, and synthetic narration. Four workers completed in 18.90 seconds,
+  peaking at 2,868.3 MiB across 38 processes. One worker with low-memory mode
+  completed in 19.35 seconds, peaking at 1,144.5 MiB across 14 processes. Both
+  outputs are 1920×1080/30 fps, six-second H.264/AAC files; decoded audio hashes
+  match exactly. Video has 180 frames in each output; it is not pixel-identical,
+  but FFmpeg reports overall SSIM 0.997783. These synthetic sources provide a
+  multi-layer resource sample, not representative camera-footage or visual-
+  quality acceptance. Render progress covered all 12 documented stages. Both
+  outputs and a contact sheet are preserved under the ignored profile project.
+  The direct hard link in `timeline/render.mjs` remains intentional: it
+  atomically publishes a new timeline record while refusing to overwrite an
+  existing one. Node documents that rename overwrites existing destinations and
+  copy operations have no atomicity guarantee, so this path must not use the
+  ordinary exclusive-copy fallback without preserving both properties.
