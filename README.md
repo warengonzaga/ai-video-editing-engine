@@ -375,7 +375,8 @@ media process and removes temporary output. The JavaScript async APIs
 render and its FFmpeg preprocessing processes. The synchronous `renderProject`
 and `renderTimeline` APIs remain available without cancellation. JavaScript
 consumers can pass an `onProgress` callback to async render APIs. Events report
-pipeline stages such as preprocessing, HyperFrames capture, encoding, output
+pipeline stages such as proxy resolution, audio alignment, playback processing,
+audio effects, sidechain processing, HyperFrames capture, encoding, output
 validation, publishing, timeline audio validation, and mastering. Each event
 includes `stage` and `phase` (`started`, `completed`, or `skipped`); capture
 events include HyperFrames phase progress, while FFmpeg encoding events report

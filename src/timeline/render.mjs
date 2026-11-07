@@ -58,7 +58,7 @@ export async function renderTimelineAsync(projectPath, timeline, outputPath, qua
     if (audioMastering && ['gif', 'png-sequence'].includes(outputFormat)) throw new TypeError(`Timeline audioMastering cannot be used with ${outputFormat} output.`);
     if (['gif', 'png-sequence'].includes(outputFormat) && renderTimeline.tracks.some((track) => track.kind === 'audio' && track.clips.length > 0)) throw new TypeError(`${outputFormat} output cannot include audio clips.`);
     emitRenderProgress(onProgress, 'preprocessing', 'started');
-    prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl);
+    prepared = await prepareTimelineRenderAsync(projectPath, timeline, renderOptions, renderControl, onProgress);
     emitRenderProgress(onProgress, 'preprocessing', 'completed');
     return await renderTimelineWith(projectPath, timeline, outputPath, quality, { ...renderOptions, ...(onProgress ? { onProgress } : {}), signal: renderControl.signal }, renderProjectAsync, renderControl, prepared, isRangeRender);
   } finally {
@@ -295,29 +295,40 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
   }
 }
 
-async function prepareTimelineRenderAsync(projectPath, timeline, options, renderControl) {
+async function prepareTimelineRenderAsync(projectPath, timeline, options, renderControl, onProgress) {
   const root = resolve(projectPath);
   if (options.useProxies !== undefined && typeof options.useProxies !== 'boolean') throw new TypeError('useProxies must be a boolean.');
   validateTimeline(timeline);
   const renderTimeline = timelineForRender(timeline);
-  const proxyRecords = options.useProxies
-    ? await resolveAssetProxiesAsync(root, renderTimeline, { signal: renderControl.signal })
-    : new Map();
+  let proxyRecords;
+  if (options.useProxies) {
+    proxyRecords = await runProgressStage(onProgress, 'proxy-resolution', () => resolveAssetProxiesAsync(root, renderTimeline, { signal: renderControl.signal }));
+  } else {
+    emitRenderProgress(onProgress, 'proxy-resolution', 'skipped', { reason: 'proxies-disabled' });
+    proxyRecords = new Map();
+  }
   const temporaryAssets = [];
   try {
     renderControl.assertActive();
     validateTimelineFfmpegRequirements(renderTimeline);
     const proxiedTimeline = applyPersistentVideoProxies(renderTimeline, proxyRecords);
-    const alignedTimeline = await alignOffsetAudioAssetsAsync(root, proxiedTimeline, temporaryAssets, renderControl);
-    const playbackTimeline = await applyPlaybackRateProxiesAsync(root, alignedTimeline, temporaryAssets, renderControl);
-    const effectedTimeline = await applyAudioTrackEffectProxiesAsync(root, playbackTimeline, temporaryAssets, renderControl);
-    const renderSpec = await applySidechainDuckingProxiesAsync(root, effectedTimeline, temporaryAssets, renderControl);
+    const alignedTimeline = await runProgressStage(onProgress, 'audio-alignment', () => alignOffsetAudioAssetsAsync(root, proxiedTimeline, temporaryAssets, renderControl));
+    const playbackTimeline = await runProgressStage(onProgress, 'playback-processing', () => applyPlaybackRateProxiesAsync(root, alignedTimeline, temporaryAssets, renderControl));
+    const effectedTimeline = await runProgressStage(onProgress, 'audio-effects', () => applyAudioTrackEffectProxiesAsync(root, playbackTimeline, temporaryAssets, renderControl));
+    const renderSpec = await runProgressStage(onProgress, 'sidechain-processing', () => applySidechainDuckingProxiesAsync(root, effectedTimeline, temporaryAssets, renderControl));
     renderControl.assertActive();
     return { renderSpec, temporaryAssets, proxyRecords };
   } catch (error) {
     await cleanupTemporaryAssetsAsync(temporaryAssets);
     throw error;
   }
+}
+
+async function runProgressStage(onProgress, stage, operation) {
+  emitRenderProgress(onProgress, stage, 'started');
+  const result = await operation();
+  emitRenderProgress(onProgress, stage, 'completed');
+  return result;
 }
 
 function cleanupTemporaryAssets(temporaryAssets) {

@@ -1459,9 +1459,10 @@ smoke render alone.
   real-media quality review.
 - Async `renderProjectAsync`, `renderTimelineAsync`, and
   `renderEditedProjectAsync` accept an `onProgress` callback with pipeline stage
-  events for preprocessing, HyperFrames capture, encoding, output validation,
-  publishing, timeline audio validation, and mastering. Stage events report
-  `started`, `completed`, or `skipped`; HyperFrames capture reports its
+  events for proxy resolution, audio alignment, playback processing, audio
+  effects, sidechain processing, HyperFrames capture, encoding, output
+  validation, publishing, timeline audio validation, and mastering. Stage
+  events report `started`, `completed`, or `skipped`; HyperFrames capture reports its
   normalized phase percentage, and FFmpeg encoding reports elapsed media time
   and percentage. Callback exceptions emit a warning without cancelling the
   render. HyperFrames and FFmpeg stderr diagnostics remain visible.

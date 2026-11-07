@@ -134,7 +134,7 @@ export function getEngineCapabilities(options = {}) {
       progressCallbacks: {
         supported: true,
         asyncApiOnly: true,
-        stages: ['preprocessing', 'capture', 'encoding', 'validation', 'publish', 'timeline-validation', 'mastering'],
+        stages: ['preprocessing', 'proxy-resolution', 'audio-alignment', 'playback-processing', 'audio-effects', 'sidechain-processing', 'capture', 'encoding', 'validation', 'publish', 'timeline-validation', 'mastering'],
         eventFields: ['stage', 'phase'],
         optionalEventFields: ['percent', 'completed', 'total', 'target', 'codec', 'reason'],
       },
