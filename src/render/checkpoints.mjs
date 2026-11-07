@@ -27,12 +27,14 @@ export async function prepareRenderCheckpoint(outputPath, fingerprint, options =
   await pruneExpiredRenderCheckpoints(root, maxAgeHours);
   const id = createHash('sha256').update(`${basename(outputPath)}\0${fingerprint}`).digest('hex');
   const directory = join(root, id);
+  await assertSafeCheckpointDirectory(root, directory);
   const artifact = join(directory, `capture.${extension(outputPath)}`);
   const manifest = join(directory, 'checkpoint.json');
   return { root, id, directory, artifact, manifest, fingerprint, maxBytes, maxAgeHours };
 }
 
 export async function restoreRenderCheckpoint(checkpoint) {
+  await assertSafeCheckpointDirectory(checkpoint.root, checkpoint.directory);
   let record;
   try {
     const parsed = JSON.parse(await readFile(checkpoint.manifest, 'utf8'));
@@ -57,6 +59,7 @@ export async function restoreRenderCheckpoint(checkpoint) {
 }
 
 export async function saveRenderCheckpoint(checkpoint, completedArtifact) {
+  await assertSafeCheckpointDirectory(checkpoint.root, checkpoint.directory);
   const info = await stat(completedArtifact);
   if (!info.isFile() || info.size <= 0) throw new Error('Cannot checkpoint an empty render artifact.');
   if (info.size > checkpoint.maxBytes) {
@@ -92,11 +95,16 @@ export async function saveRenderCheckpoint(checkpoint, completedArtifact) {
 }
 
 export async function removeRenderCheckpoint(checkpoint) {
+  await assertSafeCheckpointDirectory(checkpoint.root, checkpoint.directory);
   await rm(checkpoint.directory, { recursive: true, force: true });
 }
 
 export async function pruneExpiredRenderCheckpoints(rootPath, maxAgeHours = 72) {
   const root = resolve(rootPath);
+  const rootInfo = await lstatIfPresent(root);
+  if (rootInfo && (rootInfo.isSymbolicLink() || !rootInfo.isDirectory())) {
+    throw new TypeError('Render checkpoint root must be a real directory, not a symbolic link.');
+  }
   let entries;
   try {
     entries = await readdir(root, { withFileTypes: true });
@@ -116,6 +124,29 @@ export async function pruneExpiredRenderCheckpoints(rootPath, maxAgeHours = 72) 
     } catch {
       await rm(directory, { recursive: true, force: true });
     }
+  }
+}
+
+async function assertSafeCheckpointDirectory(rootPath, directoryPath) {
+  const root = resolve(rootPath);
+  const directory = resolve(directoryPath);
+  if (dirname(directory) !== root) throw new TypeError('Render checkpoint directory must be directly inside its checkpoint root.');
+  const rootInfo = await lstatIfPresent(root);
+  if (rootInfo && (rootInfo.isSymbolicLink() || !rootInfo.isDirectory())) {
+    throw new TypeError('Render checkpoint root must be a real directory, not a symbolic link.');
+  }
+  const directoryInfo = await lstatIfPresent(directory);
+  if (directoryInfo && (directoryInfo.isSymbolicLink() || !directoryInfo.isDirectory())) {
+    throw new TypeError('Render checkpoint directory must be a real directory, not a symbolic link.');
+  }
+}
+
+async function lstatIfPresent(path) {
+  try {
+    return await lstat(path);
+  } catch (error) {
+    if (error.code === 'ENOENT') return undefined;
+    throw error;
   }
 }
 

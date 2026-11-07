@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fingerprintRenderProject, prepareRenderCheckpoint, pruneExpiredRenderCheckpoints, restoreRenderCheckpoint, saveRenderCheckpoint } from '../src/render/checkpoints.mjs';
@@ -53,4 +53,37 @@ test('validates checkpoint resource limits and async-only render control', () =>
   assert.throws(() => resolveRenderControlArgs({ checkpointMaxBytes: 1024 }), /checkpointMaxBytes/);
   assert.throws(() => resolveRenderControlArgs({ checkpointMaxAgeHours: 721 }), /checkpointMaxAgeHours/);
   assert.throws(() => renderProject('.', undefined, 'draft', { resumeCheckpoint: true }), /require renderProjectAsync/);
+});
+
+test('refuses to prune a checkpoint root that is a directory symlink', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-checkpoint-symlink-'));
+  const outside = mkdtempSync(join(tmpdir(), 'aive-checkpoint-target-'));
+  t.after(() => {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  });
+  const protectedFile = join(outside, 'keep.txt');
+  writeFileSync(protectedFile, 'preserve');
+  try {
+    symlinkSync(outside, join(root, '.aive-checkpoints'), 'junction');
+  } catch (error) {
+    if (['EPERM', 'EACCES', 'ENOSYS'].includes(error.code)) {
+      t.skip('The current platform account cannot create directory symlinks.');
+      return;
+    }
+    throw error;
+  }
+
+  await assert.rejects(pruneExpiredRenderCheckpoints(join(root, '.aive-checkpoints')), /must be a real directory/);
+  assert.equal(readFileSync(protectedFile, 'utf8'), 'preserve');
+});
+
+test('refuses to prune a checkpoint root that is not a directory', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-checkpoint-file-root-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, '.aive-checkpoints');
+  writeFileSync(path, 'keep');
+
+  await assert.rejects(pruneExpiredRenderCheckpoints(path), /must be a real directory/);
+  assert.equal(readFileSync(path, 'utf8'), 'keep');
 });
