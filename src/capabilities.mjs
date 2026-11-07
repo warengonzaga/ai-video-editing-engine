@@ -202,6 +202,14 @@ export function getEngineCapabilities(options = {}) {
         'png-sequence': { available: hyperframes },
       },
       colorProfiles,
+      canvas: {
+        backgroundColor: {
+          available: true,
+          default: '#10141c',
+          transparent: true,
+          acceptedHexDigits: [3, 4, 6, 8],
+        },
+      },
       canvasPresets: CANVAS_PRESETS.map(({ id, aspectRatio, width, height, platforms }) => ({
         id, aspectRatio, width, height, platforms: [...platforms],
       })),

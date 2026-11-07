@@ -377,7 +377,8 @@ runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
 `ai-video-engine capabilities` CLI command to discover required tools, common
 FFmpeg demuxers and decoders for common input media, encoders, output formats,
 detected codec/per-format color-profile support, predefined canvas presets,
-and optional render filters without relying on doctor output parsing. Input
+canvas background support and its accepted values, and optional render filters
+without relying on doctor output parsing. Input
 `available` reports whether FFmpeg and ffprobe are installed; `inventoryChecked`
 reports whether the decoder and demuxer lists could be read. Container and
 decoder fields are independent checks; having both does not prove that every

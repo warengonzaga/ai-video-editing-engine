@@ -1661,3 +1661,7 @@ smoke render alone.
   `video-projects/waren-avatar-engine-v10/renders/waren-avatar-engine-v10.mp4`.
   The v9 comparison project remains unchanged. Human speech/audio review and
   representative camera-footage validation are still open.
+- Extended versioned capability discovery with the validated project canvas
+  background contract, including its default color, transparent output option,
+  and accepted hex lengths. Updated README and architecture references so
+  consumers can discover this timeline feature through the API/CLI report.

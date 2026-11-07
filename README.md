@@ -45,8 +45,9 @@ node src/cli.mjs capabilities
 
 The report includes required tool availability, common input containers and
 video/audio decoders, output formats with detected codec and per-format
-color-profile support, named canvas presets, optional filters used by
-specific render features, and the generic phonetic avatar sprite contract.
+color-profile support, named canvas presets, the default and transparent
+canvas-background options, optional filters used by specific render features,
+and the generic phonetic avatar sprite contract.
 Browser runtime availability is intentionally reported as unchecked; run
 `npm run doctor` to let HyperFrames inspect the local render environment.
 The JavaScript API also exposes `listFfmpegDecoders()` and
