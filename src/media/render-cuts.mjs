@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { validateEdl } from '../edits/retime-transcript.mjs';
+import { assertEdlApproved, validateEdl } from '../edits/retime-transcript.mjs';
 import { probeMedia } from './probe.mjs';
 
 export function renderCuts(inputPath, edl, outputPath) {
@@ -14,6 +14,7 @@ export function renderCuts(inputPath, edl, outputPath) {
 
   const media = probeMedia(input);
   validateEdl(edl, media.durationSeconds);
+  assertEdlApproved(edl);
   const keepRanges = getKeepRanges(media.durationSeconds, edl.cuts);
   if (!keepRanges.length) throw new Error('EDL removes the entire source video.');
 
@@ -22,17 +23,23 @@ export function renderCuts(inputPath, edl, outputPath) {
   const token = randomUUID();
   const filterPath = resolve(outputDir, `.${basename(output)}.${token}.filter.txt`);
   const temporaryOutput = resolve(outputDir, `.${basename(output, '.mp4')}.${token}.tmp.mp4`);
-  writeFileSync(filterPath, createFilterGraph(keepRanges, media.hasAudio), { flag: 'wx' });
+  const filterGraph = createFilterGraph(keepRanges, media.hasAudio);
+  writeFileSync(filterPath, filterGraph, { flag: 'wx' });
   let outputCreated = false;
   try {
     const args = ['-nostdin', '-hide_banner', '-v', 'error', '-n', '-i', input,
-      '-filter_complex_script', filterPath, '-map', '[v]'];
+      '-/filter_complex', filterPath, '-map', '[v]'];
     if (media.hasAudio) args.push('-map', '[a]');
     else args.push('-an');
     args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p');
     if (media.hasAudio) args.push('-c:a', 'aac', '-b:a', '192k');
     args.push('-movflags', '+faststart', temporaryOutput);
-    const result = spawnSync('ffmpeg', args, { encoding: 'utf8', windowsHide: true });
+    let result = spawnSync('ffmpeg', args, { encoding: 'utf8', windowsHide: true });
+    if (result.status !== 0 && /unrecognized option ['"]?\/?filter_complex|option not found/i.test(result.stderr)) {
+      const optionIndex = args.indexOf('-/filter_complex');
+      args.splice(optionIndex, 2, '-filter_complex', filterGraph);
+      result = spawnSync('ffmpeg', args, { encoding: 'utf8', windowsHide: true });
+    }
     if (result.error || result.status !== 0) {
       throw new Error(`ffmpeg failed: ${result.error?.message ?? result.stderr.trim()}`);
     }

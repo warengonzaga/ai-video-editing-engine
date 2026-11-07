@@ -3,6 +3,7 @@ import { validateTranscript } from '../transcript/validate.mjs';
 export function retimeTranscript(transcript, edl) {
   validateTranscript(transcript);
   validateEdl(edl, transcript.durationSeconds);
+  assertEdlApproved(edl);
 
   const words = transcript.words.flatMap((word) => {
     const containingCut = edl.cuts.find(
@@ -51,6 +52,9 @@ export function validateEdl(edl, sourceDurationSeconds) {
   if (Math.abs(edl.sourceDurationSeconds - sourceDurationSeconds) > 1e-6) {
     throw new TypeError('EDL sourceDurationSeconds must match the transcript duration.');
   }
+  if (edl.reviewStatus !== undefined && !['needs-review', 'approved'].includes(edl.reviewStatus)) {
+    throw new TypeError('EDL reviewStatus must be needs-review or approved.');
+  }
   if (!Array.isArray(edl.cuts)) {
     throw new TypeError('EDL cuts must be an array.');
   }
@@ -81,6 +85,21 @@ export function validateEdl(edl, sourceDurationSeconds) {
   );
   if (removedDuration >= sourceDurationSeconds) {
     throw new TypeError('EDL must leave a positive output duration.');
+  }
+  return edl;
+}
+
+export function approveEdl(edl) {
+  validateEdl(edl, edl?.sourceDurationSeconds);
+  if (edl.reviewStatus !== 'needs-review') throw new TypeError('Only an EDL marked needs-review can be approved.');
+  const approved = structuredClone(edl);
+  approved.reviewStatus = 'approved';
+  return approved;
+}
+
+export function assertEdlApproved(edl) {
+  if (edl?.reviewStatus === 'needs-review') {
+    throw new TypeError('EDL contains unapproved edit suggestions; review and approve it before editing.');
   }
   return edl;
 }
