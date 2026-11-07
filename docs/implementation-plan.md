@@ -404,9 +404,10 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   These inputs are synthetic, so varied camera footage, isolated render
   estimates, and cross-platform measurements remain open. A user-provided
   10-second 1080×1920/30 fps DJI camera clip was also profiled: Windows automatic
-  workers used 7,821.1 MiB and took 36.01 seconds; one-worker low-memory mode
-  used 1,835.7 MiB and took 49.11 seconds, with identical decoded video and
-  audio. The complete 27.4274-second DJI source also rendered through the
+  workers used 7,821.1 MiB and took 36.01 seconds; four workers used 5,945.6
+  MiB and took 29.20 seconds; one-worker low-memory mode used 1,835.7 MiB and
+  took 49.11 seconds. All three produced identical decoded video and audio.
+  The complete 27.4274-second DJI source also rendered through the
   low-memory timeline workflow in 1m 53.1s at 1080×1920/30 fps, producing
   H.264/AAC output. A profile-v2 540×960 proxy from the 96.1 MB source is 3.02
   MB; the resolver selected it for a 10-second draft render while preserving

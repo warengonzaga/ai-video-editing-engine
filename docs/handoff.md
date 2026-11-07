@@ -1753,15 +1753,22 @@ smoke render alone.
   canvas. The render and user recording stay local and are not versioned.
   Automated tests remain deferred; human listening and review of the full
   audiovisual output remain open.
-- Profiled two fresh high-quality 10-second renders of that 1080×1920/30 fps
+- Profiled three fresh high-quality 10-second renders of that 1080×1920/30 fps
   camera timeline on the Windows AMD Ryzen 7 7840HS/32 GB host, sampling the
-  process tree every 250 ms. Automatic workers took 36.01 seconds and peaked at
-  7,821.1 MiB across 66 processes; one worker with low-memory mode took 49.11
-  seconds and peaked at 1,835.7 MiB across 16 processes. The outputs have
-  identical decoded video (SSIM 1.0) and audio (PCM MD5 match). On this single
-  clip, low-memory mode reduced sampled peak memory by 76.5% for 36.4% more
-  render time. These results do not characterize other footage, hardware, or
-  operating systems, and the sample interval can miss short peaks.
+  process tree every 250 ms:
+
+  | Settings | Wall time | Peak process-tree working set | Processes |
+  | --- | ---: | ---: | ---: |
+  | Automatic workers | 36.01 s | 7,821.1 MiB | 66 |
+  | 4 workers | 29.20 s | 5,945.6 MiB | 46 |
+  | 1 worker + low-memory mode | 49.11 s | 1,835.7 MiB | 16 |
+
+  All three decoded to identical video frames (SSIM 1.0) and audio samples
+  (PCM MD5 match). On this single clip, low-memory mode reduced sampled peak
+  memory by 76.5% versus automatic workers, at 36.4% more render time; four
+  workers was the fastest profile in this sample. These results do not
+  characterize other footage, hardware, or operating systems, and the sample
+  interval can miss short peaks.
 - Rendered the complete 27.4274-second source in a separate project using one
   worker and low-memory mode. The 823-frame output is 1080×1920/30 fps H.264
   with 48 kHz stereo AAC and a frame-quantized duration of 27.433333 seconds;
