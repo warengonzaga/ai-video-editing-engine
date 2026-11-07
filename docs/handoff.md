@@ -1739,3 +1739,17 @@ smoke render alone.
   profile migrations were manually exercised from v1 manifests. The manifest
   reader remains backward-compatible with profile-less proxies and validates
   profile-version and keyframe-interval fields when present.
+- Re-ran `npm pack --dry-run --json --ignore-scripts` after the proxy profile
+  update. The private 0.1.0 package includes 74 files, including the current
+  proxy implementation, capability contract, README, implementation plan, and
+  handoff. Dry-run only: no tarball was written, no registry was contacted, and
+  no test suite ran.
+- Registered the user-provided DJI Osmo Pocket clip in a separate ignored
+  project and rendered a 10-second native-resolution vertical sample through
+  the Engine timeline. The 1080×1920/30 fps H.264 output includes the source's
+  48 kHz stereo audio, is exactly 10 seconds, and rendered in about 36 seconds.
+  `ffprobe` confirms both streams; FFmpeg audio scan reports -28.9 dB mean and
+  -6.1 dB peak. The contact sheet confirms the camera framing fills the 9:16
+  canvas. The render and user recording stay local and are not versioned.
+  Automated tests remain deferred; human listening and review of the full
+  audiovisual output remain open.
