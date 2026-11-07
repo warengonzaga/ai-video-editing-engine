@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { closeSync, copyFileSync, createReadStream, createWriteStream, existsSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, constants as fsConstants } from 'node:fs';
-import { link, rename, unlink } from 'node:fs/promises';
+import { copyFile, rename } from 'node:fs/promises';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { basename, dirname, extname, join, resolve } from 'node:path';
@@ -478,7 +478,7 @@ export async function createAssetProxyAsync(projectPath, assetId, options = {}) 
     throw new TypeError('Proxy signal must be an AbortSignal.');
   }
   if (signal?.aborted) throw signal.reason ?? new DOMException('Proxy generation was aborted.', 'AbortError');
-  const context = prepareAssetProxy(projectPath, assetId, proxyOptions);
+  const context = await prepareAssetProxyAsync(projectPath, assetId, proxyOptions, signal);
   if (context.cached) {
     signal?.throwIfAborted();
     return context.cached;
@@ -487,7 +487,9 @@ export async function createAssetProxyAsync(projectPath, assetId, options = {}) 
     await runProcess('ffmpeg', context.args, { signal, stdio: 'capture' });
     const probe = await probeMediaAsync(context.stagedPath, { signal });
     signal?.throwIfAborted();
-    return storeAssetProxy(context, probe);
+    const sha256 = await hashFileAsync(context.stagedPath, signal);
+    signal?.throwIfAborted();
+    return await storeAssetProxyAsync(context, probe, sha256, signal);
   } catch (error) {
     rollbackAssetProxy(context);
     throw error;
@@ -497,6 +499,30 @@ export async function createAssetProxyAsync(projectPath, assetId, options = {}) 
 }
 
 function prepareAssetProxy(projectPath, assetId, options) {
+  const details = inspectAssetProxyInputs(projectPath, assetId, options);
+  const sourceHash = hashFile(details.sourcePath);
+  const output = assetProxyOutput(details, sourceHash);
+  const existing = findAssetProxy(details.asset, details.maxDimension, details.crf, details.targetFrameRate, sourceHash);
+  const cachedProxyHash = existing && existing.path === output.relativePath && output.destinationExists
+    ? hashFile(output.destination)
+    : undefined;
+  return finalizeAssetProxyPreparation(details, output, sourceHash, existing, cachedProxyHash);
+}
+
+async function prepareAssetProxyAsync(projectPath, assetId, options, signal) {
+  const details = inspectAssetProxyInputs(projectPath, assetId, options);
+  const sourceHash = await hashFileAsync(details.sourcePath, signal);
+  signal?.throwIfAborted();
+  const output = assetProxyOutput(details, sourceHash);
+  const existing = findAssetProxy(details.asset, details.maxDimension, details.crf, details.targetFrameRate, sourceHash);
+  const cachedProxyHash = existing && existing.path === output.relativePath && output.destinationExists
+    ? await hashFileAsync(output.destination, signal)
+    : undefined;
+  signal?.throwIfAborted();
+  return finalizeAssetProxyPreparation(details, output, sourceHash, existing, cachedProxyHash);
+}
+
+function inspectAssetProxyInputs(projectPath, assetId, options) {
   const root = resolve(projectPath);
   const manifest = readAssetManifest(root);
   const assetIndex = manifest.assets.findIndex((asset) => asset.id === assetId);
@@ -510,17 +536,30 @@ function prepareAssetProxy(projectPath, assetId, options) {
   if (!Number.isSafeInteger(crf) || crf < 18 || crf > 40) throw new TypeError('Proxy CRF must be an integer from 18 to 40.');
   const sourcePath = resolveProjectAsset(root, asset.path);
   if (!existsSync(sourcePath) || !statSync(sourcePath).isFile() || lstatSync(sourcePath).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or not a regular project file.`);
-  const sourceHash = hashFile(sourcePath);
-  if (sourceHash !== asset.sha256) throw new Error(`Asset ${assetId} failed integrity verification; relink it before generating a proxy.`);
+  return { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate };
+}
+
+function findAssetProxy(asset, maxDimension, crf, targetFrameRate, sourceHash) {
+  return (asset.proxies ?? []).find((proxy) => proxy.maxDimension === maxDimension && proxy.crf === crf
+    && proxy.targetFrameRate === targetFrameRate && proxy.sourceSha256 === sourceHash);
+}
+
+function assetProxyOutput(details, sourceHash) {
+  const { root, asset, maxDimension, crf, targetFrameRate } = details;
   const frameRateSuffix = targetFrameRate === undefined ? '' : `-fps${targetFrameRate.replace('/', '-')}`;
-  const fileName = `${assetId}-${maxDimension}-crf${crf}${frameRateSuffix}-${sourceHash.slice(0, 12)}.mp4`;
+  const fileName = `${asset.id}-${maxDimension}-crf${crf}${frameRateSuffix}-${sourceHash.slice(0, 12)}.mp4`;
   const relativePath = `assets/proxies/${fileName}`;
   const destination = join(root, ...relativePath.split('/'));
-  const existing = (asset.proxies ?? []).find((proxy) => proxy.maxDimension === maxDimension && proxy.crf === crf
-    && proxy.targetFrameRate === targetFrameRate && proxy.sourceSha256 === sourceHash);
   const destinationExists = existsSync(destination);
   if (destinationExists && lstatSync(destination).isSymbolicLink()) throw new TypeError('Proxy files cannot be symbolic links.');
-  if (existing && existing.path === relativePath && destinationExists && hashFile(destination) === existing.sha256) return { cached: existing };
+  return { relativePath, destination, destinationExists };
+}
+
+function finalizeAssetProxyPreparation(details, output, sourceHash, existing, cachedProxyHash) {
+  const { root, manifest, assetIndex, asset, sourcePath, maxDimension, crf, targetFrameRate } = details;
+  const { relativePath, destination, destinationExists } = output;
+  if (sourceHash !== asset.sha256) throw new Error(`Asset ${asset.id} failed integrity verification; relink it before generating a proxy.`);
+  if (existing && existing.path === relativePath && destinationExists && cachedProxyHash === existing.sha256) return { cached: existing };
   if (destinationExists && !existing) throw new Error(`Proxy file already exists and is not registered: ${relativePath}`);
   const proxyDirectory = dirname(destination);
   mkdirSync(proxyDirectory, { recursive: true });
@@ -541,8 +580,33 @@ function prepareAssetProxy(projectPath, assetId, options) {
   return { root, manifest, assetIndex, asset, sourceHash, relativePath, destination, destinationExists, stagedPath, backupPath, maxDimension, crf, targetFrameRate, args };
 }
 
-function storeAssetProxy(context, probe) {
-  const { asset, assetIndex, root, manifest, stagedPath, destination, destinationExists, backupPath,
+function storeAssetProxy(context, probe, sha256 = hashFile(context.stagedPath)) {
+  const { proxy, nextManifest } = buildAssetProxyRecord(context, probe, sha256);
+  const { root, stagedPath, destination, destinationExists, backupPath } = context;
+  if (destinationExists) copyFileSync(destination, backupPath, fsConstants.COPYFILE_EXCL);
+  copyFileSync(stagedPath, destination, destinationExists ? 0 : fsConstants.COPYFILE_EXCL);
+  writeAssetManifest(root, nextManifest);
+  return proxy;
+}
+
+async function storeAssetProxyAsync(context, probe, sha256, signal) {
+  const { proxy, nextManifest } = buildAssetProxyRecord(context, probe, sha256);
+  const { destination, destinationExists, backupPath, stagedPath, root } = context;
+  if (destinationExists) await rename(destination, backupPath);
+  try {
+    signal?.throwIfAborted();
+    await copyFile(stagedPath, destination, fsConstants.COPYFILE_EXCL);
+    signal?.throwIfAborted();
+    writeAssetManifest(root, nextManifest);
+    return proxy;
+  } catch (error) {
+    if (destinationExists && !existsSync(destination) && existsSync(backupPath)) await rename(backupPath, destination).catch(() => {});
+    throw error;
+  }
+}
+
+function buildAssetProxyRecord(context, probe, sha256) {
+  const { asset, assetIndex, root, manifest, stagedPath, destination, destinationExists,
     sourceHash, relativePath, maxDimension, crf, targetFrameRate } = context;
   const expectedRatio = asset.width / asset.height;
   const actualRatio = probe.width / probe.height;
@@ -568,16 +632,13 @@ function storeAssetProxy(context, probe) {
     nominalFrameRate: probe.nominalFrameRate,
     streamTiming: probe.streamTiming,
     sizeBytes: statSync(stagedPath).size,
-    sha256: hashFile(stagedPath),
+    sha256,
     sourceSha256: sourceHash,
   };
-  if (destinationExists) copyFileSync(destination, backupPath, fsConstants.COPYFILE_EXCL);
-  copyFileSync(stagedPath, destination, destinationExists ? 0 : fsConstants.COPYFILE_EXCL);
   const nextAsset = { ...asset, proxies: [...(asset.proxies ?? []).filter((entry) => !(entry.maxDimension === maxDimension
     && entry.crf === crf && entry.targetFrameRate === targetFrameRate)), proxy] };
   const nextManifest = { ...manifest, assets: manifest.assets.map((entry, index) => index === assetIndex ? nextAsset : entry) };
-  writeAssetManifest(root, nextManifest);
-  return proxy;
+  return { proxy, nextManifest };
 }
 
 function rollbackAssetProxy(context) {
@@ -776,6 +837,13 @@ function hashFile(path) {
   } finally {
     closeSync(descriptor);
   }
+  return hash.digest('hex');
+}
+
+async function hashFileAsync(path, signal) {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(path, { signal })) hash.update(chunk);
+  signal?.throwIfAborted();
   return hash.digest('hex');
 }
 

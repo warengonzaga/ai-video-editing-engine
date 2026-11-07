@@ -49,7 +49,9 @@ Last updated: 2026-11-07
   removed after the source fingerprint changes. `asset proxy create`
   generates source-fingerprinted H.264 video-only proxies; timeline draft
   renders can opt in with `useProxies: true`, while final renders use originals
-  by default.
+  by default. The asynchronous API streams source and proxy hashing and uses
+  asynchronous file publication so large files do not block the event loop;
+  cancellation is checked during hashing and around publication.
 - `generateAssetPreview` and `asset preview` create content-keyed JPEG
   thumbnails for registered images/video and streamed 4 kHz mono min/max
   waveform samples for assets with audio. Preview records verify source and
