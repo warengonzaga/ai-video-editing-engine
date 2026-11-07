@@ -149,8 +149,14 @@ audio policy, cross-platform and broader format coverage remain open.
 
 **Status:** synthetic A/V cut rendering and source immutability are covered by
 tests. A generic timeline can also contain multiple video/audio tracks and
-image/text/composition overlays. Real multi-clip footage, stream offsets, and
-codec coverage still need user-media and cross-platform validation.
+image/text/composition overlays. A manual real-media check applied the
+synchronized `ripple-delete-range` operation to remove source seconds 6–8 from
+both video and audio, then rendered the resulting 25.433-second 1080×1920
+timeline. The video frame at the cut seam matched source time 8s at SSIM
+0.979888 after H.264 encoding; mono PCM cross-correlation over output 6.1–6.6s
+versus source-render 8.1–8.6s peaked at zero offset with 0.947529 correlation.
+The output includes 48 kHz stereo AAC. Other real-media cases, stream offsets,
+and cross-platform codec coverage remain open.
 
 ## 3. Transcript-driven editing
 

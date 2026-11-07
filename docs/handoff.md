@@ -1783,3 +1783,13 @@ smoke render alone.
   original source. The draft output is 1080×1920 H.264 with 48 kHz stereo AAC;
   `asset verify` confirms both source and proxy hashes. The proxy render and
   contact sheet stay in the ignored local project.
+- Manually exercised a real source edit through the CLI: a synchronized
+  `ripple-delete-range` removed source seconds 6–8 from both video and audio,
+  producing two source ranges per track and reducing the timeline to 25.413333
+  seconds. The 25.433333-second/763-frame 1080×1920 H.264 + 48 kHz stereo AAC
+  render completed in 1m 46.8s using one worker with low-memory mode. The frame
+  at output 6s matches source-render time 8s at SSIM 0.979888 after encoding;
+  mono PCM audio cross-correlation for output 6.1–6.6s against source-render
+  8.1–8.6s peaked at zero offset (0.947529 correlation). The render-level scan
+  reports -29.0 dB mean and -6.1 dB peak. This checks one manual cut seam on
+  one Windows source; it does not replace varied media or human review.
