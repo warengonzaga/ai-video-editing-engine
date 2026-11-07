@@ -317,6 +317,7 @@ async function main(args) {
   if (command === 'asset' && commandArgs[0] === 'register-many' && commandArgs.length >= 3) {
     const [, project, ...mediaPaths] = commandArgs;
     let reportedBatchPercent = -1;
+    const reportedAssetProgress = new Map();
     const result = await runWithInterrupt((signal) => registerMediaAssetsAsync(resolve(project), mediaPaths, {
       signal,
       onProgress(event) {
@@ -329,6 +330,13 @@ async function main(args) {
           if (percent > reportedBatchPercent) {
             reportedBatchPercent = percent;
             process.stderr.write(`Media batch: ${event.completed}/${event.total} (${percent}%)\n`);
+          }
+        } else if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+          const key = `${event.assetId}:${event.stage}`;
+          const percent = Math.floor(event.percent);
+          if (percent > (reportedAssetProgress.get(key) ?? -1)) {
+            reportedAssetProgress.set(key, percent);
+            process.stderr.write(`${event.assetId}: ${event.stage} ${percent}%\n`);
           }
         } else if (event.phase === 'started') {
           process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} started\n`);
@@ -345,16 +353,16 @@ async function main(args) {
   }
   if (command === 'asset' && commandArgs[0] === 'register' && commandArgs.length >= 3 && commandArgs.length <= 4) {
     const [, project, media, id] = commandArgs;
-    let reportedCopyPercent = -1;
+    const reportedAssetProgress = new Map();
     const asset = await runWithInterrupt((signal) => registerMediaAssetAsync(resolve(project), media, {
       ...(id ? { id } : {}),
       signal,
       onProgress(event) {
-        if (event.stage === 'asset-copy' && event.phase === 'progress') {
+        if (event.phase === 'progress' && Number.isFinite(event.percent)) {
           const percent = Math.floor(event.percent);
-          if (percent > reportedCopyPercent) {
-            reportedCopyPercent = percent;
-            process.stderr.write('Media copy: ' + percent + '%\n');
+          if (percent > (reportedAssetProgress.get(event.stage) ?? -1)) {
+            reportedAssetProgress.set(event.stage, percent);
+            process.stderr.write(`${event.stage === 'asset-copy' ? 'Media copy' : 'Media publish'}: ${percent}%\n`);
           }
         } else if (event.phase === 'started') {
           process.stderr.write(event.stage + ': started\n');

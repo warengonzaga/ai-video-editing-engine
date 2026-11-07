@@ -1529,5 +1529,8 @@ smoke render alone.
   reporting one missing source; integrity verification passed for both assets,
   and the timeline catalog gained both without creating clips. Local Windows
   hard-link publication returned `EPERM`, so async registration now falls back
-  to exclusive copy on platforms/filesystems that reject hard links. Node
-  syntax and diff checks passed; automated tests remain deferred.
+  to an exclusive cancellable stream copy on filesystems that reject hard
+  links, reporting publish byte progress. A repeated Windows run observed
+  progress through both asset-copy and fallback asset-publish stages; both
+  assets passed integrity verification. Node syntax and diff checks passed;
+  automated tests remain deferred.
