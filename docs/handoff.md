@@ -608,9 +608,12 @@ The optional OpenTimelineIO bridge uses the maintained Python library,
 references project media externally, and stores Engine timeline data in
 namespaced OTIO metadata for Engine round trips. Its current interchange
 profile supports video/audio cuts, gaps, constant-rate `LinearTimeWarp`
-retiming, standard two-clip dissolves, and clip enabled state; variable speed
-ramps, retimed crossfades, trims that cut through transitions, nested or
-combined stack trims, nested compositions, and remote references are rejected.
+retiming, standard two-clip dissolves, and clip enabled state. Engine-only clip
+settings and audio-track effects/automation are retained in namespaced metadata
+for Engine round trips; other applications may ignore or remove it. Variable
+speed ramps, retimed crossfades, trims that cut through transitions, nested or
+combined stack trims, nested compositions, and remote references are outside
+the interoperable profile.
 Trimmed track ranges are applied to clips and gaps; trimmed stacks apply their
 range to direct tracks. Install it with
 `python -m pip install -r requirements-otio.txt`.

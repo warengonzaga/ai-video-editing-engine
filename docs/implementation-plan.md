@@ -484,16 +484,18 @@ in this order:
   `LinearTimeWarp` using source-span divided by playback rate for Engine
   duration. Variable speed ramps, retimed crossfades, custom transitions,
   other overlaps, trims that cut through transitions, nested or combined stack
-  trims, effects, and nested compositions inside tracks remain
-  unsupported.
+  trims, third-party effects, and nested compositions inside tracks remain
+  unsupported by the standard profile. Engine-only clip settings and supported
+  audio-track effects/automation are preserved in namespaced metadata for Engine
+  round trips; other editors may ignore that metadata.
   Trimmed track source ranges are applied to clips and gaps during import.
   Trimmed stacks apply their source range to direct tracks.
   OTIO's `LinearTimeWarp`
   changes media-time mapping without changing the item's stored duration, so
   parent timeline timing must be mapped explicitly. Export converts
   explicitly faded two-clip overlaps into `SMPTE_Dissolve` transitions and
-  rejects unmarked/chained overlaps, standalone fades, clip-edge transitions,
-  and variable speed ramps. The three OTIO interchange tests pass on Windows
+  rejects unmarked/chained overlaps, clip-edge transitions, and retimed
+  crossfades. The three OTIO interchange tests pass on Windows
   with the pinned optional dependency installed in an isolated temporary
   environment; cross-platform OTIO execution remains unverified.
 5. **Workflow quality:** visual preview/review artifacts, richer caption

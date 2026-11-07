@@ -13,6 +13,15 @@ import opentimelineio as otio
 
 
 ENGINE_KEY = "ai-video-editing-engine"
+ENGINE_CLIP_SETTINGS = (
+    "audioEffects", "volumeKeyframes", "reverse", "speedRamp",
+    "transitionIn", "transitionOut", "fadeInSeconds", "fadeOutSeconds",
+    "keyframes", "fit", "x", "y", "width", "height",
+    "objectPositionX", "objectPositionY", "zoom", "mask", "blendMode",
+    "brightness", "contrast", "saturation", "blurPixels", "hueDegrees",
+    "audioStreamIndex", "videoStreamIndex", "opacity", "volume",
+)
+ENGINE_TRACK_SETTINGS = ("audioEffects", "volumeKeyframes", "volume")
 MARKER_COLOR_HEX = {
     "BLACK": "#000000",
     "BLUE": "#0000ff",
@@ -77,10 +86,6 @@ def export_timeline(request):
     for source_track in sorted(engine_timeline["tracks"], key=lambda item: item["order"]):
         if source_track["kind"] == "overlay":
             continue
-        if source_track.get("audioEffects"):
-            raise ValueError(f"Track {source_track['id']} uses audio effects, which are not supported by the OTIO interchange profile.")
-        if source_track.get("volumeKeyframes"):
-            raise ValueError(f"Track {source_track['id']} uses volume automation, which is not supported by the OTIO interchange profile.")
         kind = otio.schema.TrackKind.Video if source_track["kind"] == "video" else otio.schema.TrackKind.Audio
         track = otio.schema.Track(name=source_track["id"], kind=kind)
         soloed_audio = any(
@@ -92,6 +97,7 @@ def export_timeline(request):
             track.enabled = track.enabled and source_track.get("solo") is True
         track.metadata[ENGINE_KEY] = {
             "trackId": source_track["id"],
+            "trackSettings": {key: source_track[key] for key in ENGINE_TRACK_SETTINGS if key in source_track},
             **({"locked": source_track["locked"]} if source_track.get("locked") is not None else {}),
             **({"solo": source_track.get("solo", False), "muted": source_track.get("muted", False)} if source_track["kind"] == "audio" else {}),
         }
@@ -100,16 +106,6 @@ def export_timeline(request):
         index = 0
         while index < len(clips):
             source_clip = clips[index]
-            if source_clip.get("volumeKeyframes"):
-                raise ValueError(f"Clip {source_clip['id']} uses volume automation, which is not supported by the OTIO interchange profile.")
-            if source_clip.get("audioEffects"):
-                raise ValueError(f"Clip {source_clip['id']} uses clip audio effects, which are not supported by the OTIO interchange profile.")
-            if source_clip.get("reverse"):
-                raise ValueError(f"Clip {source_clip['id']} uses reverse playback, which is not supported by the OTIO interchange profile.")
-            if source_clip.get("speedRamp"):
-                raise ValueError(f"Clip {source_clip['id']} uses a variable speed ramp, which is not supported by the OTIO interchange profile.")
-            if source_clip.get("transitionIn") or source_clip.get("transitionOut"):
-                raise ValueError(f"Clip {source_clip['id']} uses transitions, which are not supported by the OTIO interchange profile.")
             if source_clip["timelineStart"] < cursor - 1e-6:
                 raise ValueError(f"Track {source_track['id']} contains overlapping clips, which OTIO interchange does not support.")
             gap = source_clip["timelineStart"] - cursor
@@ -120,6 +116,8 @@ def export_timeline(request):
                 source_clip["timelineStart"] + source_clip["durationSeconds"] - next_clip["timelineStart"]
             )
             if overlap > 1e-6:
+                if source_clip.get("transitionIn") or source_clip.get("transitionOut"):
+                    raise ValueError(f"Clip {source_clip['id']} combines an Engine transition with an OTIO crossfade, which is not supported by the interchange profile.")
                 if abs(source_clip.get("playbackRate", 1) - 1) > 1e-9:
                     raise ValueError(f"Clip {source_clip['id']} uses retiming in a crossfade, which is not supported by the OTIO interchange profile.")
                 validate_crossfade_pair(source_track, source_clip, next_clip, overlap)
@@ -166,8 +164,6 @@ def export_timeline(request):
                 index += 2
                 continue
 
-            if source_clip.get("fadeInSeconds", 0) > 0 or source_clip.get("fadeOutSeconds", 0) > 0:
-                raise ValueError(f"Clip {source_clip['id']} uses a standalone clip fade, which is not supported by the OTIO interchange profile.")
             track.append(make_otio_clip(
                 source_clip,
                 project_root,
@@ -218,7 +214,11 @@ def make_otio_clip(source_clip, project_root, assets, source_in, source_out, nam
         ),
         source_range=time_range(source_in, source_out - source_in),
     )
-    clip.metadata[ENGINE_KEY] = {"clipId": source_clip["id"], "assetId": asset["id"]}
+    clip.metadata[ENGINE_KEY] = {
+        "clipId": source_clip["id"],
+        "assetId": asset["id"],
+        "clipSettings": {key: source_clip[key] for key in ENGINE_CLIP_SETTINGS if key in source_clip},
+    }
     clip.enabled = source_clip.get("enabled", True)
     playback_rate = source_clip.get("playbackRate", 1)
     if abs(playback_rate - 1) > 1e-9:
@@ -300,6 +300,7 @@ def import_timeline(request):
             "order": len(payload["tracks"]),
             "enabled": bool(track.enabled and parent_enabled),
             "engineTrackId": track.metadata.get(ENGINE_KEY, {}).get("trackId"),
+            "engineSettings": plain_json(track.metadata.get(ENGINE_KEY, {}).get("trackSettings", {})),
             **({"locked": track.metadata[ENGINE_KEY]["locked"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("locked"), bool) else {}),
             **({"solo": track.metadata[ENGINE_KEY]["solo"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("solo"), bool) else {}),
             **({"muted": track.metadata[ENGINE_KEY]["muted"]} if isinstance(track.metadata.get(ENGINE_KEY), Mapping) and isinstance(track.metadata[ENGINE_KEY].get("muted"), bool) else {}),
@@ -350,6 +351,7 @@ def import_timeline(request):
                 **({"playbackRate": playback_rate} if abs(playback_rate - 1) > 1e-9 else {}),
                 "engineClipId": metadata.get("clipId") if crossfade is None else None,
                 "engineAssetId": metadata.get("assetId"),
+                "engineSettings": plain_json(metadata.get("clipSettings", {})) if crossfade is None else {},
                 **({"crossfade": crossfade} if crossfade else {}),
             }
 

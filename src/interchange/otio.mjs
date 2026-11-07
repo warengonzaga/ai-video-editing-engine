@@ -7,6 +7,15 @@ import { registerMediaAsset } from '../project/assets.mjs';
 import { validateTimeline } from '../timeline/validate.mjs';
 
 const bridgePath = fileURLToPath(new URL('./otio_bridge.py', import.meta.url));
+const ENGINE_CLIP_SETTINGS = new Set([
+  'audioEffects', 'volumeKeyframes', 'reverse', 'speedRamp',
+  'transitionIn', 'transitionOut', 'fadeInSeconds', 'fadeOutSeconds',
+  'keyframes', 'fit', 'x', 'y', 'width', 'height',
+  'objectPositionX', 'objectPositionY', 'zoom', 'mask', 'blendMode',
+  'brightness', 'contrast', 'saturation', 'blurPixels', 'hueDegrees',
+  'audioStreamIndex', 'videoStreamIndex', 'opacity', 'volume',
+]);
+const ENGINE_TRACK_SETTINGS = new Set(['audioEffects', 'volumeKeyframes', 'volume']);
 
 function runBridge(request) {
   const python = process.env.AIVE_OTIO_PYTHON || process.env.PYTHON || 'python';
@@ -94,6 +103,9 @@ export function importTimelineFromOtio(projectPath, otioPath) {
       delete priorClip.playbackRate;
       delete priorClip.speedRamp;
       delete priorClip.reverse;
+      for (const [key, value] of Object.entries(sourceClip.engineSettings ?? {})) {
+        if (ENGINE_CLIP_SETTINGS.has(key)) priorClip[key] = value;
+      }
       const clip = {
         ...priorClip,
         id: uniqueId(priorClip.id ?? safeId(sourceClip.name, `${sourceTrack.kind}-clip-${clips.length + 1}`), usedClipIds),
@@ -109,8 +121,10 @@ export function importTimelineFromOtio(projectPath, otioPath) {
       };
       clips.push(clip);
     }
+    const importedTrackSettings = Object.fromEntries(Object.entries(sourceTrack.engineSettings ?? {}).filter(([key]) => ENGINE_TRACK_SETTINGS.has(key)));
     tracks.push({
       ...(engineTrack ?? {}),
+      ...importedTrackSettings,
       id: trackId,
       kind: sourceTrack.kind,
       order: sourceTrack.order,

@@ -1342,17 +1342,18 @@ playback rate. Variable speed ramps and retimed crossfades remain unsupported.
 Import applies a trimmed track's source range to its clips and gaps; it rejects
 trims that partially cut transitions. Trimmed stacks are applied to direct tracks;
 nested or combined stack/track trims remain unsupported. Import also rejects
-custom transition types, other overlaps, effects, nested compositions inside
-tracks, and remote media references. Clip enabled state is retained on import
+custom transition types, other overlaps, third-party effects, nested
+compositions inside tracks, and remote media references. Clip enabled state is retained on import
 and export. Export converts explicitly faded two-clip overlaps into standard
-`SMPTE_Dissolve` transitions. Unmarked or
-chained overlaps, standalone fades, clip-edge transitions, track-level volume
-automation, and track-level audio effects are rejected instead of silently
-changing their meaning.
+`SMPTE_Dissolve` transitions. Unmarked or chained overlaps are rejected rather
+than silently reinterpreted. Standalone fades, clip-edge transitions, clip
+settings, track-level audio effects and automation, and overlay tracks are
+retained in namespaced metadata for Engine round trips.
 Crossfade offsets and source ranges are derived from the overlapping Engine
 clips.
-Engine-only clip settings and overlay tracks are retained in OTIO metadata for
-Engine round trips, but other editors may ignore or remove that metadata.
+Standard OTIO playback still represents only the interoperable subset; other
+editors may ignore or remove Engine metadata, and may not reproduce those
+settings when rendering.
 
 ## License
 
