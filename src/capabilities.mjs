@@ -118,6 +118,7 @@ export function getEngineCapabilities(options = {}) {
         optionalMouthShapes: RHUBARB_SPRITE_CONTRACT.optionalShapes,
         defaultExtendedShapes: RHUBARB_SPRITE_CONTRACT.defaultExtendedShapes,
         mouthShapeGuidance: RHUBARB_SPRITE_CONTRACT.mouthShapeGuidance,
+        mouthArtworkGuidance: RHUBARB_SPRITE_CONTRACT.mouthArtworkGuidance,
         spriteStatesMustBeDistinct: true,
         spriteCanvasesMustMatch: true,
         spriteFilesMustHaveDistinctContent: true,

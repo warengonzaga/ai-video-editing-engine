@@ -1364,3 +1364,11 @@ smoke render alone.
   installed, but neither exposes Node.js or FFmpeg; installing packages would
   modify the user's distro, so no WSL changes were made. Linux/macOS execution
   remains unverified, and no GitHub Actions run was started.
+- Reviewed the existing A-H/X mouth inspection render and found that shared
+  canvas dimensions alone do not communicate the alignment rule strongly enough
+  to asset-generation workflows. Added machine-readable mouth-art guidance to
+  Engine capability discovery and clarified the authoring guide: use one fixed
+  layer, align the upper-lip center and mouth centerline, open the jaw downward,
+  and keep the face front-facing. This is guidance for consumers; the Engine
+  still cannot infer perceptual anchor alignment from arbitrary PNG artwork.
+  No automated test or render was run for this metadata/documentation update.

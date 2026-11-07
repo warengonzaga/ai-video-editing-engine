@@ -14,6 +14,12 @@ export const RHUBARB_SPRITE_CONTRACT = Object.freeze({
   requiredAvatarShapes: Object.freeze(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']),
   restShape: 'x',
   defaultExtendedShapes: 'GHX',
+  mouthArtworkGuidance: Object.freeze({
+    layerPlacement: 'Keep one fixed layer position and size for every mouth state.',
+    artworkAnchor: 'Align the upper-lip center and mouth centerline to the same normalized canvas coordinates in every state.',
+    jawMotion: 'Keep the upper lip anchored and extend more-open jaw shapes downward instead of shifting the whole mouth upward or sideways.',
+    faceDirection: 'Keep the face and glasses front-facing; express pointing direction with the eyes or pose layer, not by moving the mouth.',
+  }),
   mouthShapeGuidance: Object.freeze({
     a: Object.freeze({ articulation: 'closed with gentle lip pressure', sounds: ['P', 'B', 'M'], role: 'bilabial closure' }),
     b: Object.freeze({ articulation: 'slightly open with teeth close together', sounds: ['K', 'S', 'T', 'EE'], role: 'consonants and narrow vowels' }),

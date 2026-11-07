@@ -281,7 +281,9 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   `docs/avatar-mouth-packs.md` records drawing, alignment, and consistency
   requirements for asset-generation workflows. Perceptual similarity,
   within-canvas alignment, and phoneme-to-art accuracy still require visual
-  review. This requirement
+  review. Machine-readable mouth-art guidance now specifies a fixed layer,
+  shared upper-lip anchor, downward jaw opening, and front-facing mouth
+  placement. This requirement
   applies only to phonetic avatar composition; the generic Engine still accepts
   arbitrary external cue tracks. `avatar-compose` validates the required mouth
   PNGs and shared canvas dimensions before invoking Rhubarb.

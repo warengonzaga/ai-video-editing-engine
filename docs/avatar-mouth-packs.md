@@ -32,8 +32,13 @@ not crossfade sprite images to synthesize intermediate mouth positions.
 ## Keep the pack visually consistent
 
 - Draw all states for the same avatar, head angle, camera scale, and lighting.
-- Keep the mouth anchor at the same coordinates in every image. Change the lip,
-  jaw, teeth, or tongue articulation without shifting the whole mouth around.
+- Keep one fixed layer position and size for every mouth state. Align the
+  upper-lip center and mouth centerline to the same normalized canvas coordinates
+  in every image; the Engine does not automatically realign artwork within a
+  sprite.
+- Keep the upper lip anchored as the jaw opens. Extend wider-open jaw shapes
+  downward instead of shifting the whole mouth up or sideways. Keep the face and
+  glasses front-facing; show pointing direction through the eyes or pose layer.
 - Preserve the same outline weight, lip/skin palette, shading, and tooth style
   across every state. If a style does not normally expose teeth, keep teeth
   exposure consistent with that character's design rather than adding a new
