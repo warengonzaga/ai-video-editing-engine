@@ -1815,10 +1815,12 @@ smoke render alone.
   5.5 seconds confirms the overlay appears only in the middle sample and does
   not cover the subject's face. FFmpeg `volumedetect` measures mean volume at
   -63.5 dB in the opening 150 ms, -22.8 dB in a middle 150 ms, and -43.7 dB in
-  the final 150 ms, consistent with the fade envelope on this clip. A non-blocking
-  404 was logged by the browser probe despite successful media extraction and
-  output validation; its resource should be identified before treating the
-  render log as clean. Human listening review remains open.
+  the final 150 ms, consistent with the fade envelope on this clip. The
+  browser-probe 404 was Chrome's implicit `GET /favicon.ico`; timeline, starter,
+  and avatar HTML now declare an inline data favicon. A one-second rerender
+  after the fix has no browser network-failure or asset-load-failure log and
+  `ffprobe` confirms matching 1-second video/audio streams. Human listening
+  review remains open.
 - Exercised real-camera clip volume automation and final audio mastering in a
   separate 10-second DJI project. The first mastered render exposed a 100 ms
   audio tail beyond the video. Both synchronous and asynchronous mastering now

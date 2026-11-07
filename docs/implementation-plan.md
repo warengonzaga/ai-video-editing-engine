@@ -403,6 +403,9 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
   baseline. A separate 10-second real DJI render combines camera video, its
   audio with fades, and a timed lower-third; sampled frames confirm the title
   is visible only during its 1.0–4.5 second interval without covering the face.
+  Chrome's implicit `GET /favicon.ico` caused the initial browser-probe 404;
+  generated timeline, starter, and avatar HTML now declare an inline favicon.
+  A fresh one-second render completed without browser network-failure warnings.
   Broader transition, speech-alignment, and human audio review remain open.
 - [ ] Measure render time and resource use for representative projects; record
   environment, settings, and results in the handoff. An initial Windows

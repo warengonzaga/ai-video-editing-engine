@@ -74,6 +74,7 @@ function starterHtml({ name, width, height, durationSeconds, backgroundColor }) 
   <meta charset="utf-8">
   <meta name="viewport" content="width=${width}, initial-scale=1">
   <title>${escapeHtml(name)}</title>
+  <link rel="icon" href="data:,">
   <style>html,body,#root{box-sizing:border-box;margin:0;width:${width}px;height:${height}px}body{background:${background};color:#f5f5f5;font:48px system-ui,sans-serif}#root{display:grid;place-items:center}</style>
   <script src="assets/gsap.min.js"></script>
 </head>
