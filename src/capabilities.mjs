@@ -153,7 +153,7 @@ export function getEngineCapabilities(options = {}) {
         },
       },
       sceneDetection: {
-        available: ffmpeg.available && ffprobe.available,
+        available: ffmpeg.available && ffprobe.available && filters.has('select') && filters.has('metadata'),
         analyzer: 'ffmpeg-scene-score',
         defaultThreshold: 0.35,
         thresholdRange: [0.05, 1],
@@ -161,6 +161,23 @@ export function getEngineCapabilities(options = {}) {
         reviewRequired: true,
         outputTypes: ['scene-cut'],
         cancellation: true,
+      },
+      sceneReviewPack: {
+        available: ffmpeg.available && ffprobe.available
+          && filters.has('select') && filters.has('metadata') && filters.has('scale') && filters.has('pad') && filters.has('tile'),
+        thumbnailDefaultSize: 320,
+        thumbnailSizeRange: [80, 1280],
+        defaultContactSheetLimit: 60,
+        contactSheetLimitRange: [1, 120],
+        reviewRequired: true,
+        cancellation: true,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['scene-analysis', 'scene-thumbnails', 'scene-contact-sheet', 'scene-review-publish'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['completed', 'total', 'percent', 'message'],
+        },
       },
     },
     interchange: {

@@ -1866,3 +1866,15 @@ smoke render alone.
   streams; its sprite pack passes structural validation. Visual and audio
   review of that new render remain open, and no user avatar assets are part of
   the Engine package.
+- Added `scene-review <media> <new-output-directory>` to package a JSON shot map,
+  representative 320px JPEG thumbnails, and a contact sheet for AI/human visual
+  inspection. A manual synthetic three-shot run mapped the 0–2, 2–4, and 4–6
+  second ranges to three correctly colored frames and built a contact sheet. A
+  manual real DJI run produced one 27.4274-second shot, one thumbnail, and a
+  contact sheet without false scene cuts. Async API and CLI support cancellation
+  and progress reporting; output is staged and atomically published. These
+  checks validate this workflow on the synthetic source and one Windows DJI
+  clip; they do not establish semantic shot understanding or broad platform
+  support. A manual cancellation during thumbnail generation left no final pack
+  or staging directory. Automated tests remain deferred per the user's
+  direction.

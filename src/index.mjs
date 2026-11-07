@@ -32,6 +32,7 @@ export { parseProbeOutput, probeMedia, probeMediaAsync } from './media/probe.mjs
 export { inspectMediaCompatibility } from './media/compatibility.mjs';
 export { analyzeMediaWithProvider, normalizeMediaFindings } from './media/analysis-provider.mjs';
 export { detectSceneChangesAsync, parseSceneDetectionOutput } from './media/scene-detection.mjs';
+export { buildShotRanges, createSceneReviewPackAsync } from './media/scene-review.mjs';
 export { generateAssetPreview } from './media/preview-assets.mjs';
 export { normalizeFrameRate, frameRateNumber } from './media/frame-rate.mjs';
 export { assertFfmpegDecoder, assertFfmpegDemuxer, assertFfmpegEncoder, hasFfmpegDecoder, hasFfmpegDemuxer, hasFfmpegEncoder, hasFfmpegFilter, listFfmpegDecoders, listFfmpegDemuxers, listFfmpegEncoders, listFfmpegFilters, parseFfmpegDecoders, parseFfmpegDemuxers, parseFfmpegEncoders, parseFfmpegFilters } from './media/ffmpeg-capabilities.mjs';

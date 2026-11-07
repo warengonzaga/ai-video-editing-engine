@@ -171,7 +171,10 @@ and cross-platform codec coverage remain open.
   CLI. It returns confidence-scored, review-required findings with threshold,
   spacing, and result-count controls; it never applies cuts automatically.
   Semantic shot understanding and editorial selection remain provider/agent
-  decisions.
+  decisions. `scene-review` now packages representative frames for each shot,
+  a bounded contact sheet, and a JSON map of shot times to thumbnail files.
+  Async generation supports cancellation and progress events; output is staged
+  and published atomically to a new directory.
 - [x] Provide explicit project-frame conversion and rounding helpers; enforce
   constant-rate or integrated speed-ramp source-span/duration matches and
   registered-media source boundaries.

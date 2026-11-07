@@ -13,6 +13,7 @@ import { inspectMediaCompatibility } from './media/compatibility.mjs';
 import { generateAssetPreview } from './media/preview-assets.mjs';
 import { analyzeMediaWithProvider } from './media/analysis-provider.mjs';
 import { detectSceneChangesAsync } from './media/scene-detection.mjs';
+import { createSceneReviewPackAsync } from './media/scene-review.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
@@ -546,6 +547,30 @@ async function main(args) {
     console.log(`Wrote ${resolve(outputPath)} (review required)`);
     return;
   }
+  if (command === 'scene-review' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [mediaPath, outputDirectory, optionsPath] = commandArgs;
+    const result = await runWithInterrupt((signal) => createSceneReviewPackAsync(
+      resolve(mediaPath),
+      resolve(outputDirectory),
+      {
+        ...(optionsPath ? readJson(resolve(optionsPath)) : {}),
+        signal,
+        onProgress(event) {
+          if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+            process.stderr.write(`Scene thumbnails: ${Math.floor(event.percent)}% (${event.completed}/${event.total})\n`);
+          } else if (event.phase === 'started') {
+            process.stderr.write(`${event.stage}: started\n`);
+          } else if (event.phase === 'completed') {
+            process.stderr.write(`${event.stage}: complete\n`);
+          } else if (event.phase === 'failed') {
+            process.stderr.write(`${event.stage}: failed\n`);
+          }
+        },
+      },
+    ), 'Scene review pack generation');
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
   if (command === 'analysis-to-edl' && commandArgs.length >= 2 && commandArgs.length <= 3) {
     const [analysisPath, outputPath, optionsPath] = commandArgs;
     const result = readJson(resolve(analysisPath));
@@ -621,6 +646,7 @@ async function main(args) {
   plan-silence <transcript.json> <new-edl.json> | detect-silence <media> <new-edl.json> [options.json]
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
   detect-scenes <media> <new-analysis.json> [options.json]
+  scene-review <media> <new-output-directory> [options.json]
   avatar validate-mouth-pack <mouth-pack.json> | avatar-compose <project> <spec.json>
   analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
   approve-edl <reviewed-edl.json> <new-approved-edl.json>

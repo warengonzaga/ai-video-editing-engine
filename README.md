@@ -665,6 +665,24 @@ Scene candidates can guide a provider or editing agent when selecting ranges
 for a rough cut, B-roll, or chapter markers. They do not create or apply edits
 by themselves.
 
+Generate a complete shot-review folder with a representative JPEG thumbnail for
+each detected shot, a contact sheet, and `scene-review.json` mapping shot
+indexes and time ranges to the images:
+
+```sh
+node src/cli.mjs scene-review path/to/source.mp4 video-projects/review/source-shots
+```
+
+The default pack is bounded to 300 shots and a 60-frame contact sheet. Use an
+options JSON file to adjust detection settings or set `maximumShots`,
+`thumbnailSize`, `contactSheetLimit`, and `columns`; the contact sheet is capped
+at 64 megapixels. The pack is staged and
+published as a new directory; an existing output directory is never replaced.
+All findings remain review-required, and the thumbnails do not infer scene
+meaning. The API exposes `createSceneReviewPackAsync(mediaPath, outputDir, options)`
+with cancellation and progress callbacks; the CLI reports progress on stderr
+while writing the review manifest to stdout.
+
 ```js
 const { analysis } = await analyzeMediaWithProvider(mediaPath, {
   id: 'scene-detector',
