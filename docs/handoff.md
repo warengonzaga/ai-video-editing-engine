@@ -1342,6 +1342,10 @@ smoke render alone.
   0.000021 seconds late at both ends, with effectively zero measured drift.
   Re-ran the full render smoke on 2026-11-07 after the OTIO fixes; it exited 0
   and repeated the same synchronization and media-mode checks successfully.
+  The main smoke applies the same eased 1x-to-2x ramp to VFR video and synthetic
+  narration; its 1 kHz cue began at 0.492646s against an integrated expected
+  time of 0.492426s (0.22 ms late). This checks cue placement for that synthetic
+  curve, not pitch or perceived audio quality across varied media.
   The serial `node --test --test-concurrency=1` run passes 131 tests, skips 3
   optional OpenTimelineIO tests because `requirements-otio.txt` is unavailable,
   and has 0 failures. A sandboxed run failed six file-publication cases with

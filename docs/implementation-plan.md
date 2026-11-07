@@ -424,8 +424,11 @@ in this order:
    reframing, circle/ellipse/rect masks with reveal keyframes, visual filters,
    constant playback rates, source-relative eased speed ramps, and versioned
    fade/wipe transitions are implemented. Validate the approximation on
-  longer clips and real footage. The current smoke covers a ramped video with
-  normal-speed audio; do not treat eased audio speed ramps as verified.
+   longer clips and real footage. The current Windows smoke applies the same
+   eased ramp to video and narration audio; its 1 kHz audio cue measured
+   0.492646s against the integrated expected time of 0.492426s. This confirms
+   cue placement for that synthetic ramp, but does not establish pitch/quality
+   across a full recording or real-media behavior.
 3. **Audio post-production:** clip-timing ducking, signal-aware sidechain, and
   loudness normalization, bounded equalizer bands, and sample-peak limiting are
   implemented. Mono/stereo final channel mapping is implemented. Add measured
