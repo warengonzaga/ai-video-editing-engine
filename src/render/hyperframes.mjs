@@ -249,7 +249,7 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     const renderArtifact = checkpointArtifact ?? temporaryOutput;
     if (finalEncoder.codec) {
       emitRenderProgress(onProgress, 'encoding', 'started', { codec: finalEncoder.codecId });
-      await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile);
+      await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile, meta.durationSeconds, onProgress);
       emitRenderProgress(onProgress, 'encoding', 'completed', { codec: finalEncoder.codecId });
     } else emitRenderProgress(onProgress, 'encoding', 'skipped', { reason: 'renderer-output-is-final' });
     emitRenderProgress(onProgress, 'validation', 'started', { target: 'final-output' });
@@ -361,7 +361,7 @@ function createRenderControl(externalSignal, timeoutSeconds) {
   };
 }
 
-async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, signal, colorProfile) {
+async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, signal, colorProfile, durationSeconds, onProgress) {
   const args = [
     '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
     '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
@@ -372,10 +372,50 @@ async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, sign
     if (encoder.codecId === 'vp9') args.push('-b:v', '0');
   }
   if (encoder.videoBitrate !== undefined) args.push('-b:v', encoder.videoBitrate);
-  args.push('-c:a', 'copy');
+  args.push('-c:a', 'copy', '-progress', 'pipe:1', '-nostats');
   if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
   args.push(outputPath);
-  await runProcess('ffmpeg', args, { signal });
+  const progressParser = onProgress ? createFfmpegProgressParser(onProgress, durationSeconds, encoder.codecId) : undefined;
+  await runProcess('ffmpeg', args, {
+    signal,
+    ...(progressParser ? {
+      stdio: 'capture',
+      onStdout: progressParser.push,
+      onStderr: (chunk) => process.stderr.write(chunk),
+    } : {}),
+  });
+  progressParser?.flush();
+}
+
+function createFfmpegProgressParser(onProgress, durationSeconds, codec) {
+  let pending = '';
+  let currentTimeUs;
+  const parseLine = (line) => {
+    const separator = line.indexOf('=');
+    if (separator < 0) return;
+    const key = line.slice(0, separator);
+    const value = line.slice(separator + 1);
+    if (key === 'out_time_us') currentTimeUs = Number(value);
+    if (key !== 'progress' || !Number.isFinite(currentTimeUs)) return;
+    const completed = Math.max(0, currentTimeUs / 1_000_000);
+    const percent = Math.max(0, Math.min(99, completed / durationSeconds * 100));
+    emitRenderProgress(onProgress, 'encoding', 'progress', { percent, completed, total: durationSeconds, codec });
+  };
+  return {
+    push(chunk) {
+      pending += chunk.toString('utf8');
+      let newline;
+      while ((newline = pending.indexOf('\n')) >= 0) {
+        parseLine(pending.slice(0, newline).replace(/\r$/, ''));
+        pending = pending.slice(newline + 1);
+      }
+      if (pending.length > 4096) pending = pending.slice(-4096);
+    },
+    flush() {
+      if (pending) parseLine(pending);
+      pending = '';
+    },
+  };
 }
 
 function encodeVideoFile(inputPath, outputPath, format, encoder, colorProfile) {

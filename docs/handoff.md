@@ -1461,9 +1461,10 @@ smoke render alone.
   `renderEditedProjectAsync` accept an `onProgress` callback with pipeline stage
   events for preprocessing, HyperFrames capture, encoding, output validation,
   publishing, timeline audio validation, and mastering. Stage events report
-  `started`, `completed`, or `skipped`; HyperFrames capture also reports its
-  normalized phase percentage. Callback exceptions emit a warning without
-  cancelling the render. HyperFrames stderr diagnostics remain visible.
+  `started`, `completed`, or `skipped`; HyperFrames capture reports its
+  normalized phase percentage, and FFmpeg encoding reports elapsed media time
+  and percentage. Callback exceptions emit a warning without cancelling the
+  render. HyperFrames and FFmpeg stderr diagnostics remain visible.
   Capability discovery describes supported stages and optional event fields.
   A manual v9
   generic layered render delivered 23 events from compile (5%) through

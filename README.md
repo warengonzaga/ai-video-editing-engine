@@ -378,9 +378,10 @@ consumers can pass an `onProgress` callback to async render APIs. Events report
 pipeline stages such as preprocessing, HyperFrames capture, encoding, output
 validation, publishing, timeline audio validation, and mastering. Each event
 includes `stage` and `phase` (`started`, `completed`, or `skipped`); capture
-events also include HyperFrames phase progress, and events may include stage
-details such as codec, target, or completed/total counts. Callback failures emit
-a warning and do not cancel the render. To render PNG frames, set
+events include HyperFrames phase progress, while FFmpeg encoding events report
+elapsed media time and a percentage. Events may include stage details such as
+codec, target, or completed/total counts. Callback failures emit a warning and
+do not cancel the render. To render PNG frames, set
 `{ "format": "png-sequence" }`; the output path is a new directory. Defaults
 remain controlled by HyperFrames quality (`draft`, `standard`, or `high`).
 Set `"colorProfile": "rec709"` or `"colorProfile": "rec2020-sdr"` to convert
