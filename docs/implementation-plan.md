@@ -538,7 +538,12 @@ in this order:
    eased ramp to video and narration audio; its 1 kHz audio cue measured
    0.492646s against the integrated expected time of 0.492426s. This confirms
    cue placement for that synthetic ramp, but does not establish pitch/quality
-   across a full recording or real-media behavior.
+  across a full recording or real-media behavior. A matching 1×–1.5×
+  ease-in-out ramp on a 10-second registered DJI HEVC+AAC source rendered at
+  1080×1920/30000/1001 fps; its encoded video/audio streams differ by 0.000567
+  seconds after frame quantization. This validates one real Windows source,
+  while perceived audio quality and other source/platform combinations remain
+  open.
 3. **Audio post-production:** clip-timing ducking, signal-aware sidechain, and
   loudness normalization, bounded equalizer bands, and sample-peak limiting are
   implemented. Mono/stereo final channel mapping is implemented. Add measured

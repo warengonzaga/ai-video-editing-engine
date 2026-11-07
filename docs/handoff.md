@@ -1839,6 +1839,16 @@ smoke render alone.
   with 48 kHz stereo AAC and exact 10.000-second streams. The browser-probe log
   has no network or asset-load warnings. This is one Windows clip/profile, not
   a general performance estimate; sampling can miss brief peaks.
+- Validated the source-relative speed-ramp path on the registered real DJI
+  HEVC+AAC camera source: matching `easeInOutCubic` ramps from 1× to 1.5× were
+  applied to a 10-second video clip and its audio. The 1080×1920/30000/1001 fps
+  draft rendered with one worker and low-memory mode in 30.6 seconds. The
+  integrated timeline duration is 8.212704 seconds; the frame-quantized output
+  contains 247 H.264 frames (8.241567 seconds) and 8.241 seconds of stereo AAC,
+  a 0.000567-second stream difference. This verifies real-source ramp
+  processing and stream-duration alignment on Windows, not subjective audio
+  quality or behavior across other cameras, codecs, or operating systems. The
+  ignored output is `video-projects/dji-real-speed-ramp-validation-20261107/`.
 - Exercised real-camera clip volume automation and final audio mastering in a
   separate 10-second DJI project. The first mastered render exposed a 100 ms
   audio tail beyond the video. Both synchronous and asynchronous mastering now
