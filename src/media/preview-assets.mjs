@@ -18,6 +18,15 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   };
   report({ stage: 'preview-preflight', phase: 'started' });
   report({ stage: 'preview', phase: 'started' });
+  try {
+    return await generateAssetPreviewWithProgress(projectPath, assetId, previewOptions, signal, report);
+  } catch (error) {
+    report({ stage: 'preview', phase: 'failed', message: error.message });
+    throw error;
+  }
+}
+
+async function generateAssetPreviewWithProgress(projectPath, assetId, previewOptions, signal, report) {
   const root = resolve(projectPath);
   if (!existsSync(join(root, 'meta.json'))) throw new Error(`Not an Engine project: ${root}`);
   if (!/^[a-z][a-z0-9-]*$/.test(assetId ?? '')) throw new TypeError('Asset id must be a lowercase kebab-case identifier.');
@@ -53,10 +62,15 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   if (!existsSync(source) || !statSync(source).isFile() || lstatSync(source).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or unsafe.`);
   const sourceSize = statSync(source).size;
   let hashedBytes = 0;
+  let reportedHashPercent = -1;
   report({ stage: 'preview-integrity', phase: 'started', totalBytes: sourceSize });
   const sourceSha256 = await hashFileAsync(source, signal, (bytes) => {
     hashedBytes += bytes;
-    report({ stage: 'preview-integrity', phase: 'progress', currentBytes: hashedBytes, totalBytes: sourceSize, percent: sourceSize ? Math.min(100, hashedBytes / sourceSize * 100) : 100 });
+    const percent = sourceSize ? Math.min(100, Math.floor(hashedBytes / sourceSize * 100)) : 100;
+    if (percent > reportedHashPercent) {
+      reportedHashPercent = percent;
+      report({ stage: 'preview-integrity', phase: 'progress', currentBytes: hashedBytes, totalBytes: sourceSize, percent });
+    }
   });
   report({ stage: 'preview-integrity', phase: 'completed', currentBytes: sourceSize, totalBytes: sourceSize, percent: 100 });
   if (sourceSha256 !== asset.sha256) throw new Error(`Asset ${assetId} failed integrity verification; relink it before preview generation.`);
@@ -160,7 +174,6 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
     report({ stage: 'preview', phase: 'completed', result: 'generated' });
     return result;
   } catch (error) {
-    report({ stage: 'preview', phase: 'failed', message: error.message });
     await rm(staging, { recursive: true, force: true });
     throw error;
   }

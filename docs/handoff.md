@@ -1518,4 +1518,7 @@ smoke render alone.
   validation generated a 2,000-point waveform from the existing Voice 015
   recording and three thumbnails from the generic sample footage. Both runs
   emitted progress events and returned parseable JSON on stdout. Node syntax and
-  diff checks passed; automated tests remain deferred.
+  diff checks passed; automated tests remain deferred. A missing asset also
+  reports the overall `failed` event, and a subsequent cache-hit run returns
+  the same waveform without regeneration. Source-hash events are rate-limited
+  to integer percentage changes.
