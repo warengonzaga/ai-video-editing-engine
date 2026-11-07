@@ -55,8 +55,9 @@ Last updated: 2026-11-07
 - `generateAssetPreview` and `asset preview` create content-keyed JPEG
   thumbnails for registered images/video and streamed 4 kHz mono min/max
   waveform samples for assets with audio. Preview records verify source and
-  cached-file SHA-256 values before reuse; generation options control thumbnail
-  spacing/size and waveform point count.
+  cached-file SHA-256 values before reuse; hashing and cache publication use
+  asynchronous file operations with abort checks. Generation options control
+  thumbnail spacing/size and waveform point count.
 - Audio tracks and clips support gain, clip fades, clip-timing ducking, and
   signal-aware track sidechain compression. Optional timeline loudness
   mastering accepts integrated LUFS, true-peak, loudness-range, EQ-band, and

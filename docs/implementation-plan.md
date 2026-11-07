@@ -323,8 +323,8 @@ optional talking-avatar scene; inspect animation and listen to the actual audio.
 - [x] Generate cached, source-fingerprinted image/video thumbnails and streamed
   audio waveform samples for generic preview clients; verify cache integrity.
   Preview generation supports abort signals across thumbnail extraction,
-  waveform decoding, and media probing; the CLI cancels those processes on
-  Ctrl+C.
+  waveform decoding, media probing, streamed source/cache hashing, and async
+  cache publication; the CLI cancels those processes on Ctrl+C.
 - [x] Render one layered integration scene combining VFR footage, proxy-backed
   B-roll, a still image, a nested composition, captions, and narration; sample
   encoded output pixels to verify that the visual layers appear at their timed

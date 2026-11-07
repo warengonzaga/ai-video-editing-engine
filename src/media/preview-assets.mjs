@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createReadStream, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFile, rename, rm } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
 import { probeMediaAsync } from './probe.mjs';
 import { runProcess } from '../render/process.mjs';
@@ -44,7 +45,7 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   const sourceRelative = relative(root, source);
   if (!sourceRelative || sourceRelative.startsWith('..') || sourceRelative.includes(':') || asset.path.includes('\\')) throw new TypeError(`Asset path is invalid: ${assetId}`);
   if (!existsSync(source) || !statSync(source).isFile() || lstatSync(source).isSymbolicLink()) throw new Error(`Asset ${assetId} is missing or unsafe.`);
-  const sourceSha256 = hashFile(source);
+  const sourceSha256 = await hashFileAsync(source, signal);
   if (sourceSha256 !== asset.sha256) throw new Error(`Asset ${assetId} failed integrity verification; relink it before preview generation.`);
   signal?.throwIfAborted();
 
@@ -61,7 +62,7 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
   mkdirSync(previewRoot, { recursive: true });
   const destination = join(previewRoot, `${assetId}-${key}`);
   const expected = { assetId, sourceSha256, settings, durationSeconds, isImage, hasVideo, hasAudio };
-  if (existsSync(destination)) return readCachedPreview(destination, expected);
+  if (existsSync(destination)) return await readCachedPreview(destination, expected, signal);
 
   const staging = join(previewRoot, `.preview-${randomUUID()}.tmp`);
   mkdirSync(staging, { recursive: false });
@@ -80,7 +81,7 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
         const file = `thumbnail-${String(index).padStart(5, '0')}.jpg`;
         const path = join(staging, file);
         if (!existsSync(path) || statSync(path).size === 0) throw new Error(`FFmpeg did not create expected preview frame ${index} for ${assetId}.`);
-        thumbnails.push({ timeSeconds: isImage ? 0 : Number(((index - 1) * thumbnailIntervalSeconds).toFixed(6)), file, sha256: hashFile(path) });
+        thumbnails.push({ timeSeconds: isImage ? 0 : Number(((index - 1) * thumbnailIntervalSeconds).toFixed(6)), file, sha256: await hashFileAsync(path, signal) });
       }
     }
 
@@ -100,29 +101,32 @@ export async function generateAssetPreview(projectPath, assetId, options = {}) {
     };
     writeFileSync(join(staging, 'preview.json'), `${JSON.stringify({ ...result, files: [
       ...thumbnails.map(({ file, sha256 }) => ({ file, sha256 })),
-      ...(waveform ? [{ file: 'waveform.json', sha256: hashFile(join(staging, 'waveform.json')) }] : []),
+      ...(waveform ? [{ file: 'waveform.json', sha256: await hashFileAsync(join(staging, 'waveform.json'), signal) }] : []),
     ] }, null, 2)}\n`, { flag: 'wx' });
     signal?.throwIfAborted();
     try {
-      renameSync(staging, destination);
+      await rename(staging, destination);
     } catch (error) {
       if (existsSync(destination)) {
-        rmSync(staging, { recursive: true, force: true });
-        return readCachedPreview(destination, expected);
+        await rm(staging, { recursive: true, force: true });
+        return await readCachedPreview(destination, expected, signal);
       }
       if (!['EPERM', 'EXDEV'].includes(error.code)) throw error;
       mkdirSync(destination, { recursive: false });
       try {
-        for (const file of readdirSync(staging)) copyFileSync(join(staging, file), join(destination, file));
-        rmSync(staging, { recursive: true, force: true });
+        for (const file of readdirSync(staging)) {
+          signal?.throwIfAborted();
+          await copyFile(join(staging, file), join(destination, file));
+        }
+        await rm(staging, { recursive: true, force: true });
       } catch (copyError) {
-        rmSync(destination, { recursive: true, force: true });
+        await rm(destination, { recursive: true, force: true });
         throw copyError;
       }
     }
     return result;
   } catch (error) {
-    rmSync(staging, { recursive: true, force: true });
+    await rm(staging, { recursive: true, force: true });
     throw error;
   }
 }
@@ -179,7 +183,7 @@ function createWaveform(source, durationSeconds, pointCount, signal) {
   });
 }
 
-function readCachedPreview(directory, expected) {
+async function readCachedPreview(directory, expected, signal) {
   if (!statSync(directory).isDirectory() || lstatSync(directory).isSymbolicLink()) throw new Error('Preview cache entry is unsafe.');
   const recordPath = join(directory, 'preview.json');
   if (!existsSync(recordPath) || lstatSync(recordPath).isSymbolicLink()) throw new Error('Preview cache record is missing or unsafe.');
@@ -191,11 +195,12 @@ function readCachedPreview(directory, expected) {
   }
   const fileNames = new Set();
   for (const file of record.files) {
+    signal?.throwIfAborted();
     if (!file || basename(file.file) !== file.file || !/^[\da-f]{64}$/.test(file.sha256 ?? '')) throw new Error('Preview cache file record is invalid.');
     if (fileNames.has(file.file)) throw new Error('Preview cache file records contain duplicates.');
     fileNames.add(file.file);
     const path = join(directory, file.file);
-    if (!existsSync(path) || !statSync(path).isFile() || lstatSync(path).isSymbolicLink() || hashFile(path) !== file.sha256) {
+    if (!existsSync(path) || !statSync(path).isFile() || lstatSync(path).isSymbolicLink() || await hashFileAsync(path, signal) !== file.sha256) {
       throw new Error(`Preview cache file is missing or modified: ${file.file}`);
     }
   }
@@ -263,15 +268,9 @@ async function runFfmpeg(args, signal) {
   }
 }
 
-function hashFile(path) {
+async function hashFileAsync(path, signal) {
   const hash = createHash('sha256');
-  const descriptor = openSync(path, 'r');
-  const buffer = Buffer.allocUnsafe(1024 * 1024);
-  try {
-    let bytes;
-    while ((bytes = readSync(descriptor, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, bytes));
-  } finally {
-    closeSync(descriptor);
-  }
+  for await (const chunk of createReadStream(path, { signal })) hash.update(chunk);
+  signal?.throwIfAborted();
   return hash.digest('hex');
 }
