@@ -1420,3 +1420,15 @@ smoke render alone.
   mouth changing without an obvious double outline. The v4 render remains
   untouched for comparison. This was a local media review render, not an
   automated test; speech timing and audio still need human review.
+- Exercised the new async `avatar-compose` CLI path with Rhubarb 1.14.0, the
+  existing `Voice 015.mp3` recording, and the consumer-owned A-H/X sprite pack.
+  The normal sandbox run stopped at the Engine's Windows hard-link publish step;
+  the authorized local run completed and rollback left no partial files. The v6
+  comparison render exposed two HyperFrames lint warnings: crossfade buffers
+  duplicated initial media sources and lacked stable IDs. Generated mouth-buffer
+  markup now starts with distinct cue-state sources (or unique transparent
+  fallbacks) and stable IDs. A fresh v7 composition reports 0 lint errors and 0
+  warnings. Its render at 1920x1080, 30 fps, 11.133 seconds is H.264 with 48 kHz
+  stereo AAC; ffprobe verified the streams and sampled frames show mouth states
+  changing with stable body framing. Speech timing and human audio review remain
+  open. This was an end-to-end manual workflow check, not the deferred test suite.

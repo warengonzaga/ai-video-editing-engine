@@ -246,7 +246,18 @@ function avatarLayerMarkup(layer, index) {
   const style = `--x:${layer.x};--y:${layer.y};--w:${layer.width}`;
   const base = `<img id="avatar-${layer.name}" class="clip sprite" data-track-index="${index}" data-start="0" data-duration="${layer.cues.durationSeconds}" src="${layer.image}" style="${style}">`;
   if (layer.role !== 'mouth' || layer.transitionSeconds === 0) return base;
-  return base + [0, 1].map((buffer) => `<img class="clip sprite sprite-buffer" data-track-index="${index}" data-mouth-layer="${index}" data-mouth-buffer="${buffer}" data-start="0" data-duration="${layer.cues.durationSeconds}" src="${layer.image}" style="${style}">`).join('');
+  const bufferSources = [];
+  for (const cue of layer.cues.cues) {
+    const source = layer.states[cue.state];
+    if (source && source !== layer.image && !bufferSources.includes(source)) bufferSources.push(source);
+    if (bufferSources.length === 2) break;
+  }
+  while (bufferSources.length < 2) {
+    const buffer = bufferSources.length;
+    const svg = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><!-- mouth-buffer-${layer.name}-${buffer} --><path d="M0 0h1v1H0z" fill="none"/></svg>`);
+    bufferSources.push(`data:image/svg+xml,${svg}`);
+  }
+  return base + bufferSources.map((source, buffer) => `<img id="avatar-${layer.name}-mouth-buffer-${buffer}" class="clip sprite sprite-buffer" data-track-index="${index}" data-mouth-layer="${index}" data-mouth-buffer="${buffer}" data-start="0" data-duration="${layer.cues.durationSeconds}" src="${source}" style="${style}">`).join('');
 }
 
 function buildAvatarTimelineScript(timeline, id) {
