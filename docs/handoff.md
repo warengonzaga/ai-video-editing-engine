@@ -1710,3 +1710,10 @@ smoke render alone.
   so the report correctly marks interchange unavailable. The official OTIO
   adapter API documents `available_adapter_names()` for this check. No tests
   were run, per the user's direction.
+- Re-rendered the saved generic six-track demo through the current JavaScript
+  API into a new, non-overwriting MP4. The 6-second output completed in 17.5
+  seconds with one worker; `ffprobe` reports 640×360/30 fps H.264 video and
+  48 kHz stereo AAC. A six-frame contact sheet shows the timed main video,
+  B-roll, still, lower-third, and captions. The footage sources are synthetic
+  color patterns, so this confirms the generic layered render path, not camera
+  footage quality or human listening quality. No automated tests were run.
