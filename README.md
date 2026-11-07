@@ -709,7 +709,14 @@ operations and a before/after preview. It does not change the timeline or
 choose semantically relevant shots. The selected source ranges must fit within
 their reviewed shot; the caller must use the same registered source as the
 scene-review pack. Apply the returned `operations` only after editorial review
-with `timeline edit`. The API is
+by saving that array to an operations JSON file, then applying it through the
+undoable project-edit command:
+
+```sh
+node src/cli.mjs timeline project-edit timeline.json edits/approved-broll-operations.json
+```
+
+The API is
 `planSceneReviewPlacements(timeline, sceneReview, assetId, trackId, placements)`.
 
 ```js

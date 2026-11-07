@@ -1888,7 +1888,14 @@ smoke render alone.
   existing DJI project also produced a valid one-shot plan from camera source
   seconds 10–11.5 to timeline seconds 8–9.5 on its B-roll track, without
   changing the project. The caller remains responsible for using the media
-  asset that produced the pack; automated tests remain deferred.
+  asset that produced the pack; automated tests remain deferred. An approved
+  copy of the plan was then applied through the undoable `timeline project-edit`
+  command in an isolated copy of the DJI project. The resulting 10-second
+  1080×1920/30 fps render includes H.264 video and 48 kHz stereo AAC. The
+  sampled frame at 8.5 seconds switches from the original timeline source to
+  the selected 10–11.5-second camera range, while the original project remains
+  unchanged. This validates one Windows/DJI case, not broad source or platform
+  coverage.
 - The user approved the borderless mouth art and lip-sync, then reported the
   rendered mouth looked too small. A local v13 comparison preview scales the
   mouth layer width from 0.0403 to 0.0605 (1.5×) while preserving its center,
