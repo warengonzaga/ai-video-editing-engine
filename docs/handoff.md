@@ -1548,3 +1548,12 @@ smoke render alone.
   listening review remain open. Render needed the local HyperFrames lock
   disabled because the standard sandbox cannot write its user cache lock; the
   temporary localhost render server was permitted only for this manual render.
+- A fresh direct call to `validateRhubarbSpriteStates` accepted the supplied
+  A-H/X mouth pack at 280×171 while correctly retaining
+  `visualReviewRequired: true`. `rhubarbLipSyncCuesAsync` then ran the local
+  Rhubarb 1.14.0 executable against Voice 015 and produced 59 normalized cues:
+  A=7, B=20, C=15, E=6, F=5, G=1, X=5, across 11.114667 seconds. This confirms
+  the actual local recognition and pack-preflight routes work on the supplied
+  media; cue counts do not establish phoneme alignment, visual continuity, or
+  perceived audio quality. The comparison render remains available for human
+  audiovisual review. No new dependency was installed and no test suite ran.

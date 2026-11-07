@@ -320,9 +320,11 @@ rejected. Tests cover retained overlap and partial-cut rejection.
   `Voice 015.mp3`, A-H visemes, X rest, and fixed-canvas blink assets; ffprobe
   confirms 11.133 seconds, H.264, and stereo AAC. Its composition lints without
   warnings, and sampled frames show changing mouth states with stable body
-  framing. These checks do not verify phoneme alignment or perceived audio
-  quality; human speech and audio review remain outstanding. Rhubarb is an
-  optional external runtime and is not bundled.
+  framing. A direct local Rhubarb 1.14.0 call now confirms 59 normalized cues
+  from Voice 015 and validates the supplied 280×171 A-H/X mouth pack. These
+  checks do not verify phoneme alignment or perceived audio quality; human
+  speech and audio review remain outstanding. Rhubarb is an optional external
+  runtime and is not bundled.
 
 **Acceptance:** render both a footage edit with captions and B-roll and an
 optional talking-avatar scene; inspect animation and listen to the actual audio.
