@@ -891,6 +891,9 @@ function sliceTimelineClip(clip, kind, localStart, localEnd, timelineStart) {
   const originalDuration = clip.durationSeconds;
   segment.timelineStart = timelineStart;
   segment.durationSeconds = durationSeconds;
+  if (kind === 'overlay' && clip.composition) {
+    segment.compositionTimeOffsetSeconds = (clip.compositionTimeOffsetSeconds ?? 0) + localStart;
+  }
   const keyframes = sliceVisualKeyframes(clip.keyframes, localStart, localEnd);
   if (keyframes) segment.keyframes = keyframes;
   else delete segment.keyframes;

@@ -111,7 +111,8 @@ audio policy, cross-platform and broader format coverage remain open.
   the removed range.
 - [x] Extract non-destructive render ranges from project time through the API
   and CLI, preserving intersecting clip timing, automation, captions, and
-  markers while rejecting cuts through fades or edge transitions.
+  markers and nested-composition source time while rejecting cuts through
+  fades or edge transitions.
 - [x] Insert synchronized gaps across tracks, splitting clips at the insertion
   point while preserving source ranges, keyframes, speed ramps, and captions.
 - [x] Apply ordered AI edit plans atomically through the JavaScript API and CLI;

@@ -176,7 +176,11 @@ function renderTimelineWith(projectPath, timeline, outputPath, quality, options,
         return `<div ${common}${fadeAttributes(clip)}${highlightAttributes} role="text" aria-label="${escapeAttr(clip.text)}" style="position:absolute;display:${display};flex-wrap:${flexWrap};align-items:${itemAlignment};align-content:${alignContent};column-gap:${clip.wordWrap ? '0.25em' : '0'};justify-content:${textAlign === 'left' ? 'flex-start' : textAlign === 'right' ? 'flex-end' : 'center'};left:${x}%;top:${y}%;width:${width}%;height:${height}%;padding:${paddingPixels}px;font-family:${fontFamily};font-size:${fontSize}px;font-weight:${fontWeight};line-height:${lineHeight};color:${color};background:${backgroundColor};text-align:${textAlign};white-space:${whiteSpace};${outline}${shadow}${maskStyle}${transitionStyle}${blendStyle}">${textMarkup}</div>`;
       }
       const comp = assetPath(clip.composition);
-      return `<div ${common}${fadeAttributes(clip)} data-composition-id="${escapeAttr(clip.id)}" data-composition-src="${escapeAttr(comp)}" style="position:absolute;left:0;top:0;width:100%;height:100%;${maskStyle}${transitionStyle}${blendStyle}"></div>`;
+      const compositionTimeOffset = clip.compositionTimeOffsetSeconds ?? 0;
+      const compositionTimeOffsetAttribute = compositionTimeOffset > 0
+        ? ` data-playback-start="${compositionTimeOffset}"`
+        : '';
+      return `<div ${common}${fadeAttributes(clip)} data-composition-id="${escapeAttr(clip.id)}" data-composition-src="${escapeAttr(comp)}"${compositionTimeOffsetAttribute} style="position:absolute;left:0;top:0;width:100%;height:100%;${maskStyle}${transitionStyle}${blendStyle}"></div>`;
     }
     const asset = renderSpec.assets.find((item) => item.id === clip.assetId);
     const assetRelativePath = assetPath(asset.path);

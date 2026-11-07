@@ -1678,10 +1678,11 @@ smoke render alone.
   because OpenTimelineIO is not installed in the active Python environment.
   The automated suite was not run.
 - Reworked the ignored local v11 avatar's F/"oo" sprite as a compact open cavity
-  with a restrained tongue and no separate border. A full-frame static preview
-  is available at `video-projects/waren-avatar-engine-v11/renders/o-mouth-fix-frame.png`.
-  HyperFrames range rendering was attempted but could not reach its localhost
-  capture server in this sandbox; no video render or automated tests ran.
+  with a restrained tongue and no separate border. A full 11.133-second
+  1920×1080/30 fps draft render using Voice 015 completed as H.264 with 48 kHz
+  stereo AAC. The extracted 2.10-second frame confirms the new F/"oo" sprite is
+  composited without the old heavy border. Artifacts remain ignored under
+  `video-projects/waren-avatar-engine-v11/renders/`.
 - Refined the public mouth-art guidance: the open F/"oo" shape should read from
   the cavity itself, without an added outline or skin halo.
 - `npm run doctor` confirms the core Windows runtime is available: Node.js 22,
@@ -1689,7 +1690,10 @@ smoke render alone.
   local Chrome runtime. Optional Rhubarb, whisper-cpp, local TTS/music models,
   and Docker are absent. The attempted OTIO dependency install could not reach
   PyPI because DNS/network access is unavailable, so nested OTIO runtime
-  behavior remains unverified. A render-range retry using local Chrome still
-  fails when the browser opens HyperFrames' localhost capture page; this is a
-  sandbox network restriction, not a missing browser installation. No test
-  suite ran.
+  behavior remains unverified. Fixed a render-range defect that restarted a
+  nested composition at zero: range extraction now carries composition source
+  time through HyperFrames' `data-playback-start` attribute. A 2.06–2.18 second
+  render now shows the F mouth at local time 0.067 seconds. ffprobe confirms
+  0.133333 seconds, 1920×1080/30 fps H.264, and 48 kHz stereo AAC. Local
+  localhost capture required the approved unsandboxed render. No automated
+  suite ran, per the user's direction.
