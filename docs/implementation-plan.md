@@ -2,8 +2,9 @@
 
 This plan guides development of the AI Video Editing Engine as an independent,
 local-first editing engine for AI agents and other consumers. Explainer Studio
-is one consumer, not the definition of the engine. Avatar animation is one
-optional capability. Record implementation progress and verification evidence
+is one consumer, not the definition of the engine. Studio may compose avatar
+states as ordinary timed image clips; the Engine does not interpret avatar or
+lip-sync semantics. Record implementation progress and verification evidence
 in `docs/handoff.md` as work proceeds.
 
 ## Delivery constraints

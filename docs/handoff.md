@@ -10,9 +10,11 @@ Last updated: 2026-11-08
 
 The migration boundary, current Studio/Engine compatibility mismatch, generic
 timeline input example, and acceptance gate are recorded in
-[`studio-engine-handoff.md`](studio-engine-handoff.md). The Studio migration
-has not passed its gate; preserve the existing Engine avatar implementation
-until it does.
+[`studio-engine-handoff.md`](studio-engine-handoff.md). Studio's generic
+timeline renderer and the Engine avatar cleanup are implemented on the paired
+feature branches. The Studio render passed the media check; review and merge of
+both PRs into `dev` remain pending. Historical avatar implementation notes
+below describe the retired Engine-owned path.
 
 ## Current status
 
