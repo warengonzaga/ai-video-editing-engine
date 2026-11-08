@@ -1,8 +1,8 @@
-# Explainer Studio and Engine Ownership
+# Explainer Studio and AIVEE Ownership
 
 ## Product boundary
 
-Explainer Studio owns explainer decisions and avatar production: setup, scripts, storyboard approval, avatar art and fitting, voice selection, speech-to-mouth mapping, and review. The AI Video Editing Engine owns generic media registration, validated timelines, clip timing, tracks, audio processing, and rendering. Its timeline accepts timed image clips, so Studios can add avatars without editor-specific fields.
+Explainer Studio owns explainer decisions and avatar production: setup, scripts, storyboard approval, avatar art and fitting, voice selection, speech-to-mouth mapping, and review. AIVEE owns generic media registration, validated timelines, clip timing, tracks, audio processing, and rendering. Its timeline accepts timed image clips, so Studios can add avatars without editor-specific fields.
 
 ## Studio integration
 
@@ -20,9 +20,9 @@ Studio prefers configured Rhubarb phonetic cues and maps its A-H/X outputs to th
 
 ## Engine cleanup completed
 
-The Engine now keeps only generic editor capabilities. This branch removes the avatar-only composition and Rhubarb layers, their PNG/cue validators, public exports, CLI commands, capability metadata, doctor check, tests, package docs, and user guides. Generic timeline image rendering, audio clips, and general video editing stay in Engine. The Engine package is private and unpublished, so there are no published npm consumers to migrate.
+AIVEE now keeps only generic editor capabilities. This branch removes the avatar-only composition and Rhubarb layers, their PNG/cue validators, public exports, CLI commands, capability metadata, doctor check, tests, package docs, and user guides. Generic timeline image rendering, audio clips, and general video editing stay in AIVEE. The package is being prepared for npm and GitHub Packages publication; no published consumers need migration.
 
-Studio owns the replacement behavior in `src/explainer_studio/engine.py` and `src/explainer_studio/audio.py`; its CLI and skills route users through Engine-backed rendering.
+Studio owns the replacement behavior in `src/explainer_studio/engine.py` and `src/explainer_studio/audio.py`; its CLI and skills route users through AIVEE-backed rendering.
 
 ## Follow-up review
 

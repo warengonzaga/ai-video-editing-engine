@@ -1,7 +1,7 @@
 # Social Video Aspect-Ratio Presets
 
 This document defines the platform-informed aspect-ratio presets exposed by
-the AI Video Editing Engine. The engine remains general-purpose: presets are
+AIVEE. The engine remains general-purpose: presets are
 convenience defaults, and callers can continue to use arbitrary dimensions.
 
 ## Initial preset baseline

@@ -1,6 +1,6 @@
-# General-Purpose Video Editing Engine Implementation Plan
+# AIVEE Implementation Plan
 
-This plan guides development of the AI Video Editing Engine as an independent,
+This plan guides development of AIVEE as an independent,
 local-first editing engine for AI agents and other consumers. Explainer Studio
 is one consumer, not the definition of the engine. Studio may compose avatar
 states as ordinary timed image clips; the Engine does not interpret avatar or
@@ -503,8 +503,9 @@ through the documented engine interface; Studio retains its review gates.
 
 ## 7. Delivery and ongoing maintenance
 
-- [x] Expose a private-installable `ai-video-engine` CLI binary. Public package
-  publication and the distribution policy remain undecided.
+- [x] Expose the `aivee` CLI binary and configure Build Flow for npm and
+  owner-scoped GitHub Packages publication. Initial npm bootstrap and publisher
+  trust setup remain required before the first automated release.
 - [x] Add a manually dispatched Linux/macOS/Windows workflow selector for
   Node.js 22, FFmpeg-backed tests, render smoke, and production dependency
   auditing. A previous hosted matrix passed, but the current macOS support

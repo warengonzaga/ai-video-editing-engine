@@ -1,11 +1,19 @@
 {
-  "name": "ai-video-editing-engine",
+  "name": "aivee",
   "version": "0.1.0",
-  "private": true,
   "license": "MIT",
+  "author": "Waren Gonzaga",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/warengonzaga/ai-video-editing-engine.git"
+  },
+  "homepage": "https://github.com/warengonzaga/ai-video-editing-engine#readme",
+  "bugs": {
+    "url": "https://github.com/warengonzaga/ai-video-editing-engine/issues"
+  },
   "type": "module",
   "bin": {
-    "ai-video-engine": "src/cli.mjs"
+    "aivee": "src/cli.mjs"
   },
   "exports": {
     ".": "./src/index.mjs"
@@ -16,13 +24,12 @@
     "LICENSE",
     "docs/architecture.md",
     "docs/usage.md",
+    "docs/releasing.md",
     "docs/aspect-ratio-presets.md",
-    "docs/handoff.md",
-    "docs/studio-engine-handoff.md",
-    "docs/implementation-plan.md",
+    "CHANGELOG.md",
     "requirements-otio.txt"
   ],
-  "description": "A local-first video editing engine with a versioned timeline, media tools, and render adapters.",
+  "description": "Local-first video editing CLI and JavaScript API for AI workflows.",
   "engines": {
     "node": ">=22"
   },

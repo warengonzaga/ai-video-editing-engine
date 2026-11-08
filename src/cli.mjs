@@ -287,7 +287,7 @@ async function main(args) {
   if (command === 'retime') {
     const [transcriptPath, edlPath, outputPath, ...extra] = commandArgs;
     if (!transcriptPath || !edlPath || !outputPath || extra.length) {
-      throw new Error('Usage: node src/cli.mjs retime <transcript.json> <approved-edl.json> <new-output.json>');
+      throw new Error('Usage: aivee retime <transcript.json> <approved-edl.json> <new-output.json>');
     }
     const transcript = readJson(resolve(transcriptPath));
     const edl = readJson(resolve(edlPath));
@@ -606,7 +606,7 @@ async function main(args) {
     console.log(JSON.stringify(importProjectTranscript(projectPath, mediaPath, transcriptPath), null, 2));
     return;
   }
-  throw new Error(`Usage: node src/cli.mjs
+  throw new Error(`Usage: aivee
   project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>] [--background-color <hex|transparent>]
   project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>] [--background-color <hex|transparent>]
   presets list | probe <media> | media support <media>

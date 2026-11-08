@@ -375,7 +375,7 @@ transcript retiming does not require FFmpeg, a browser, or API keys. `npm run
 doctor` checks Node.js, FFmpeg, ffprobe, HyperFrames, and GSAP, then runs
 HyperFrames' environment doctor for browser/render setup and optional local AI
 runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
-`ai-video-engine capabilities` CLI command to discover required tools, common
+`aivee capabilities` CLI command to discover required tools, common
 FFmpeg demuxers and decoders for common input media, encoders, output formats,
 detected codec/per-format color-profile support, predefined canvas presets,
 canvas background support and its accepted values, and optional render filters
