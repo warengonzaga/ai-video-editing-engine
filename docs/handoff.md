@@ -4,7 +4,17 @@ The phased implementation plan and acceptance criteria are in
 [`implementation-plan.md`](implementation-plan.md). Keep this handoff current
 with verified capabilities, evidence, limits, and the next work.
 
-Last updated: 2026-11-07
+Last updated: 2026-11-08
+
+## Explainer Studio migration
+
+The migration boundary, current Studio/Engine compatibility mismatch, generic
+timeline input example, and acceptance gate are recorded in
+[`studio-engine-handoff.md`](studio-engine-handoff.md). Studio's generic
+timeline renderer and the Engine avatar cleanup are implemented on the paired
+feature branches. The Studio render passed the media check; review and merge of
+both PRs into `dev` remain pending. Historical avatar implementation notes
+below describe the retired Engine-owned path.
 
 ## Current status
 

@@ -15,7 +15,7 @@
 - **Media workflow:** register and verify assets, create proxies and previews, inspect scenes, and plan reviewable B-roll edits.
 - **Audio and transcripts:** retime word-level transcripts, mix and master audio, apply fades and ducking, and export subtitle files.
 - **Rendering:** render MP4, WebM, MOV, GIF, or PNG sequences with progress, cancellation, output checks, and resumable capture checkpoints.
-- **Interchange and animation:** optional OpenTimelineIO support and consumer-neutral avatar/lip-sync composition.
+- **Interchange and animation:** optional OpenTimelineIO support, generic timed image layers, and keyframes. Avatar art and speech-driven character animation are owned by consuming studios such as [Explainer Studio](https://github.com/warengonzaga/explainer-studio).
 - **AI-ready interfaces:** use the same versioned timeline through the CLI or JavaScript API; proposed content cuts remain reviewable before application.
 
 ## 🖥️ Platform Support
@@ -61,13 +61,12 @@ source checkout for development and local/Git-based consumers.
 ## 📖 Usage
 
 Start with the [Video Editing Usage Guide](docs/usage.md) for project creation,
-media registration, editing operations, rendering, transcripts, avatar
-composition, and OpenTimelineIO interchange.
+media registration, editing operations, rendering, transcripts, and
+OpenTimelineIO interchange.
 
 Related references:
 
 - [Aspect ratio presets](docs/aspect-ratio-presets.md)
-- [Avatar mouth-pack requirements](docs/avatar-mouth-packs.md)
 - [Architecture and API boundaries](docs/architecture.md)
 - [Implementation plan and validation status](docs/implementation-plan.md)
 - [Project handoff and known limits](docs/handoff.md)

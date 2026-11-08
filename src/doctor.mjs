@@ -33,12 +33,6 @@ for (const result of results) {
 }
 
 const ready = results.every((result) => result.ok);
-const rhubarb = checkCommand('Rhubarb Lip Sync', 'rhubarb', ['--version']);
-console.log(`${rhubarb.ok ? '✓' : '⚠'} Optional ${rhubarb.name}: ${rhubarb.detail}`);
-if (!rhubarb.ok) {
-  console.log('  Install the optional CLI and make `rhubarb` available on PATH to enable phonetic mouth cues.');
-  console.log('  Project: https://github.com/DanielSWolf/rhubarb-lip-sync/releases');
-}
 const otioPython = process.env.AIVE_OTIO_PYTHON || process.env.PYTHON || 'python';
 const openTimelineIO = checkPythonModule('OpenTimelineIO', otioPython);
 console.log(`${openTimelineIO.ok ? '✓' : '⚠'} Optional ${openTimelineIO.name}: ${openTimelineIO.detail}`);

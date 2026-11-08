@@ -18,9 +18,6 @@ import { renderCuts } from './media/render-cuts.mjs';
 import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
 import { planSceneReviewPlacements } from './edits/plan-shot-placements.mjs';
-import { audioLevelCues } from './animation/audio-cues.mjs';
-import { rhubarbLipSyncCuesAsync, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
-import { createAvatarCompositionAsync } from './animation/avatar.mjs';
 import { validateTimeline } from './timeline/validate.mjs';
 import { inspectTimeline } from './timeline/inspect.mjs';
 import { timelineFromEdl } from './timeline/from-edl.mjs';
@@ -285,42 +282,6 @@ async function main(args) {
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
     writeNewFile(resolve(outputPath), timelineFromEdl(edl, assetId, options));
     console.log(`Wrote ${resolve(outputPath)}`);
-    return;
-  }
-  if (command === 'audio-cues' && commandArgs.length === 2) {
-    const [audio, output] = commandArgs;
-    writeNewFile(resolve(output), audioLevelCues(resolve(audio)));
-    console.log(`Wrote ${resolve(output)}`);
-    return;
-  }
-  if (command === 'lip-sync' && (commandArgs.length === 2 || commandArgs.length === 3)) {
-    const [audio, output, optionsPath] = commandArgs;
-    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    const track = await runWithInterrupt((signal) => rhubarbLipSyncCuesAsync(resolve(audio), { ...options, signal }), 'Lip-sync generation');
-    writeNewFile(resolve(output), track);
-    console.log(`Wrote ${resolve(output)}`);
-    return;
-  }
-  if (command === 'avatar' && commandArgs[0] === 'validate-mouth-pack' && commandArgs.length === 2) {
-    const specificationPath = resolve(commandArgs[1]);
-    const specification = readJson(specificationPath);
-    if (!specification || typeof specification !== 'object' || Array.isArray(specification)
-        || !specification.states || typeof specification.states !== 'object' || Array.isArray(specification.states)) {
-      throw new TypeError('Mouth-pack specification must contain a states object and optional options object.');
-    }
-    const states = Object.fromEntries(Object.entries(specification.states).map(([state, imagePath]) => [
-      state,
-      typeof imagePath === 'string' && imagePath.trim()
-        ? isAbsolute(imagePath) ? imagePath : resolve(dirname(specificationPath), imagePath)
-        : imagePath,
-    ]));
-    console.log(JSON.stringify(validateRhubarbSpriteStates(states, specification.options ?? {}), null, 2));
-    return;
-  }
-  if (command === 'avatar-compose' && commandArgs.length === 2) {
-    const [project, spec] = commandArgs;
-    const result = await runWithInterrupt((signal) => createAvatarCompositionAsync(resolve(project), readJson(resolve(spec)), { signal }), 'Avatar composition');
-    console.log(JSON.stringify(result, null, 2));
     return;
   }
   if (command === 'retime') {
@@ -668,7 +629,6 @@ async function main(args) {
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
   detect-scenes <media> <new-analysis.json> [options.json]
   scene-review <media> <new-output-directory> [options.json]
-  avatar validate-mouth-pack <mouth-pack.json> | avatar-compose <project> <spec.json>
   analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
   approve-edl <reviewed-edl.json> <new-approved-edl.json>
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>

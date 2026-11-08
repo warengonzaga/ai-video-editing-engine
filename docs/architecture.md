@@ -85,14 +85,14 @@ project documentation says it does. Reference claims are not local verification.
 | Composition/motion | HyperFrames project render wrapper; GSAP starter | HyperFrames, GSAP, reusable motion cards/templates | Attributes motion graphics to HyperFrames + GSAP through Herk |
 | Captions/B-roll/audio design | EDL-to-MP4, timed text, still/video layers, gain/fades/clip-timing ducking; no automatic B-roll selection | Workflow includes captions, B-roll, music/SFX, review | README advertises word-level captions, B-roll, SFX/music, camera reframing |
 | Consumer interface | Local Node ESM API and private CLI binary | Agent skills orchestrate kit tools | Agent skill orchestrates bundled/pinned Herk kit |
-| Avatar speech | Optional Rhubarb adapter produces validated timed mouth-shape cues; phonetic avatar composition requires distinct A-H mouth states and X rest; sprite preflight verifies PNG chunk checksums and decoded scanlines, shared canvas dimensions, and byte-distinct images; CLI/API support consumer-owned sprite validation; default cue generation enables GHX; requires external CLI and consumer-supplied sprites; audiovisual quality review remains pending | Talking Explainer is a separate reference, not a Herk core requirement | Not a core editor capability |
+| Avatar speech | Consumer-owned; studios can generate avatar layers as timed image clips on generic video tracks | Talking Explainer is a separate reference, not a Herk core requirement | Not a core editor capability |
 | Platform evidence | Windows checkout only; do not infer universal support | README documents Windows/macOS/Linux requirements; not independently tested here | README reports Windows 11 test; macOS/Linux are stated but untested |
 
 **Audit conclusion:** The Engine now provides a shared timeline schema,
 validation, CLI/API, media registration, EDL conversion, transcript-to-caption
 assembly, a HyperFrames renderer, and basic audio mix automation. Visual
-effects breadth, speech-aligned avatar animation, cross-platform coverage, and
-full audiovisual quality review remain open. Skills, personal style/rules,
+effects breadth, cross-platform coverage, and full audiovisual quality review
+remain open. Skills, personal style/rules,
 explainer storyboards, and owned avatar art remain consumer concerns. Studio
 can call reusable Engine operations while retaining its chat approvals and
 creative direction.
