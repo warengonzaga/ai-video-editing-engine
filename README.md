@@ -64,8 +64,9 @@ aivee doctor
 
 The CLI command is `aivee`. The release workflow publishes the unscoped npm
 package `aivee` and the owner-scoped GitHub Packages package
-`@warengonzaga/aivee`. Neither package has been published yet; initial npm
-publication and trusted-publisher setup are required before automated releases.
+`@warengonzaga/aivee`. Neither package has been published yet. The first release
+requires a repository `NPM_TOKEN` with npm publish access and GitHub Actions
+package-write permission.
 See the [release guide](docs/releasing.md) for the one-time setup.
 
 ## 📖 Usage
