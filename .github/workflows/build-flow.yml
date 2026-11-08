@@ -4,13 +4,12 @@ on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [dev, main]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
-  id-token: write
 
 jobs:
   build-flow:
@@ -24,7 +23,7 @@ jobs:
       enable-gitleaks: false
       enable-codeql: false
       package-registry: both
-      package-npm-auth-method: oidc
+      package-npm-auth-method: token
       package-scope: '@warengonzaga'
       package-access: public
       package-pr-comment-enabled: false
@@ -34,3 +33,5 @@ jobs:
       release-initial-version: '0.1.0'
       release-git-user-name: Waren Gonzaga
       release-git-user-email: opensource@warengonzaga.com
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
