@@ -2,6 +2,13 @@
 
 This guide contains the detailed CLI and API workflows. For installation, platform support, and a quick overview, see the [project README](../README.md).
 
+## Experimental avatar workflow
+
+The avatar composer and Rhubarb adapter are retained for compatibility while
+Explainer Studio moves to the generic timeline. See the
+[migration handoff](studio-engine-handoff.md) for the current boundary and
+acceptance gate.
+
 ## Generate speech mouth cues
 
 The optional `lip-sync` command calls an installed Rhubarb Lip Sync CLI and
