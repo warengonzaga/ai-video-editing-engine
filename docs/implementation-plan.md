@@ -656,8 +656,14 @@ The repository includes the
 generic timeline, media catalog and proxy support, edit operations, transcript
 and provider workflows, layered video/overlay composition, audio mixing and
 mastering, preview assets, export controls, and OpenTimelineIO interchange.
-Optional avatar composition and Rhubarb lip-sync workflows remain consumer-
-neutral Engine capabilities.
+The optional avatar composition and Rhubarb lip-sync workflows described below
+were retired from Engine when Explainer Studio took ownership of avatar
+artwork, cue mapping, and composition. Generic timed image clips remain
+available for any consumer workflow.
+
+The avatar details below are historical validation notes for the retired Engine
+implementation; they are retained as project history, not current Engine
+features.
 
 Latest avatar implementation requires distinct A-H viseme states plus X/rest,
 defaults Rhubarb extended cues to GHX, and checks mouth PNG files and shared
@@ -683,11 +689,11 @@ HyperFrames headless browser passed all 137 tests, the full render smoke, and
 software rendering. macOS remains unverified on native hardware; see
 [issue #2](https://github.com/warengonzaga/ai-video-editing-engine/issues/2).
 
-Remaining work is separately scoped: native macOS validation, end-to-end
-Explainer Studio consumer integration, the deferred avatar mouth-scale
-adjustment, and broader real-footage, long-form audio, and color-managed visual
-quality review. Public npm distribution remains undecided. The CI workflow is
-manual-only.
+Remaining work is separately scoped: native macOS validation, the deferred
+avatar mouth-scale adjustment, and broader real-footage, long-form audio, and
+color-managed visual quality review. The Studio consumer integration is now
+implemented on a feature branch. Public npm distribution remains undecided.
+The CI workflow is manual-only.
 
 Both sync and async render paths now use short OS-temp capture paths to avoid
 Windows path-length failures. PNG sequences are staged in the destination

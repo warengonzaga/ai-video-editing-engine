@@ -1,9 +1,5 @@
 export { validateTranscript } from './transcript/validate.mjs';
 export { getEngineCapabilities } from './capabilities.mjs';
-export { validateAnimationCues, animationStateAt } from './animation/cues.mjs';
-export { audioLevelCues } from './animation/audio-cues.mjs';
-export { mapRhubarbCuesToSpriteStates, normalizeRhubarbOutput, rhubarbLipSyncCues, rhubarbLipSyncCuesAsync, validateRhubarbSpriteStates } from './animation/rhubarb.mjs';
-export { createAvatarComposition, createAvatarCompositionAsync } from './animation/avatar.mjs';
 export { validateTimeline } from './timeline/validate.mjs';
 export { inspectTimeline } from './timeline/inspect.mjs';
 export { blendModeStyle, validateBlendMode } from './timeline/blend-mode.mjs';

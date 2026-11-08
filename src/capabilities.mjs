@@ -1,7 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { listFfmpegDecoders, listFfmpegDemuxers, listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
-import { RHUBARB_SPRITE_CONTRACT } from './animation/rhubarb.mjs';
 import { CANVAS_PRESETS } from './project/presets.mjs';
 
 const require = createRequire(import.meta.url);
@@ -14,21 +13,18 @@ const VIDEO_ENCODERS = Object.freeze({
 
 export function getEngineCapabilities(options = {}) {
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Capability options must be an object.');
-  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'rhubarb', 'otioPython'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
+  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'otioPython'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
   const ffmpegCommand = options.ffmpeg ?? 'ffmpeg';
   const ffprobeCommand = options.ffprobe ?? 'ffprobe';
-  const rhubarbCommand = options.rhubarb ?? 'rhubarb';
   const otioPythonCommand = options.otioPython ?? process.env.AIVE_OTIO_PYTHON ?? process.env.PYTHON ?? 'python';
   if (typeof ffmpegCommand !== 'string' || !ffmpegCommand.trim()) throw new TypeError('ffmpeg must be a non-empty command path.');
   if (typeof ffprobeCommand !== 'string' || !ffprobeCommand.trim()) throw new TypeError('ffprobe must be a non-empty command path.');
-  if (typeof rhubarbCommand !== 'string' || !rhubarbCommand.trim()) throw new TypeError('rhubarb must be a non-empty command path.');
   if (typeof otioPythonCommand !== 'string' || !otioPythonCommand.trim()) throw new TypeError('otioPython must be a non-empty command path.');
 
   const nodeVersion = process.versions.node;
   const nodeMajor = Number(nodeVersion.split('.')[0]);
   const ffmpeg = inspectCommand(ffmpegCommand);
   const ffprobe = inspectCommand(ffprobeCommand);
-  const rhubarb = inspectCommand(rhubarbCommand, ['--version']);
   const openTimelineIO = inspectPythonModule(otioPythonCommand, 'opentimelineio');
   let encoders = new Set();
   let decoders = new Set();
@@ -93,7 +89,6 @@ export function getEngineCapabilities(options = {}) {
     tools: {
       ffmpeg: { ...ffmpeg, ...(ffmpegInspectionError ? { inspectionError: ffmpegInspectionError } : {}) },
       ffprobe,
-      rhubarb,
       openTimelineIO: {
         available: openTimelineIO.available,
         optional: true,
@@ -204,32 +199,6 @@ export function getEngineCapabilities(options = {}) {
         installCommand: 'python -m pip install -r requirements-otio.txt',
         ...(openTimelineIO.version ? { pythonPackageVersion: openTimelineIO.version } : {}),
         ...(openTimelineIO.reason ? { reason: openTimelineIO.reason } : {}),
-      },
-    },
-    avatar: {
-      blinkLayerContract: {
-        blinkStatesRequireRole: 'eyes',
-        bodySpriteMustRemainUnchanged: true,
-        stateNamePatterns: ['blink', 'blink-*', 'eyes-closed', 'closed-eyes', 'eyes-shut', 'shut-eyes'],
-      },
-      phoneticLipSync: {
-        available: rhubarb.available,
-        adapter: 'rhubarb',
-        requiredMouthShapes: RHUBARB_SPRITE_CONTRACT.requiredShapes,
-        requiredAvatarMouthShapes: RHUBARB_SPRITE_CONTRACT.requiredAvatarShapes,
-        restShape: RHUBARB_SPRITE_CONTRACT.restShape,
-        optionalMouthShapes: RHUBARB_SPRITE_CONTRACT.optionalShapes,
-        defaultExtendedShapes: RHUBARB_SPRITE_CONTRACT.defaultExtendedShapes,
-        mouthTransition: RHUBARB_SPRITE_CONTRACT.mouthTransition,
-        mouthShapeGuidance: RHUBARB_SPRITE_CONTRACT.mouthShapeGuidance,
-        mouthArtworkGuidance: RHUBARB_SPRITE_CONTRACT.mouthArtworkGuidance,
-        animationArtworkGuidance: RHUBARB_SPRITE_CONTRACT.animationArtworkGuidance,
-        mouthVisualReviewRequired: true,
-        mouthVisualReviewChecklist: RHUBARB_SPRITE_CONTRACT.mouthVisualReviewChecklist,
-        spriteStatesMustBeDistinct: true,
-        spriteCanvasesMustMatch: true,
-        spriteFilesMustHaveDistinctContent: true,
-        externalCueTracks: true,
       },
     },
     render: {

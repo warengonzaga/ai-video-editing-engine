@@ -10,25 +10,22 @@ test('reports versioned runtime, tools, encoder and filter capabilities', () => 
   assert.equal(capabilities.node.supported, true);
   assert.equal(capabilities.tools.ffmpeg.available, true);
   assert.equal(capabilities.tools.ffprobe.available, true);
-  assert.equal(typeof capabilities.tools.rhubarb.available, 'boolean');
   assert.equal(typeof capabilities.render.videoEncoders.h264, 'boolean');
   assert.equal(typeof capabilities.render.videoEncoders.vp9, 'boolean');
   assert.equal(typeof capabilities.render.filters.colorspace, 'boolean');
   assert.equal(capabilities.requiredToolsReady, true);
-  assert.deepEqual(Object.keys(capabilities.avatar.phoneticLipSync.mouthShapeGuidance), ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'x']);
-  assert.deepEqual(capabilities.avatar.phoneticLipSync.mouthShapeGuidance.c.sounds, ['EH', 'AE']);
+  assert.equal(Object.hasOwn(capabilities, 'avatar'), false);
+  assert.equal(Object.hasOwn(capabilities.tools, 'rhubarb'), false);
 });
 
 test('reports absent external tools without throwing', () => {
   const capabilities = getEngineCapabilities({
     ffmpeg: 'codex-engine-missing-ffmpeg',
     ffprobe: 'codex-engine-missing-ffprobe',
-    rhubarb: 'codex-engine-missing-rhubarb',
   });
 
   assert.equal(capabilities.tools.ffmpeg.available, false);
   assert.equal(capabilities.tools.ffprobe.available, false);
-  assert.equal(capabilities.tools.rhubarb.available, false);
   assert.equal(capabilities.render.videoEncoders.h264, false);
   assert.equal(capabilities.requiredToolsReady, false);
 });
@@ -36,7 +33,7 @@ test('reports absent external tools without throwing', () => {
 test('rejects unsupported capability query options', () => {
   assert.throws(() => getEngineCapabilities({ providerKey: 'secret' }), /Unsupported capability option/);
   assert.throws(() => getEngineCapabilities({ ffmpeg: '' }), /non-empty command path/);
-  assert.throws(() => getEngineCapabilities({ rhubarb: '' }), /non-empty command path/);
+  assert.throws(() => getEngineCapabilities({ rhubarb: '' }), /Unsupported capability option/);
 });
 
 test('prints the same capability contract through the CLI', () => {
@@ -45,5 +42,5 @@ test('prints the same capability contract through the CLI', () => {
   assert.equal(result.status, 0, result.stderr);
   const capabilities = JSON.parse(result.stdout);
   assert.equal(capabilities.schemaVersion, 1);
-  assert.equal(typeof capabilities.tools.rhubarb.available, 'boolean');
+  assert.equal(Object.hasOwn(capabilities.tools, 'rhubarb'), false);
 });
