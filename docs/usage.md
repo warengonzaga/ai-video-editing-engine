@@ -895,7 +895,7 @@ For a smooth speed ramp, set source-relative `speedRamp` points instead of a
 constant `playbackRate`:
 
 ```js
-import { speedRampDuration } from 'ai-video-editing-engine';
+import { speedRampDuration } from 'aivee';
 
 const speedRamp = [
   { sourceOffset: 0, playbackRate: 1, ease: 'easeInOutCubic' },

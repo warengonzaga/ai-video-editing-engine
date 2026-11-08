@@ -1,11 +1,11 @@
-# AI Video Editing Engine
+# AIVEE
 
 <p align="center">
-  <img src="https://ghrb.waren.build/render/banner?header=AI%20Video%20Editing%20Engine&amp;subheader=Generic%20video%20editing%20engine%20for%20AI%20workflows&amp;bg=0D1117-1B2B4B&amp;color=F0F6FC&amp;subheadercolor=C7D2E5&amp;headerfont=Inter&amp;subheaderfont=Inter" alt="AI Video Editing Engine — Generic video editing engine for AI workflows">
+  <img src="https://ghrb.waren.build/render/banner?header=AIVEE&amp;subheader=AI%20Video%20Editing%20Engine%20for%20AI%20workflows&amp;bg=0D1117-1B2B4B&amp;color=F0F6FC&amp;subheadercolor=C7D2E5&amp;headerfont=Inter&amp;subheaderfont=Inter" alt="AIVEE — AI Video Editing Engine for AI workflows">
 </p>
 
 <p align="center">
-  <strong>A local-first video editing runtime and API for AI workflows.</strong><br>
+  <strong>A local-first video editing CLI and API for AI workflows.</strong><br>
   Build timelines, review edits, compose layers, and render with Node.js.
 </p>
 
@@ -55,8 +55,18 @@ npm run new-video -- vertical-video 1080x1920 30 15
 node src/cli.mjs presets list
 ```
 
-The package is private and is not published to npm. This repository is the
-source checkout for development and local/Git-based consumers.
+After the first release, install the CLI from npm with:
+
+```sh
+npm install --global aivee
+aivee doctor
+```
+
+The CLI command is `aivee`. The release workflow publishes the unscoped npm
+package `aivee` and the owner-scoped GitHub Packages package
+`@warengonzaga/aivee`. Neither package has been published yet; initial npm
+publication and trusted-publisher setup are required before automated releases.
+See the [release guide](docs/releasing.md) for the one-time setup.
 
 ## 📖 Usage
 
@@ -68,8 +78,6 @@ Related references:
 
 - [Aspect ratio presets](docs/aspect-ratio-presets.md)
 - [Architecture and API boundaries](docs/architecture.md)
-- [Implementation plan and validation status](docs/implementation-plan.md)
-- [Project handoff and known limits](docs/handoff.md)
 
 ## 🧪 Development and Validation
 
@@ -100,7 +108,7 @@ for native macOS support validation.
 
 ## 📄 License
 
-AI Video Editing Engine is licensed under the [MIT License](LICENSE). Third-party
+AIVEE (AI Video Editing Engine) is licensed under the [MIT License](LICENSE). Third-party
 dependencies retain their respective licenses.
 
 ## 👥 Authors & Contributors

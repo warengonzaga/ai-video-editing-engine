@@ -1,4 +1,4 @@
-# AI Video Editing Engine — Project Handoff
+# AIVEE — Project Handoff
 
 The phased implementation plan and acceptance criteria are in
 [`implementation-plan.md`](implementation-plan.md). Keep this handoff current
