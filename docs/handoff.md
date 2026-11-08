@@ -4,7 +4,15 @@ The phased implementation plan and acceptance criteria are in
 [`implementation-plan.md`](implementation-plan.md). Keep this handoff current
 with verified capabilities, evidence, limits, and the next work.
 
-Last updated: 2026-11-07
+Last updated: 2026-11-08
+
+## Explainer Studio migration
+
+The migration boundary, current Studio/Engine compatibility mismatch, generic
+timeline input example, and acceptance gate are recorded in
+[`studio-engine-handoff.md`](studio-engine-handoff.md). The Studio migration
+has not passed its gate; preserve the existing Engine avatar implementation
+until it does.
 
 ## Current status
 

@@ -15,7 +15,7 @@
 - **Media workflow:** register and verify assets, create proxies and previews, inspect scenes, and plan reviewable B-roll edits.
 - **Audio and transcripts:** retime word-level transcripts, mix and master audio, apply fades and ducking, and export subtitle files.
 - **Rendering:** render MP4, WebM, MOV, GIF, or PNG sequences with progress, cancellation, output checks, and resumable capture checkpoints.
-- **Interchange and animation:** optional OpenTimelineIO support and consumer-neutral avatar/lip-sync composition.
+- **Interchange and animation:** optional OpenTimelineIO support, generic timed image layers, and keyframes. The legacy avatar/lip-sync composer remains optional until its [Studio migration](docs/studio-engine-handoff.md) passes review.
 - **AI-ready interfaces:** use the same versioned timeline through the CLI or JavaScript API; proposed content cuts remain reviewable before application.
 
 ## 🖥️ Platform Support
