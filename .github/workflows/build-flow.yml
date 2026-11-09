@@ -32,9 +32,9 @@ jobs:
       package-scope: '@warengonzaga'
       package-access: public
       package-pr-comment-enabled: false
-      publish-dev-artifacts: false
-      publish-pr-artifacts: false
-      publish-manual-artifacts: false
+      publish-dev-artifacts: true
+      publish-pr-artifacts: true
+      publish-manual-artifacts: true
       release-initial-version: '0.1.0'
       release-git-user-name: Waren Gonzaga
       release-git-user-email: opensource@warengonzaga.com
