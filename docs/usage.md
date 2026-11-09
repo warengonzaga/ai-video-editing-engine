@@ -127,7 +127,7 @@ APIs do not support checkpoints.
 `textOutline`, and `textShadow`. These settings compile to validated CSS values;
 raw CSS is not accepted. `textOutline` uses `{ color, widthPixels }`, while
 `textShadow` uses `{ color, blurPixels, offsetXPixels, offsetYPixels }`.
-Choose `layoutPreset: 'subtitle' | 'social' | 'socialPop' | 'socialStack' | 'lowerThird'`
+Choose `layoutPreset: 'subtitle' | 'social' | 'socialPop' | 'socialStack' | 'speechBubble' | 'lowerThird'`
 for reusable placement and styling defaults; explicit options override the
 selected preset.
 `socialPop` enables timed word highlighting by default, with a brief pop when
@@ -142,6 +142,18 @@ defaults. Caption presets wrap long text at word boundaries by default; set
 horizontal alignment and vertical placement. Use `listCaptionLayoutPresets()`
 or `resolveCaptionLayoutPreset(name)` to inspect available layouts. Cue-level
 transcripts do not contain enough timing detail for word animations.
+
+`speechBubble` renders each timed phrase on a rounded panel with a directional
+tail. Customize its placement, typography, foreground, and fill with the same
+caption options, and customize the tail with a partial `bubble` object. For
+example, `{ "layoutPreset": "speechBubble", "x": 0.34, "backgroundColor":
+"#ffffff", "bubble": { "tailSide": "left", "tailPosition": 0.35,
+"tailSizePixels": 24, "cornerRadiusPixels": 30 } }`. `tailSide` accepts
+`top`, `right`, `bottom`, or `left`; `tailPosition` is normalized from 0.08 to
+0.92 along that edge. The layout defaults can be changed per generated caption
+track through `timeline captions` options, or per existing overlay through the
+JavaScript API and `timeline edit`. Standard overlay keyframes and transitions
+can animate the bubble entrance, exit, and position.
 
 GIF cannot carry audio, so timeline rendering rejects GIF requests when audio
 clips are present. PNG image sequences export full-resolution RGBA frames to a

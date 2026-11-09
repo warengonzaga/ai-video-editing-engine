@@ -11,7 +11,7 @@
 
 ## ✨ Features
 
-- **Generic timeline:** editable video, audio, and overlay tracks with validated clips, transitions, keyframes, masks, and captions.
+- **Generic timeline:** editable video, audio, and overlay tracks with validated clips, transitions, keyframes, masks, speech-bubble captions, and other overlays.
 - **Media workflow:** register and verify assets, create proxies and previews, inspect scenes, and plan reviewable B-roll edits.
 - **Audio and transcripts:** retime word-level transcripts, mix and master audio, apply fades and ducking, and export subtitle files.
 - **Rendering:** render MP4, WebM, MOV, GIF, or PNG sequences with progress, cancellation, output checks, and resumable capture checkpoints.

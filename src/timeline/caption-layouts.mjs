@@ -24,6 +24,15 @@ const LAYOUTS = {
     wordsPerCaption: 6, wordsPerLine: 3,
     wordHighlight: true, wordHighlightColor: '#ffe45c', wordHighlightAnimation: 'pop',
   },
+  speechBubble: {
+    x: 0.32, y: 0.66, width: 0.62, height: 0.1, fontSize: 44,
+    fontWeight: 600, lineHeight: 1.12, verticalAlign: 'center', paddingPixels: 22,
+    wordWrap: true, wordsPerCaption: 6, wordsPerLine: 3,
+    wordHighlight: true, wordHighlightColor: '#426BEB', wordHighlightAnimation: 'scale',
+    color: '#172236', backgroundColor: '#ffffff', textAlign: 'left',
+    textShadow: { color: '#17223622', blurPixels: 10, offsetXPixels: 0, offsetYPixels: 4 },
+    bubble: { tailSide: 'bottom', tailPosition: 0.16, tailSizePixels: 26, cornerRadiusPixels: 28 },
+  },
   lowerThird: {
     x: 0.08, y: 0.72, width: 0.76, height: 0.18, fontSize: 48,
     fontWeight: 600, verticalAlign: 'bottom', paddingPixels: 12, wordWrap: true,
