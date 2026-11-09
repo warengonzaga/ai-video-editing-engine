@@ -1,21 +1,50 @@
 {
-  "name": "ai-video-editing-engine",
+  "name": "aivee",
   "version": "0.1.0",
-  "private": true,
+  "license": "MIT",
+  "author": "Waren Gonzaga",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/warengonzaga/ai-video-editing-engine.git"
+  },
+  "homepage": "https://github.com/warengonzaga/ai-video-editing-engine#readme",
+  "bugs": {
+    "url": "https://github.com/warengonzaga/ai-video-editing-engine/issues"
+  },
   "type": "module",
+  "bin": {
+    "aivee": "src/cli.mjs"
+  },
   "exports": {
     ".": "./src/index.mjs"
   },
-  "description": "A local-first engine for transcript-driven AI video editing.",
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "docs/architecture.md",
+    "docs/usage.md",
+    "docs/releasing.md",
+    "docs/aspect-ratio-presets.md",
+    "CHANGELOG.md",
+    "requirements-otio.txt"
+  ],
+  "description": "Local-first video editing CLI and JavaScript API for AI workflows.",
   "engines": {
     "node": ">=22"
   },
   "dependencies": {
     "gsap": "3.14.2",
-    "hyperframes": "0.7.109"
+    "hyperframes": "0.9.17"
+  },
+  "overrides": {
+    "hyperframes": {
+      "undici": "7.30.2"
+    }
   },
   "scripts": {
     "test": "node --test",
+    "test:render-smoke": "node scripts/render-smoke.mjs",
     "doctor": "node src/doctor.mjs",
     "new-video": "node src/cli.mjs project create",
     "retime": "node src/cli.mjs retime"

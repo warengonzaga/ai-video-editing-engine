@@ -1,0 +1,307 @@
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { listFfmpegDecoders, listFfmpegDemuxers, listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
+import { CANVAS_PRESETS } from './project/presets.mjs';
+
+const require = createRequire(import.meta.url);
+const VIDEO_ENCODERS = Object.freeze({
+  h264: 'libx264',
+  h265: 'libx265',
+  vp9: 'libvpx-vp9',
+  prores: 'prores_ks',
+});
+
+export function getEngineCapabilities(options = {}) {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Capability options must be an object.');
+  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'otioPython'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
+  const ffmpegCommand = options.ffmpeg ?? 'ffmpeg';
+  const ffprobeCommand = options.ffprobe ?? 'ffprobe';
+  const otioPythonCommand = options.otioPython ?? process.env.AIVE_OTIO_PYTHON ?? process.env.PYTHON ?? 'python';
+  if (typeof ffmpegCommand !== 'string' || !ffmpegCommand.trim()) throw new TypeError('ffmpeg must be a non-empty command path.');
+  if (typeof ffprobeCommand !== 'string' || !ffprobeCommand.trim()) throw new TypeError('ffprobe must be a non-empty command path.');
+  if (typeof otioPythonCommand !== 'string' || !otioPythonCommand.trim()) throw new TypeError('otioPython must be a non-empty command path.');
+
+  const nodeVersion = process.versions.node;
+  const nodeMajor = Number(nodeVersion.split('.')[0]);
+  const ffmpeg = inspectCommand(ffmpegCommand);
+  const ffprobe = inspectCommand(ffprobeCommand);
+  const openTimelineIO = inspectPythonModule(otioPythonCommand, 'opentimelineio');
+  let encoders = new Set();
+  let decoders = new Set();
+  let demuxers = new Set();
+  let filters = new Set();
+  let ffmpegInspectionError;
+  let inputInspectionError;
+  if (ffmpeg.available) {
+    try {
+      encoders = listFfmpegEncoders(ffmpegCommand);
+      filters = listFfmpegFilters(ffmpegCommand);
+    } catch (error) {
+      ffmpegInspectionError = error.message;
+    }
+    try {
+      decoders = listFfmpegDecoders(ffmpegCommand);
+      demuxers = listFfmpegDemuxers(ffmpegCommand);
+    } catch (error) {
+      inputInspectionError = error.message;
+    }
+  }
+
+  const hyperframes = packageAvailable('hyperframes');
+  const gsap = packageAvailable('gsap');
+  const renderRuntimeAvailable = nodeMajor >= 22 && ffmpeg.available && ffprobe.available && hyperframes && gsap;
+  const supportsFilter = (name) => filters.has(name);
+  const supportsEncoder = (name) => encoders.has(name);
+  const colorProfiles = {
+    rec709: { available: supportsFilter('colorspace'), formats: ['mp4', 'mov', 'webm'] },
+    'rec2020-sdr': { available: supportsFilter('colorspace'), formats: ['mp4', 'mov', 'webm'] },
+    hdr10: { available: supportsFilter('zscale') && supportsEncoder('libx265'), formats: ['mp4', 'mov'] },
+  };
+  const codecsByFormat = {
+    mp4: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265') },
+    mov: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265'), prores: supportsEncoder('prores_ks') },
+    webm: { vp9: supportsEncoder('libvpx-vp9') },
+  };
+  const outputColorProfiles = (format) => Object.fromEntries(Object.entries(colorProfiles)
+    .filter(([, profile]) => profile.formats.includes(format))
+    .map(([id, profile]) => {
+      const compatibleEncoderAvailable = id === 'hdr10'
+        ? codecsByFormat[format]?.h265 === true
+        : Object.values(codecsByFormat[format] ?? {}).some(Boolean);
+      return [id, profile.available && compatibleEncoderAvailable];
+    }));
+  const inputContainers = {
+    mp4: ['mp4'],
+    mov: ['mov'],
+    avi: ['avi'],
+    matroska: ['matroska'],
+    webm: ['webm'],
+    mpegts: ['mpegts'],
+    mpeg: ['mpeg'],
+    mp3: ['mp3'],
+    ogg: ['ogg'],
+    wav: ['wav'],
+    image2: ['image2'],
+  };
+  return {
+    schemaVersion: 1,
+    node: { version: nodeVersion, supported: nodeMajor >= 22 },
+    tools: {
+      ffmpeg: { ...ffmpeg, ...(ffmpegInspectionError ? { inspectionError: ffmpegInspectionError } : {}) },
+      ffprobe,
+      openTimelineIO: {
+        available: openTimelineIO.available,
+        optional: true,
+        ...(openTimelineIO.version ? { version: openTimelineIO.version } : {}),
+        ...(openTimelineIO.reason ? { reason: openTimelineIO.reason } : {}),
+      },
+      hyperframes: { available: hyperframes },
+      gsap: { available: gsap },
+      browserRuntime: { available: null, checked: false, checkCommand: 'npm run doctor' },
+    },
+    media: {
+      assetIngest: {
+        available: ffmpeg.available && ffprobe.available,
+        batchRegistration: true,
+        batchSemantics: 'sequential-best-effort',
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['asset-batch', 'asset-batch-item', 'asset-copy', 'asset-probe', 'asset-publish', 'asset-relink-copy', 'asset-relink-probe', 'asset-relink-publish'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'batchIndex', 'batchTotal', 'registered', 'failed', 'message'],
+        },
+      },
+      assetVerification: {
+        available: true,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['asset-verification'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'variant'],
+        },
+      },
+      input: {
+        available: ffmpeg.available && ffprobe.available,
+        inventoryChecked: ffmpeg.available && ffprobe.available && !inputInspectionError,
+        ...(inputInspectionError ? { inspectionError: inputInspectionError } : {}),
+        containers: Object.fromEntries(Object.entries(inputContainers)
+          .map(([name, aliases]) => [name, aliases.some((alias) => demuxers.has(alias))])),
+        videoDecoders: Object.fromEntries(['h264', 'hevc', 'av1', 'vp8', 'vp9', 'prores', 'mpeg2video', 'mpeg4']
+          .map((name) => [name, decoders.has(name)])),
+        audioDecoders: Object.fromEntries(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le']
+          .map((name) => [name, decoders.has(name)])),
+      },
+      proxyGeneration: {
+        available: ffmpeg.available && ffprobe.available,
+        profileVersion: 2,
+        sourceUpscaling: false,
+        keyframeIntervalSeconds: 1,
+        forcedKeyframes: true,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['proxy-preflight', 'proxy-generation', 'proxy-validation', 'proxy-publish'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'reason'],
+        },
+      },
+      sceneDetection: {
+        available: ffmpeg.available && ffprobe.available && filters.has('select') && filters.has('metadata'),
+        analyzer: 'ffmpeg-scene-score',
+        defaultThreshold: 0.35,
+        thresholdRange: [0.05, 1],
+        defaultMinimumSpacingSeconds: 0.5,
+        reviewRequired: true,
+        outputTypes: ['scene-cut'],
+        cancellation: true,
+      },
+      sceneReviewPack: {
+        available: ffmpeg.available && ffprobe.available
+          && filters.has('select') && filters.has('metadata') && filters.has('scale') && filters.has('pad') && filters.has('tile'),
+        thumbnailDefaultSize: 320,
+        thumbnailSizeRange: [80, 1280],
+        defaultContactSheetLimit: 60,
+        contactSheetLimitRange: [1, 120],
+        reviewRequired: true,
+        cancellation: true,
+        progressCallbacks: {
+          supported: true,
+          asyncApiOnly: true,
+          stages: ['scene-source-fingerprint', 'scene-analysis', 'scene-thumbnails', 'scene-contact-sheet', 'scene-review-publish'],
+          eventFields: ['stage', 'phase'],
+          optionalEventFields: ['completed', 'total', 'percent', 'message'],
+        },
+      },
+      sceneReviewPlacementPlanning: {
+        available: true,
+        requires: ['validated-timeline', 'registered-video-asset-matching-scene-review-sha256', 'scene-review-pack', 'explicit-shot-selections'],
+        output: 'review-required-timeline-operations',
+        appliesChanges: false,
+        maximumPlacements: 500,
+      },
+      reviewPlanApplication: {
+        available: true,
+        explicitCommandRequired: true,
+        staleTimelineRejected: true,
+        undoable: true,
+        maximumOperations: 2000,
+      },
+    },
+    interchange: {
+      openTimelineIO: {
+        available: openTimelineIO.available,
+        formats: ['.otio'],
+        import: true,
+        export: true,
+        optionalDependency: 'Python OpenTimelineIO',
+        installCommand: 'python -m pip install -r requirements-otio.txt',
+        ...(openTimelineIO.version ? { pythonPackageVersion: openTimelineIO.version } : {}),
+        ...(openTimelineIO.reason ? { reason: openTimelineIO.reason } : {}),
+      },
+    },
+    render: {
+      requirementsAvailable: renderRuntimeAvailable,
+      progressCallbacks: {
+        supported: true,
+        asyncApiOnly: true,
+        stages: ['preprocessing', 'proxy-resolution', 'audio-alignment', 'playback-processing', 'audio-effects', 'sidechain-processing', 'capture', 'encoding', 'validation', 'publish', 'timeline-validation', 'mastering', 'mastering-analysis', 'mastering-encode', 'mastering-validation', 'mastering-publish'],
+        eventFields: ['stage', 'phase'],
+        optionalEventFields: ['percent', 'completed', 'total', 'target', 'codec', 'reason'],
+      },
+      videoEncoders: Object.fromEntries(Object.entries(VIDEO_ENCODERS).map(([id, name]) => [id, encoders.has(name)])),
+      outputs: {
+        mp4: {
+          available: renderRuntimeAvailable && Object.values(codecsByFormat.mp4).some(Boolean),
+          codecs: codecsByFormat.mp4,
+          defaultCodec: 'h264',
+          defaultCodecAvailable: codecsByFormat.mp4.h264,
+          colorProfiles: outputColorProfiles('mp4'),
+        },
+        mov: {
+          available: renderRuntimeAvailable && Object.values(codecsByFormat.mov).some(Boolean),
+          codecs: codecsByFormat.mov,
+          defaultCodec: 'h264',
+          defaultCodecAvailable: codecsByFormat.mov.h264,
+          colorProfiles: outputColorProfiles('mov'),
+        },
+        webm: {
+          available: renderRuntimeAvailable && Object.values(codecsByFormat.webm).some(Boolean),
+          codecs: codecsByFormat.webm,
+          defaultCodec: 'vp9',
+          defaultCodecAvailable: codecsByFormat.webm.vp9,
+          colorProfiles: outputColorProfiles('webm'),
+        },
+        gif: { available: renderRuntimeAvailable && supportsEncoder('gif') },
+        'png-sequence': { available: hyperframes },
+      },
+      colorProfiles,
+      canvas: {
+        backgroundColor: {
+          available: true,
+          default: '#10141c',
+          transparent: true,
+          acceptedHexDigits: [3, 4, 6, 8],
+        },
+      },
+      canvasPresets: CANVAS_PRESETS.map(({ id, aspectRatio, width, height, platforms }) => ({
+        id, aspectRatio, width, height, platforms: [...platforms],
+      })),
+      filters: {
+        rubberband: filters.has('rubberband'),
+        afftdn: filters.has('afftdn'),
+        stereotools: filters.has('stereotools'),
+        equalizer: filters.has('equalizer'),
+        highpass: filters.has('highpass'),
+        lowpass: filters.has('lowpass'),
+        acompressor: filters.has('acompressor'),
+        sidechaincompress: filters.has('sidechaincompress'),
+        loudnorm: filters.has('loudnorm'),
+        alimiter: filters.has('alimiter'),
+        aresample: filters.has('aresample'),
+        reverse: filters.has('reverse'),
+        areverse: filters.has('areverse'),
+        colorspace: filters.has('colorspace'),
+        zscale: filters.has('zscale'),
+      },
+    },
+    requiredToolsReady: nodeMajor >= 22 && ffmpeg.available && ffprobe.available && hyperframes && gsap,
+  };
+}
+
+function inspectCommand(command, args = ['-version']) {
+  const result = spawnSync(command, args, { encoding: 'utf8', windowsHide: true, maxBuffer: 1024 * 1024 });
+  if (result.error || result.status !== 0) return { available: false };
+  return { available: true, version: result.stdout.trim().split(/\r?\n/, 1)[0] };
+}
+
+function inspectPythonModule(command, moduleName) {
+  const result = spawnSync(command, ['-c', `import ${moduleName} as module; assert 'otio_json' in module.adapters.available_adapter_names(), 'otio_json adapter unavailable'; print(getattr(module, '__version__', 'installed'))`], {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.error) return { available: false, reason: 'python-not-found' };
+  if (result.status !== 0) {
+    return {
+      available: false,
+      reason: /No module named ['"]?opentimelineio/.test(`${result.stderr}\n${result.stdout}`)
+        ? 'package-not-installed'
+        : /otio_json adapter unavailable/.test(`${result.stderr}\n${result.stdout}`)
+          ? 'json-adapter-unavailable'
+          : 'package-import-failed',
+    };
+  }
+  const version = result.stdout.trim().split(/\r?\n/, 1)[0];
+  return { available: true, ...(version ? { version } : {}) };
+}
+
+function packageAvailable(name) {
+  try {
+    require.resolve(`${name}/package.json`);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -1,0 +1,40 @@
+name: Build Flow
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  id-token: write
+  packages: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  build-flow:
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.1
+    with:
+      ci-profile: node
+      ci-runtime-version: '22'
+      ci-setup-command: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      enable-package: true
+      enable-container: false
+      enable-release: true
+      enable-gitleaks: false
+      enable-codeql: false
+      package-registry: both
+      package-npm-auth-method: oidc
+      package-scope: '@warengonzaga'
+      package-access: public
+      package-pr-comment-enabled: false
+      publish-dev-artifacts: true
+      publish-pr-artifacts: true
+      publish-manual-artifacts: true
+      release-initial-version: '0.1.0'
+      release-git-user-name: Waren Gonzaga
+      release-git-user-email: opensource@warengonzaga.com

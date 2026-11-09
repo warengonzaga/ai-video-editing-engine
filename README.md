@@ -1,81 +1,120 @@
-# AI Video Editing Engine
+# AIVEE
 
-A local-first, standalone engine for transcript-driven video editing and
-motion-graphics rendering.
+<p align="center">
+  <img src="https://ghrb.waren.build/render/banner?header=AIVEE&amp;subheader=AI%20Video%20Editing%20Engine%20for%20AI%20workflows&amp;bg=0D1117-1B2B4B&amp;color=F0F6FC&amp;subheadercolor=C7D2E5&amp;headerfont=Inter&amp;subheaderfont=Inter" alt="AIVEE — AI Video Editing Engine for AI workflows">
+</p>
 
-This project takes inspiration from the workflow in Herk Edit Kit while building
-an independent implementation. It reuses the same core toolchain—Node.js,
-FFmpeg/ffprobe, HyperFrames, and GSAP—without copying Herk Edit Kit source files,
-skills, templates, examples, or media.
+<p align="center">
+  <strong>A local-first video editing CLI and API for AI workflows.</strong><br>
+  Build timelines, review edits, compose layers, and render with Node.js.
+</p>
 
-This repository contains the reusable engine only. Agent plugins and end-user
-creator workflows belong in separate consumer projects and can call the engine
-through its CLI or package interface.
+## ✨ Features
 
-## Design goals
+- **Generic timeline:** editable video, audio, and overlay tracks with validated clips, transitions, keyframes, masks, speech-bubble captions, and other overlays.
+- **Media workflow:** register and verify assets, create proxies and previews, inspect scenes, and plan reviewable B-roll edits.
+- **Audio and transcripts:** retime word-level transcripts, mix and master audio, apply fades and ducking, and export subtitle files.
+- **Rendering:** render MP4, WebM, MOV, GIF, or PNG sequences with progress, cancellation, output checks, and resumable capture checkpoints.
+- **Interchange and animation:** optional OpenTimelineIO support, generic timed image layers, and keyframes. Avatar art and speech-driven character animation are owned by consuming studios such as [Explainer Studio](https://github.com/warengonzaga/explainer-studio).
+- **AI-ready interfaces:** use the same versioned timeline through the CLI or JavaScript API; proposed content cuts remain reviewable before application.
 
-- Keep original media immutable and all edit artifacts inside a project folder.
-- Normalize provider transcripts into one validated, word-timed format.
-- Represent every cut as a reviewable edit decision list (EDL) with source-time
-  provenance, then retime transcript words from that same EDL.
-- Keep creative workflows separate from the reusable media and render engine.
-- Run locally by default; make cloud transcription or asset generation opt-in.
-- Validate project structure and timing before preview or render.
+## 🖥️ Platform Support
 
-## Requirements
+Windows and Linux are supported. Windows has a local test and render-smoke
+baseline. Linux passed all 137 tests, the full render smoke, and the production
+dependency audit in a Debian Bookworm Docker container with Node.js 22, FFmpeg,
+and the HyperFrames headless browser. Container rendering used software
+graphics.
+
+macOS is not officially supported yet. The repository has a manual macOS
+workflow option, but native Mac validation is still required. Follow
+[issue #2](https://github.com/warengonzaga/ai-video-editing-engine/issues/2) for
+that work.
+
+## 🚀 Getting Started
+
+### Requirements
 
 - Node.js 22 or newer
-- FFmpeg and ffprobe for probing and cutting media
-- HyperFrames and its supported browser runtime for HTML-to-video rendering
-- GSAP for the generated starter composition
+- FFmpeg and ffprobe
+- HyperFrames browser runtime for rendering
+- Python and OpenTimelineIO only for timeline interchange
 
-Run `npm install`, then `npm run doctor` to check the local toolchain. The doctor
-reports missing required tools and HyperFrames' optional local AI runtimes.
-Transcription requires a supported provider or local model/runtime; importing an
-existing SRT, VTT, or JSON transcript does not.
-
-## Create a project
+### Install and check the local toolchain
 
 ```sh
-npm run new-video -- my-video
+npm install
+npm run doctor
+node src/cli.mjs capabilities
+```
+
+Create a project and list the supported canvas presets:
+
+```sh
 npm run new-video -- vertical-video 1080x1920 30 15
+node src/cli.mjs presets list
 ```
 
-The default canvas is 1920×1080 at 30 fps for 10 seconds. Width, height, frame
-rate, and duration are configurable; examples include `1080x1920` for portrait
-and `1080x1080` for square. Projects are created under `video-projects/` and
-existing project folders are never overwritten.
-
-## Editing workflow
+After the first release, install the CLI from npm with:
 
 ```sh
-# Inspect media and create a project
-node src/cli.mjs probe path/to/source.mp4
-node src/cli.mjs project create my-video 1080x1920 30 15
-
-# Create or import a transcript
-node src/cli.mjs transcribe video-projects/my-video path/to/source.mp4
-node src/cli.mjs import-transcript video-projects/my-video path/to/source.mp4 path/to/captions.srt
-
-# Propose edits, review the EDL, then apply approved cuts
-node src/cli.mjs plan-silence video-projects/my-video/transcripts/transcript.json video-projects/my-video/edits/silence-edl.json
-node src/cli.mjs mistake-candidates video-projects/my-video/transcripts/transcript.json
-node src/cli.mjs apply-edl path/to/source.mp4 path/to/approved-edl.json path/to/clean-cut.mp4
-node src/cli.mjs retime video-projects/my-video/transcripts/transcript.json path/to/approved-edl.json video-projects/my-video/transcripts/retimed.json
-
-# Lint, preview, and render the composition
-node src/cli.mjs lint video-projects/my-video
-node src/cli.mjs preview video-projects/my-video
-node src/cli.mjs render video-projects/my-video
+npm install --global aivee
+aivee doctor
 ```
 
-Silence and repeated-word detection produce proposals only. Review and save the
-approved cuts in the versioned EDL format before applying them. Source media,
-transcripts, EDLs, and render outputs are kept separate; commands refuse to
-overwrite existing outputs.
+The CLI command is `aivee`. The release workflow publishes the unscoped npm
+package `aivee` and the owner-scoped GitHub Packages package
+`@warengonzaga/aivee`. npm publishing uses trusted publishing through GitHub
+Actions OIDC, so no `NPM_TOKEN` secret is needed. Package artifacts are also
+published for pull requests, `dev` pushes, and manual workflow runs. See the
+[release guide](docs/releasing.md) for the one-time setup.
 
-The CLI and JavaScript package exports are the engine interface. Editing agents,
-plugins, and creator-facing workflows can be built as separate consumers. See
-[`docs/architecture.md`](docs/architecture.md) for contracts and runtime
-requirements, and [`docs/handoff.md`](docs/handoff.md) for the full project
-context, validation state, and consolidated remaining-work checklist.
+## 📖 Usage
+
+Start with the [Video Editing Usage Guide](docs/usage.md) for project creation,
+media registration, editing operations, rendering, transcripts, and
+OpenTimelineIO interchange.
+
+Related references:
+
+- [Aspect ratio presets](docs/aspect-ratio-presets.md)
+- [Architecture and API boundaries](docs/architecture.md)
+
+## 🧪 Development and Validation
+
+Run the automated checks from the repository root:
+
+```sh
+npm test
+npm run test:render-smoke
+npm audit --omit=dev
+```
+
+Build Flow runs on pull requests targeting `dev` or `main`, pushes to `dev` or
+`main`, and manual dispatch. Its package artifacts publish on pull requests,
+`dev` pushes, and manual runs. The separate platform-validation workflow is
+manual-trigger only; use its selector for Linux, Windows, macOS, or the full
+matrix. A native macOS run is still required before claiming Mac support.
+
+## 🤝 Contributing
+
+Use short-lived feature branches from `dev` and open pull requests targeting
+`dev`. Follow the repository's Clean Commit format and keep changes focused. Do
+not create a `dev`-to-`main` pull request without a release decision.
+
+## 🐛 Issues & Support
+
+Report defects, request capabilities, or track platform validation through
+[GitHub Issues](https://github.com/warengonzaga/ai-video-editing-engine/issues).
+See [issue #2](https://github.com/warengonzaga/ai-video-editing-engine/issues/2)
+for native macOS support validation.
+
+## 📄 License
+
+AIVEE (AI Video Editing Engine) is licensed under the [MIT License](LICENSE). Third-party
+dependencies retain their respective licenses.
+
+## 👥 Authors & Contributors
+
+Created and maintained by [Waren Gonzaga](https://github.com/warengonzaga) and
+contributors.

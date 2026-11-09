@@ -29,6 +29,31 @@ test('retimes retained words and drops a word covered by an approved cut', () =>
   });
 });
 
+test('preserves overlapping provider word timings when retiming', () => {
+  const overlapping = {
+    schemaVersion: 1,
+    durationSeconds: 10,
+    granularity: 'word',
+    words: [
+      { text: 'could', start: 2, end: 2.8 },
+      { text: 'you', start: 2.6, end: 3.1 },
+      { text: 'help', start: 5, end: 5.4 },
+    ],
+  };
+  const result = retimeTranscript(overlapping, {
+    schemaVersion: 1,
+    sourceDurationSeconds: 10,
+    cuts: [{ sourceStart: 0.5, sourceEnd: 1, reason: 'remove lead-in' }],
+  });
+
+  assert.deepEqual(result.words, [
+    { text: 'could', start: 1.5, end: 2.3 },
+    { text: 'you', start: 2.1, end: 2.6 },
+    { text: 'help', start: 4.5, end: 4.9 },
+  ]);
+  assert.ok(result.words[1].start < result.words[0].end);
+});
+
 test('rejects an EDL that splits a transcript word', () => {
   assert.throws(
     () => retimeTranscript(transcript, {
@@ -38,6 +63,22 @@ test('rejects an EDL that splits a transcript word', () => {
     }),
     /splits transcript word "Hello"/
   );
+});
+
+test('rejects cuts that touch only part of a word at either boundary', () => {
+  for (const cut of [
+    { sourceStart: 1, sourceEnd: 1.2, reason: 'cut word opening' },
+    { sourceStart: 1.3, sourceEnd: 1.5, reason: 'cut word ending' },
+  ]) {
+    assert.throws(
+      () => retimeTranscript(transcript, {
+        schemaVersion: 1,
+        sourceDurationSeconds: 10,
+        cuts: [cut],
+      }),
+      /splits transcript word "Hello"/
+    );
+  }
 });
 
 test('rejects cuts whose source duration does not match the transcript', () => {
