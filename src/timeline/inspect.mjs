@@ -102,6 +102,7 @@ function inspectClip(track, clip, asset) {
     'lineHeight', 'verticalAlign', 'paddingPixels', 'color', 'backgroundColor',
     'textAlign', 'textOutline', 'textShadow', 'wordTimings', 'wordHighlightColor',
     'wordHighlightAnimation', 'volume', 'fadeInSeconds', 'fadeOutSeconds',
+    'bubble',
     'audioEffects', 'volumeKeyframes',
     'transitionIn', 'transitionOut', 'blendMode', 'keyframes', 'effects', 'mask',
     'sourceFit',

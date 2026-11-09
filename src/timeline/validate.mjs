@@ -10,6 +10,7 @@ import { validateBlendMode } from './blend-mode.mjs';
 import { validateAudioClipEffects } from './audio-effects.mjs';
 import { validateAudioTrackVolumeKeyframes, validateAudioVolumeKeyframes } from './audio-volume.mjs';
 import { validateProjectBackgroundColor } from './background.mjs';
+import { validateSpeechBubble } from './speech-bubble.mjs';
 
 const TRACK_KINDS = new Set(['video', 'audio', 'overlay']);
 
@@ -289,6 +290,7 @@ function validateTextClip(clip) {
     if (clip[color] !== undefined && clip[color] !== 'transparent' && !/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(clip[color])) throw new TypeError(`Text overlay ${clip.id} ${color} must be a hex color or transparent.`);
   }
   if (clip.textAlign !== undefined && !['left', 'center', 'right'].includes(clip.textAlign)) throw new TypeError(`Text overlay ${clip.id} textAlign must be left, center, or right.`);
+  if (clip.bubble !== undefined) validateSpeechBubble(clip.bubble, `Text overlay ${clip.id} bubble`);
   if (clip.textOutline !== undefined) {
     const outline = clip.textOutline;
     if (!outline || typeof outline !== 'object' || Array.isArray(outline)

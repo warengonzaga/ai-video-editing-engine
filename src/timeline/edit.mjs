@@ -765,7 +765,8 @@ export function setTimelineOverlay(timeline, trackId, clipId, properties) {
     'text', 'composition', 'x', 'y', 'width', 'height', 'fontSize', 'fontFamily', 'fontWeight',
     'lineHeight', 'verticalAlign', 'paddingPixels', 'color', 'backgroundColor', 'textAlign',
     'wordWrap', 'wordsPerLine', 'wordTimings', 'wordHighlightColor', 'wordHighlightAnimation',
-    'textOutline', 'textShadow',
+    'textOutline', 'textShadow', 'fadeInSeconds', 'fadeOutSeconds', 'keyframes', 'transitionIn', 'transitionOut',
+    'bubble',
   ];
   const fields = Object.keys(properties);
   if (fields.length === 0 || fields.some((field) => !allowed.includes(field))) {

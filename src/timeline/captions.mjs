@@ -1,5 +1,6 @@
 import { validateTranscript } from '../transcript/validate.mjs';
 import { resolveCaptionLayoutPreset } from './caption-layouts.mjs';
+import { resolveSpeechBubble } from './speech-bubble.mjs';
 
 export function createCaptionTrack(transcript, options = {}) {
   validateTranscript(transcript);
@@ -25,6 +26,8 @@ export function createCaptionTrack(transcript, options = {}) {
   if (typeof wordWrap !== 'boolean') throw new TypeError('wordWrap must be a boolean.');
   const maxGapSeconds = options.maxGapSeconds ?? 0.8;
   if (!Number.isFinite(maxGapSeconds) || maxGapSeconds < 0) throw new TypeError('maxGapSeconds must be a non-negative number.');
+  const bubbleSource = options.bubble ?? layout.bubble;
+  const bubble = bubbleSource === undefined ? undefined : resolveSpeechBubble(bubbleSource, layout.bubble);
 
   const groups = [];
   let group = [];
@@ -68,6 +71,7 @@ export function createCaptionTrack(transcript, options = {}) {
     color: options.color ?? layout.color,
     backgroundColor: options.backgroundColor ?? layout.backgroundColor,
     textAlign: options.textAlign ?? layout.textAlign,
+    ...(bubble === undefined ? {} : { bubble: structuredClone(bubble) }),
     ...(options.fadeInSeconds ? { fadeInSeconds: options.fadeInSeconds } : {}),
     ...(options.fadeOutSeconds ? { fadeOutSeconds: options.fadeOutSeconds } : {}),
   }));

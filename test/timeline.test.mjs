@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
 import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, extractTimelineRange, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
+import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, extractTimelineRange, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineOverlay, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
+import { inspectTimeline } from '../src/timeline/inspect.mjs';
 import { buildAudioVolumeAutomation } from '../src/timeline/audio-mix.mjs';
 import { assignRenderTrackIndices } from '../src/timeline/layers.mjs';
 import { timelineForRender } from '../src/timeline/track-state.mjs';
@@ -893,6 +894,34 @@ test('creates validated timed captions from word or cue transcripts', () => {
   const socialPop = createCaptionTrack(transcript, { layoutPreset: 'socialPop' });
   assert.equal(socialPop.clips[0].wordHighlightAnimation, 'pop');
   assert.equal(socialPop.clips[0].wordHighlightColor, '#ffe45c');
+  const speechBubble = createCaptionTrack(transcript, { layoutPreset: 'speechBubble' });
+  assert.deepEqual(speechBubble.clips[0].bubble, {
+    tailSide: 'bottom', tailPosition: 0.16, tailSizePixels: 26, cornerRadiusPixels: 28,
+  });
+  const customizedBubble = createCaptionTrack(transcript, {
+    layoutPreset: 'speechBubble', bubble: { tailSide: 'left', tailPosition: 0.35 },
+    backgroundColor: '#ffffff', x: 0.3,
+  });
+  assert.deepEqual(customizedBubble.clips[0].bubble, {
+    tailSide: 'left', tailPosition: 0.35, tailSizePixels: 26, cornerRadiusPixels: 28,
+  });
+  assert.equal(customizedBubble.clips[0].x, 0.3);
+  const bubbleTimeline = structuredClone(valid);
+  bubbleTimeline.tracks.push({ ...customizedBubble, order: 3 });
+  assert.equal(validateTimeline(bubbleTimeline), bubbleTimeline);
+  const invalidBubbleTimeline = structuredClone(bubbleTimeline);
+  invalidBubbleTimeline.tracks[3].clips[0].bubble.tailSide = 'diagonal';
+  assert.throws(() => validateTimeline(invalidBubbleTimeline), /bubble tailSide/);
+  const editedBubbleTimeline = setTimelineOverlay(bubbleTimeline, 'captions', speechBubble.clips[0].id, {
+    bubble: { tailSide: 'right', tailPosition: 0.6, tailSizePixels: 20, cornerRadiusPixels: 18 },
+    backgroundColor: '#f5f5f5', x: 0.28,
+  });
+  const inspectedBubble = inspectTimeline(editedBubbleTimeline).tracks[3].clips[0];
+  assert.deepEqual(inspectedBubble.bubble, {
+    tailSide: 'right', tailPosition: 0.6, tailSizePixels: 20, cornerRadiusPixels: 18,
+  });
+  assert.equal(inspectedBubble.backgroundColor, '#f5f5f5');
+  assert.equal(inspectedBubble.x, 0.28);
   const overridden = createCaptionTrack(transcript, { layoutPreset: 'social', fontSize: 42, textAlign: 'left' });
   assert.equal(overridden.clips[0].fontSize, 42);
   assert.equal(overridden.clips[0].textAlign, 'left');
