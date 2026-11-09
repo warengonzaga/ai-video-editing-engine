@@ -46,6 +46,7 @@ export const CAPTION_LAYOUT_PRESETS = Object.freeze(Object.fromEntries(
     ...layout,
     ...(layout.textOutline ? { textOutline: Object.freeze({ ...layout.textOutline }) } : {}),
     ...(layout.textShadow ? { textShadow: Object.freeze({ ...layout.textShadow }) } : {}),
+    ...(layout.bubble ? { bubble: Object.freeze({ ...layout.bubble }) } : {}),
   })]),
 ));
 
