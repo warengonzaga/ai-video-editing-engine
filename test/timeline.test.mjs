@@ -7,6 +7,7 @@ import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioF
 import { createTimelineHistory } from '../src/timeline/history.mjs';
 import { transitionClipPath } from '../src/timeline/transition.mjs';
 import { createCaptionTrack } from '../src/timeline/captions.mjs';
+import { CAPTION_LAYOUT_PRESETS } from '../src/timeline/caption-layouts.mjs';
 import { inspectTimeline } from '../src/timeline/inspect.mjs';
 import { buildAudioVolumeAutomation } from '../src/timeline/audio-mix.mjs';
 import { assignRenderTrackIndices } from '../src/timeline/layers.mjs';
@@ -895,6 +896,8 @@ test('creates validated timed captions from word or cue transcripts', () => {
   assert.equal(socialPop.clips[0].wordHighlightAnimation, 'pop');
   assert.equal(socialPop.clips[0].wordHighlightColor, '#ffe45c');
   const speechBubble = createCaptionTrack(transcript, { layoutPreset: 'speechBubble' });
+  assert.ok(Object.isFrozen(CAPTION_LAYOUT_PRESETS.speechBubble.bubble));
+  assert.throws(() => { CAPTION_LAYOUT_PRESETS.speechBubble.bubble.tailSide = 'left'; }, TypeError);
   assert.deepEqual(speechBubble.clips[0].bubble, {
     tailSide: 'bottom', tailPosition: 0.16, tailSizePixels: 26, cornerRadiusPixels: 28,
   });

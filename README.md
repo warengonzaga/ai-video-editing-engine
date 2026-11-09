@@ -64,10 +64,10 @@ aivee doctor
 
 The CLI command is `aivee`. The release workflow publishes the unscoped npm
 package `aivee` and the owner-scoped GitHub Packages package
-`@warengonzaga/aivee`. Neither package has been published yet. The first release
-requires a repository `NPM_TOKEN` with npm publish access and GitHub Actions
-package-write permission.
-See the [release guide](docs/releasing.md) for the one-time setup.
+`@warengonzaga/aivee`. npm publishing uses trusted publishing through GitHub
+Actions OIDC, so no `NPM_TOKEN` secret is needed. Package artifacts are also
+published for pull requests, `dev` pushes, and manual workflow runs. See the
+[release guide](docs/releasing.md) for the one-time setup.
 
 ## 📖 Usage
 
@@ -90,9 +90,11 @@ npm run test:render-smoke
 npm audit --omit=dev
 ```
 
-GitHub Actions are manual-trigger only. Use the platform selector for Linux,
-Windows, macOS, or the full matrix. A native macOS run is still required before
-claiming Mac support.
+Build Flow runs on pull requests targeting `dev` or `main`, pushes to `dev` or
+`main`, and manual dispatch. Its package artifacts publish on pull requests,
+`dev` pushes, and manual runs. The separate platform-validation workflow is
+manual-trigger only; use its selector for Linux, Windows, macOS, or the full
+matrix. A native macOS run is still required before claiming Mac support.
 
 ## 🤝 Contributing
 
