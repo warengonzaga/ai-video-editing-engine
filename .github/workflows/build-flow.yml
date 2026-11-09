@@ -10,6 +10,7 @@ on:
 permissions:
   actions: read
   contents: write
+  id-token: write
   packages: write
   pull-requests: write
   security-events: write
@@ -27,7 +28,7 @@ jobs:
       enable-gitleaks: false
       enable-codeql: false
       package-registry: both
-      package-npm-auth-method: token
+      package-npm-auth-method: oidc
       package-scope: '@warengonzaga'
       package-access: public
       package-pr-comment-enabled: false
@@ -37,5 +38,3 @@ jobs:
       release-initial-version: '0.1.0'
       release-git-user-name: Waren Gonzaga
       release-git-user-email: opensource@warengonzaga.com
-    secrets:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
