@@ -35,9 +35,9 @@ export function applySidechainDuckingProxies(root, timeline, temporaryAssets, re
         const detectorEnd = detectorStart + clip.durationSeconds;
         const threshold = 10 ** (settings.thresholdDb / 20);
         const filter = [
-          `[0:a:0]atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[target]`,
-          `[1:a:0]atrim=start=${detectorStart}:end=${detectorEnd},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[detector]`,
-          `[target][detector]sidechaincompress=threshold=${threshold}:ratio=${settings.ratio}:attack=${settings.attackSeconds * 1000}:release=${settings.releaseSeconds * 1000}:makeup=1:detection=rms:link=average,apad=whole_dur=${clip.durationSeconds},atrim=duration=${clip.durationSeconds}[ducked]`,
+          `[0:a:0]atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad[target]`,
+          `[1:a:0]atrim=start=${detectorStart}:end=${detectorEnd},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad[detector]`,
+          `[target][detector]sidechaincompress=threshold=${threshold}:ratio=${settings.ratio}:attack=${settings.attackSeconds * 1000}:release=${settings.releaseSeconds * 1000}:makeup=1:detection=rms:link=average,atrim=duration=${clip.durationSeconds}[ducked]`,
         ].join(';');
         temporaryAssets.push(absolutePath);
         runFfmpeg(root, [
@@ -91,9 +91,9 @@ export async function applySidechainDuckingProxiesAsync(root, timeline, temporar
         const detectorEnd = detectorStart + clip.durationSeconds;
         const threshold = 10 ** (settings.thresholdDb / 20);
         const filter = [
-          `[0:a:0]atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[target]`,
-          `[1:a:0]atrim=start=${detectorStart}:end=${detectorEnd},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[detector]`,
-          `[target][detector]sidechaincompress=threshold=${threshold}:ratio=${settings.ratio}:attack=${settings.attackSeconds * 1000}:release=${settings.releaseSeconds * 1000}:makeup=1:detection=rms:link=average,apad=whole_dur=${clip.durationSeconds},atrim=duration=${clip.durationSeconds}[ducked]`,
+          `[0:a:0]atrim=start=${clip.sourceIn}:end=${clip.sourceOut},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad[target]`,
+          `[1:a:0]atrim=start=${detectorStart}:end=${detectorEnd},asetpts=PTS-STARTPTS,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad[detector]`,
+          `[target][detector]sidechaincompress=threshold=${threshold}:ratio=${settings.ratio}:attack=${settings.attackSeconds * 1000}:release=${settings.releaseSeconds * 1000}:makeup=1:detection=rms:link=average,atrim=duration=${clip.durationSeconds}[ducked]`,
         ].join(';');
         temporaryAssets.push(absolutePath);
         await runSidechainFfmpegAsync(root, [
