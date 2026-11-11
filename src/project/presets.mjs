@@ -38,7 +38,9 @@ export function listCanvasPresets() {
 export function resolveCanvasPreset(id) {
   const preset = CANVAS_PRESETS.find((candidate) => candidate.id === id);
   if (!preset) {
-    throw new TypeError(`Unknown canvas preset "${id}". Available presets: ${CANVAS_PRESETS.map(({ id: name }) => name).join(', ')}.`);
+    throw new TypeError(
+      `Unknown canvas preset "${id}". Available presets: ${CANVAS_PRESETS.map(({ id: name }) => name).join(', ')}.`,
+    );
   }
   return preset;
 }

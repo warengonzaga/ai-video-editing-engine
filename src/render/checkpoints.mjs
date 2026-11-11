@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { constants as fsConstants, createReadStream } from 'node:fs';
-import { copyFile, lstat, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { createReadStream, constants as fsConstants } from 'node:fs';
+import { copyFile, lstat, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 
 const CHECKPOINT_VERSION = 1;
@@ -25,7 +25,9 @@ export async function prepareRenderCheckpoint(outputPath, fingerprint, options =
   validateCheckpointLimits(maxBytes, maxAgeHours);
   const root = join(dirname(resolve(outputPath)), '.aive-checkpoints');
   await pruneExpiredRenderCheckpoints(root, maxAgeHours);
-  const id = createHash('sha256').update(`${basename(outputPath)}\0${fingerprint}`).digest('hex');
+  const id = createHash('sha256')
+    .update(`${basename(outputPath)}\0${fingerprint}`)
+    .digest('hex');
   const directory = join(root, id);
   await assertSafeCheckpointDirectory(root, directory);
   const artifact = join(directory, `capture.${extension(outputPath)}`);
@@ -39,21 +41,30 @@ export async function restoreRenderCheckpoint(checkpoint) {
   try {
     const parsed = JSON.parse(await readFile(checkpoint.manifest, 'utf8'));
     const info = await lstat(checkpoint.artifact);
-    if (info.isSymbolicLink() || !info.isFile() || info.size <= 0 || info.size > checkpoint.maxBytes || parsed.sizeBytes !== info.size
-        || parsed.version !== CHECKPOINT_VERSION || parsed.fingerprint !== checkpoint.fingerprint
-        || parsed.artifact !== basename(checkpoint.artifact) || !Number.isFinite(parsed.createdAt)
-        || Date.now() - parsed.createdAt > checkpoint.maxAgeHours * 60 * 60 * 1000) {
+    if (
+      info.isSymbolicLink() ||
+      !info.isFile() ||
+      info.size <= 0 ||
+      info.size > checkpoint.maxBytes ||
+      parsed.sizeBytes !== info.size ||
+      parsed.version !== CHECKPOINT_VERSION ||
+      parsed.fingerprint !== checkpoint.fingerprint ||
+      parsed.artifact !== basename(checkpoint.artifact) ||
+      !Number.isFinite(parsed.createdAt) ||
+      Date.now() - parsed.createdAt > checkpoint.maxAgeHours * 60 * 60 * 1000
+    ) {
       await rm(checkpoint.directory, { recursive: true, force: true });
       return undefined;
     }
     record = parsed;
-    if (await hashFile(checkpoint.artifact) !== record.sha256) {
+    if ((await hashFile(checkpoint.artifact)) !== record.sha256) {
       await rm(checkpoint.directory, { recursive: true, force: true });
       return undefined;
     }
     return checkpoint.artifact;
   } catch (error) {
-    if (error.code === 'ENOENT' || error instanceof SyntaxError) await rm(checkpoint.directory, { recursive: true, force: true });
+    if (error.code === 'ENOENT' || error instanceof SyntaxError)
+      await rm(checkpoint.directory, { recursive: true, force: true });
     return undefined;
   }
 }
@@ -130,7 +141,8 @@ export async function pruneExpiredRenderCheckpoints(rootPath, maxAgeHours = 72) 
 async function assertSafeCheckpointDirectory(rootPath, directoryPath) {
   const root = resolve(rootPath);
   const directory = resolve(directoryPath);
-  if (dirname(directory) !== root) throw new TypeError('Render checkpoint directory must be directly inside its checkpoint root.');
+  if (dirname(directory) !== root)
+    throw new TypeError('Render checkpoint directory must be directly inside its checkpoint root.');
   const rootInfo = await lstatIfPresent(root);
   if (rootInfo && (rootInfo.isSymbolicLink() || !rootInfo.isDirectory())) {
     throw new TypeError('Render checkpoint root must be a real directory, not a symbolic link.');
@@ -169,7 +181,8 @@ async function collectFiles(root) {
       if (entry.isSymbolicLink()) {
         const target = await stat(path);
         if (target.isFile()) files.push(path);
-        else if (target.isDirectory()) throw new Error(`Cannot fingerprint a project containing a linked directory: ${relative(root, path)}`);
+        else if (target.isDirectory())
+          throw new Error(`Cannot fingerprint a project containing a linked directory: ${relative(root, path)}`);
       }
       if (entry.isDirectory()) {
         if (!EXCLUDED_DIRECTORIES.has(entry.name)) await visit(path);

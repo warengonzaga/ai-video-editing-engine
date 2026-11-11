@@ -4,8 +4,10 @@ import { listProjectAssets } from '../project/assets.mjs';
 import { validateTimeline } from './validate.mjs';
 
 export function createProjectTimeline(projectPath, options = {}) {
-  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Timeline creation options must be an object.');
-  for (const key of Object.keys(options)) if (key !== 'durationSeconds') throw new TypeError(`Unsupported timeline creation option: ${key}.`);
+  if (!options || typeof options !== 'object' || Array.isArray(options))
+    throw new TypeError('Timeline creation options must be an object.');
+  for (const key of Object.keys(options))
+    if (key !== 'durationSeconds') throw new TypeError(`Unsupported timeline creation option: ${key}.`);
   const root = resolve(projectPath);
   const metaPath = join(root, 'meta.json');
   if (!existsSync(metaPath) || lstatSync(metaPath).isSymbolicLink() || !lstatSync(metaPath).isFile()) {
@@ -13,7 +15,8 @@ export function createProjectTimeline(projectPath, options = {}) {
   }
   const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
   const durationSeconds = options.durationSeconds ?? meta.durationSeconds;
-  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new TypeError('Timeline durationSeconds must be positive.');
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
+    throw new TypeError('Timeline durationSeconds must be positive.');
   const catalog = listProjectAssets(root);
   const timeline = {
     schemaVersion: 1,

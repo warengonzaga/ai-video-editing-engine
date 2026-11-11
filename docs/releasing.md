@@ -6,6 +6,19 @@ These preview artifacts go to npm and GitHub Packages. A push to `main` after
 merging a release PR publishes the release versions and creates a GitHub Release
 after both registries report success. Container publishing is disabled.
 
+Development and CI use Bun 1.4.4 (`bun.lock`) and Biome. The `node-bun` profile
+installs dependencies with `bun install --frozen-lockfile`, runs `bun run check`,
+and runs `bun test` after FFmpeg is installed. That validate job is the required
+test gate before merge. npm trusted publishing stays in place: the package job
+still sets up Node.js and npm for the OIDC upload, packs with `bun pm pack` when
+the package manager is Bun, and publishes the GitHub Packages copy with Bun.
+`release-package-manager` is `bun`.
+
+`build-flow-action` v1.0.3 uses `package-build-flow-action` v2.3.1, which does
+not run tests during packaging. The validate job is the only test run. Do not
+remove the `test` script; local development and the manual platform workflow
+use that script.
+
 ## One-time setup
 
 1. Configure npm trusted publishing for this GitHub repository and the

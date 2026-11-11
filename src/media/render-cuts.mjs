@@ -1,7 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { assertEdlApproved, validateEdl } from '../edits/retime-transcript.mjs';
 import { probeMedia } from './probe.mjs';
 
@@ -27,8 +27,19 @@ export function renderCuts(inputPath, edl, outputPath) {
   writeFileSync(filterPath, filterGraph, { flag: 'wx' });
   let outputCreated = false;
   try {
-    const args = ['-nostdin', '-hide_banner', '-v', 'error', '-n', '-i', input,
-      '-/filter_complex', filterPath, '-map', '[v]'];
+    const args = [
+      '-nostdin',
+      '-hide_banner',
+      '-v',
+      'error',
+      '-n',
+      '-i',
+      input,
+      '-/filter_complex',
+      filterPath,
+      '-map',
+      '[v]',
+    ];
     if (media.hasAudio) args.push('-map', '[a]');
     else args.push('-an');
     args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p');
@@ -49,10 +60,17 @@ export function renderCuts(inputPath, edl, outputPath) {
     const rendered = probeMedia(output);
     const expectedDuration = keepRanges.reduce((sum, range) => sum + range.end - range.start, 0);
     if (Math.abs(rendered.durationSeconds - expectedDuration) > Math.max(0.15, 1 / (media.frameRate || 30))) {
-      throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match expected ${expectedDuration.toFixed(3)}s.`);
+      throw new Error(
+        `Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match expected ${expectedDuration.toFixed(3)}s.`,
+      );
     }
     if (media.hasAudio !== rendered.hasAudio) throw new Error('Rendered audio stream does not match the source.');
-    return { input, output, keepRanges, durationSeconds: keepRanges.reduce((sum, range) => sum + range.end - range.start, 0) };
+    return {
+      input,
+      output,
+      keepRanges,
+      durationSeconds: keepRanges.reduce((sum, range) => sum + range.end - range.start, 0),
+    };
   } catch (error) {
     if (outputCreated && existsSync(output)) unlinkSync(output);
     throw error;

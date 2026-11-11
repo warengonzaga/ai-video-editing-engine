@@ -3,20 +3,31 @@ import { validateTranscript } from './validate.mjs';
 export function parseSubtitleText(contents, format) {
   if (typeof contents !== 'string') throw new TypeError('Subtitle contents must be text.');
   if (!['srt', 'vtt'].includes(format)) throw new TypeError('Subtitle format must be srt or vtt.');
-  const text = contents.replace(/^\uFEFF/, '').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  const text = contents
+    .replace(/^\uFEFF/, '')
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n');
   const words = [];
   for (const block of text.split(/\n\s*\n/)) {
     const lines = block.split('\n');
     const timeIndex = lines.findIndex((line) => line.includes('-->'));
     if (timeIndex < 0) continue;
-    const match = lines[timeIndex].match(/^\s*((?:\d{2}:)?\d{2}:\d{2}[,.]\d{3})\s+-->\s+((?:\d{2}:)?\d{2}:\d{2}[,.]\d{3})(?:\s+.*)?$/);
+    const match = lines[timeIndex].match(
+      /^\s*((?:\d{2}:)?\d{2}:\d{2}[,.]\d{3})\s+-->\s+((?:\d{2}:)?\d{2}:\d{2}[,.]\d{3})(?:\s+.*)?$/,
+    );
     if (!match) throw new TypeError(`Invalid ${format.toUpperCase()} timestamp: ${lines[timeIndex]}`);
     const start = parseTimestamp(match[1]);
     const end = parseTimestamp(match[2]);
-    const cueText = lines.slice(timeIndex + 1).join(' ')
+    const cueText = lines
+      .slice(timeIndex + 1)
+      .join(' ')
       .replace(/<[^>]*>/g, '')
-      .replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&nbsp;/gi, ' ')
-      .replace(/\s+/g, ' ').trim();
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (cueText) words.push({ text: cueText, start, end });
   }
   if (!words.length) throw new TypeError(`No subtitle cues found in ${format.toUpperCase()} input.`);
@@ -26,11 +37,13 @@ export function parseSubtitleText(contents, format) {
 export function formatSubtitleText(transcript, format) {
   validateTranscript(transcript);
   if (!['srt', 'vtt'].includes(format)) throw new TypeError('Subtitle format must be srt or vtt.');
-  const cues = transcript.words.map((word, index) => [
-    ...(format === 'srt' ? [String(index + 1)] : []),
-    `${formatTimestamp(word.start, format)} --> ${formatTimestamp(word.end, format)}`,
-    word.text.replace(/\s*\n\s*/g, ' '),
-  ].join('\n'));
+  const cues = transcript.words.map((word, index) =>
+    [
+      ...(format === 'srt' ? [String(index + 1)] : []),
+      `${formatTimestamp(word.start, format)} --> ${formatTimestamp(word.end, format)}`,
+      word.text.replace(/\s*\n\s*/g, ' '),
+    ].join('\n'),
+  );
   return `${format === 'vtt' ? 'WEBVTT\n\n' : ''}${cues.join('\n\n')}\n`;
 }
 

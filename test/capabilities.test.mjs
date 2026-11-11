@@ -1,6 +1,6 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import test from 'node:test';
 import { getEngineCapabilities } from '../src/index.mjs';
 
 test('reports versioned runtime, tools, encoder and filter capabilities', () => {

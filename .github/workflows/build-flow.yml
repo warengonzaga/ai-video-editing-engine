@@ -17,11 +17,15 @@ permissions:
 
 jobs:
   build-flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.2
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.3
     with:
-      ci-profile: node
+      ci-profile: node-bun
       ci-runtime-version: '22'
       ci-setup-command: sudo apt-get update && sudo apt-get install --yes ffmpeg
+      ci-lint-command: bun run check
+      ci-test-command: bun test
+      package-manager: bun
+      release-package-manager: bun
       enable-package: true
       enable-container: false
       enable-release: true

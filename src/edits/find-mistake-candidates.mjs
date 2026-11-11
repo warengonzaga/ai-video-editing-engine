@@ -29,7 +29,8 @@ export function findMistakeCandidates(transcript, { maxRepeatGap = 0.5 } = {}) {
       },
       removes: first.text,
       keeps: second.text,
-      context: transcript.words.slice(Math.max(0, index - 4), Math.min(transcript.words.length, index + 4))
+      context: transcript.words
+        .slice(Math.max(0, index - 4), Math.min(transcript.words.length, index + 4))
         .map((word) => word.text)
         .join(' '),
     });
@@ -38,5 +39,8 @@ export function findMistakeCandidates(transcript, { maxRepeatGap = 0.5 } = {}) {
 }
 
 function normalize(text) {
-  return text.toLowerCase().normalize('NFKC').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  return text
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
 }

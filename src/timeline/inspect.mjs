@@ -8,8 +8,10 @@ export function inspectTimeline(timeline) {
     .sort((left, right) => left.order - right.order)
     .map((track) => {
       const clips = [...track.clips]
-        .sort((left, right) => left.timelineStart - right.timelineStart
-          || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+        .sort(
+          (left, right) =>
+            left.timelineStart - right.timelineStart || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+        )
         .map((clip) => inspectClip(track, clip, assets.get(clip.assetId)));
       return {
         id: track.id,
@@ -29,10 +31,12 @@ export function inspectTimeline(timeline) {
       };
     });
 
-  const clipCounts = Object.fromEntries(['video', 'audio', 'overlay'].map((kind) => [
-    kind,
-    tracks.filter((track) => track.kind === kind).reduce((total, track) => total + track.clipCount, 0),
-  ]));
+  const clipCounts = Object.fromEntries(
+    ['video', 'audio', 'overlay'].map((kind) => [
+      kind,
+      tracks.filter((track) => track.kind === kind).reduce((total, track) => total + track.clipCount, 0),
+    ]),
+  );
   return {
     schemaVersion: 1,
     project: {
@@ -48,7 +52,9 @@ export function inspectTimeline(timeline) {
     ...(timeline.audioMastering === undefined ? {} : { audioMastering: structuredClone(timeline.audioMastering) }),
     ...(timeline.lineage === undefined ? {} : { lineage: structuredClone(timeline.lineage) }),
     markers: [...(timeline.markers ?? [])]
-      .sort((left, right) => left.timeSeconds - right.timeSeconds || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))
+      .sort(
+        (left, right) => left.timeSeconds - right.timeSeconds || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+      )
       .map((marker) => structuredClone(marker)),
     summary: {
       assetCount: timeline.assets.length,
@@ -80,7 +86,8 @@ function inspectClip(track, clip, asset) {
     id: clip.id,
     assetId: clip.assetId ?? null,
     ...(clip.enabled === undefined ? {} : { enabled: clip.enabled }),
-    mediaType: track.kind === 'overlay' ? (clip.text === undefined ? 'composition' : 'text') : asset?.type ?? track.kind,
+    mediaType:
+      track.kind === 'overlay' ? (clip.text === undefined ? 'composition' : 'text') : (asset?.type ?? track.kind),
     timeline: {
       startSeconds: clip.timelineStart,
       endSeconds: roundInspectionSeconds(clip.timelineStart + clip.durationSeconds),
@@ -98,13 +105,37 @@ function inspectClip(track, clip, asset) {
     };
   }
   for (const field of [
-    'text', 'x', 'y', 'width', 'height', 'fontFamily', 'fontSize', 'fontWeight',
-    'lineHeight', 'verticalAlign', 'paddingPixels', 'color', 'backgroundColor',
-    'textAlign', 'textOutline', 'textShadow', 'wordTimings', 'wordHighlightColor',
-    'wordHighlightAnimation', 'volume', 'fadeInSeconds', 'fadeOutSeconds',
+    'text',
+    'x',
+    'y',
+    'width',
+    'height',
+    'fontFamily',
+    'fontSize',
+    'fontWeight',
+    'lineHeight',
+    'verticalAlign',
+    'paddingPixels',
+    'color',
+    'backgroundColor',
+    'textAlign',
+    'textOutline',
+    'textShadow',
+    'wordTimings',
+    'wordHighlightColor',
+    'wordHighlightAnimation',
+    'volume',
+    'fadeInSeconds',
+    'fadeOutSeconds',
     'bubble',
-    'audioEffects', 'volumeKeyframes',
-    'transitionIn', 'transitionOut', 'blendMode', 'keyframes', 'effects', 'mask',
+    'audioEffects',
+    'volumeKeyframes',
+    'transitionIn',
+    'transitionOut',
+    'blendMode',
+    'keyframes',
+    'effects',
+    'mask',
     'sourceFit',
   ]) {
     if (clip[field] !== undefined) result[field] = structuredClone(clip[field]);

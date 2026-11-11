@@ -1,4 +1,4 @@
-import { existsSync, openSync, closeSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, openSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { probeMedia } from '../media/probe.mjs';
 import { normalizeTranscript } from './normalize.mjs';
@@ -8,9 +8,12 @@ export async function transcribeWithProvider(projectPath, mediaPath, provider, o
   const project = resolve(projectPath);
   const media = resolve(mediaPath);
   if (!existsSync(join(project, 'meta.json'))) throw new Error(`Not a video project: ${project}`);
-  if (!provider || typeof provider !== 'object'
-      || !/^[a-z][a-z0-9-]*$/.test(provider.id ?? '')
-      || typeof provider.transcribe !== 'function') {
+  if (
+    !provider ||
+    typeof provider !== 'object' ||
+    !/^[a-z][a-z0-9-]*$/.test(provider.id ?? '') ||
+    typeof provider.transcribe !== 'function'
+  ) {
     throw new TypeError('Provider must define a kebab-case id and async transcribe function.');
   }
   const granularity = options.granularity ?? 'word';

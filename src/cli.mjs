@@ -1,38 +1,59 @@
 #!/usr/bin/env node
 import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { approveEdl, retimeTranscript } from './edits/retime-transcript.mjs';
+import { getEngineCapabilities } from './capabilities.mjs';
 import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
 import { detectAcousticSilence } from './edits/detect-silence.mjs';
-import { createVideoProject } from './project/create.mjs';
-import { listCanvasPresets } from './project/presets.mjs';
-import { createAssetProxyAsync, listProjectAssets, registerMediaAssetAsync, registerMediaAssetsAsync, relinkProjectAssetAsync, unregisterProjectAsset, verifyProjectAssetsAsync } from './project/assets.mjs';
-import { probeMediaAsync } from './media/probe.mjs';
-import { inspectMediaCompatibility } from './media/compatibility.mjs';
-import { generateAssetPreview } from './media/preview-assets.mjs';
-import { analyzeMediaWithProvider } from './media/analysis-provider.mjs';
-import { detectSceneChangesAsync } from './media/scene-detection.mjs';
-import { createSceneReviewPackAsync } from './media/scene-review.mjs';
-import { renderCuts } from './media/render-cuts.mjs';
-import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
 import { findMistakeCandidates } from './edits/find-mistake-candidates.mjs';
 import { planSceneReviewPlacements } from './edits/plan-shot-placements.mjs';
-import { validateTimeline } from './timeline/validate.mjs';
-import { inspectTimeline } from './timeline/inspect.mjs';
-import { timelineFromEdl } from './timeline/from-edl.mjs';
-import { renderTimelineAsync, renderTimelineRangeAsync } from './timeline/render.mjs';
-import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
-import { applyTimelineReviewPlan, editTimelineFile, getTimelineFileHistory, redoTimelineFile, resetTimelineFileHistory, undoTimelineFile } from './timeline/history-store.mjs';
-import { createProjectTimeline } from './timeline/project.mjs';
+import { planSilenceCuts } from './edits/plan-silence-cuts.mjs';
+import { approveEdl, retimeTranscript } from './edits/retime-transcript.mjs';
+import { exportTimelineToOtio, importTimelineFromOtio } from './interchange/otio.mjs';
+import { analyzeMediaWithProvider } from './media/analysis-provider.mjs';
+import { inspectMediaCompatibility } from './media/compatibility.mjs';
+import { normalizeFrameRate } from './media/frame-rate.mjs';
+import { generateAssetPreview } from './media/preview-assets.mjs';
+import { probeMediaAsync } from './media/probe.mjs';
+import { renderCuts } from './media/render-cuts.mjs';
+import { detectSceneChangesAsync } from './media/scene-detection.mjs';
+import { createSceneReviewPackAsync } from './media/scene-review.mjs';
+import {
+  createAssetProxyAsync,
+  listProjectAssets,
+  registerMediaAssetAsync,
+  registerMediaAssetsAsync,
+  relinkProjectAssetAsync,
+  unregisterProjectAsset,
+  verifyProjectAssetsAsync,
+} from './project/assets.mjs';
+import { createVideoProject } from './project/create.mjs';
+import { listCanvasPresets } from './project/presets.mjs';
+import {
+  importProjectTranscript,
+  lintProject,
+  previewProject,
+  renderProjectAsync,
+  transcribeProject,
+} from './render/hyperframes.mjs';
+import { renderEditedProjectAsync } from './timeline/assemble.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
+import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
+import { timelineFromEdl } from './timeline/from-edl.mjs';
+import {
+  applyTimelineReviewPlan,
+  editTimelineFile,
+  getTimelineFileHistory,
+  redoTimelineFile,
+  resetTimelineFileHistory,
+  undoTimelineFile,
+} from './timeline/history-store.mjs';
+import { inspectTimeline } from './timeline/inspect.mjs';
+import { createProjectTimeline } from './timeline/project.mjs';
+import { renderTimelineAsync, renderTimelineRangeAsync } from './timeline/render.mjs';
+import { validateTimeline } from './timeline/validate.mjs';
 import { applyTranscriptCorrections } from './transcript/corrections.mjs';
 import { formatSubtitleText } from './transcript/subtitles.mjs';
-import { renderEditedProjectAsync } from './timeline/assemble.mjs';
-import { importProjectTranscript, lintProject, previewProject, renderProjectAsync, transcribeProject } from './render/hyperframes.mjs';
-import { normalizeFrameRate } from './media/frame-rate.mjs';
-import { exportTimelineToOtio, importTimelineFromOtio } from './interchange/otio.mjs';
-import { getEngineCapabilities } from './capabilities.mjs';
 
 function readJson(path) {
   try {
@@ -59,8 +80,12 @@ function writeExclusiveFile(path, data) {
     descriptor = undefined;
   } catch (error) {
     if (descriptor !== undefined) {
-      try { closeSync(descriptor); } catch {}
-      try { unlinkSync(path); } catch {}
+      try {
+        closeSync(descriptor);
+      } catch {}
+      try {
+        unlinkSync(path);
+      } catch {}
     }
     if (error.code === 'EEXIST') throw new Error(`Output already exists: ${path}`);
     throw new Error(`Could not write output ${path}: ${error.message}`);
@@ -101,14 +126,18 @@ function parseProjectOptions(args) {
 
   if (flags['--preset']) {
     if (positional.length > 2 || (positional[0] && !/^\d+(?:\.\d+|\/\d+)?$/.test(positional[0]))) {
-      throw new Error('Usage: project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]');
+      throw new Error(
+        'Usage: project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>]',
+      );
     }
     return {
       preset: flags['--preset'],
       fps: normalizeFrameRate(positional[0] ?? '30'),
       durationSeconds: Number(positional[1] ?? 10),
       ...(flags['--fit'] ? { sourceFit: flags['--fit'] } : {}),
-      ...(flags['--background-color'] ? { backgroundColor: parseBackgroundColorFlag(flags['--background-color']) } : {}),
+      ...(flags['--background-color']
+        ? { backgroundColor: parseBackgroundColorFlag(flags['--background-color']) }
+        : {}),
     };
   }
 
@@ -149,7 +178,8 @@ async function main(args) {
   }
   if (command === 'timeline' && commandArgs[0] === 'create' && commandArgs.length >= 2 && commandArgs.length <= 4) {
     const [, projectPath, secondArgument, thirdArgument] = commandArgs;
-    const secondIsDuration = thirdArgument === undefined && secondArgument !== undefined && /^\d+(?:\.\d+)?$/.test(secondArgument);
+    const secondIsDuration =
+      thirdArgument === undefined && secondArgument !== undefined && /^\d+(?:\.\d+)?$/.test(secondArgument);
     const outputPath = secondIsDuration ? undefined : secondArgument;
     const requestedDuration = secondIsDuration ? secondArgument : thirdArgument;
     const options = requestedDuration === undefined ? {} : { durationSeconds: Number(requestedDuration) };
@@ -189,7 +219,9 @@ async function main(args) {
   }
   if (command === 'timeline' && commandArgs[0] === 'preview-edit' && commandArgs.length === 3) {
     const [, inputPath, operationPath] = commandArgs;
-    console.log(JSON.stringify(previewTimelineEdit(readJson(resolve(inputPath)), readJson(resolve(operationPath))), null, 2));
+    console.log(
+      JSON.stringify(previewTimelineEdit(readJson(resolve(inputPath)), readJson(resolve(operationPath))), null, 2),
+    );
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'plan-broll' && commandArgs.length >= 6 && commandArgs.length <= 7) {
@@ -212,10 +244,19 @@ async function main(args) {
     console.log(JSON.stringify(applyTimelineReviewPlan(resolve(timelinePath), readJson(resolve(planPath))), null, 2));
     return;
   }
-  if (command === 'timeline' && commandArgs[0] === 'project-edit' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+  if (
+    command === 'timeline' &&
+    commandArgs[0] === 'project-edit' &&
+    commandArgs.length >= 3 &&
+    commandArgs.length <= 4
+  ) {
     const [, timelinePath, operationPath, requestedLimit] = commandArgs;
     const limit = requestedLimit === undefined ? undefined : Number(requestedLimit);
-    const result = editTimelineFile(resolve(timelinePath), readJson(resolve(operationPath)), limit === undefined ? {} : { limit });
+    const result = editTimelineFile(
+      resolve(timelinePath),
+      readJson(resolve(operationPath)),
+      limit === undefined ? {} : { limit },
+    );
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -235,7 +276,9 @@ async function main(args) {
     }
     if (action === 'reset') {
       const limit = requestedLimit === undefined ? undefined : Number(requestedLimit);
-      console.log(JSON.stringify(resetTimelineFileHistory(resolve(timelinePath), limit === undefined ? {} : { limit }), null, 2));
+      console.log(
+        JSON.stringify(resetTimelineFileHistory(resolve(timelinePath), limit === undefined ? {} : { limit }), null, 2),
+      );
       return;
     }
     throw new Error('Usage: timeline history <timeline.json> [show|reset [limit]]');
@@ -251,29 +294,68 @@ async function main(args) {
     const [project, assetId, transcriptPath, edlPath, requestedOutputPath, requestedQuality] = commandArgs;
     const qualityOnly = commandArgs.length === 5 && ['draft', 'standard', 'high'].includes(requestedOutputPath);
     const outputPath = qualityOnly ? undefined : requestedOutputPath;
-    const quality = qualityOnly ? requestedOutputPath : requestedQuality ?? 'draft';
-    const result = await runWithInterrupt((signal) => renderEditedProjectAsync(resolve(project), assetId, readJson(resolve(transcriptPath)), readJson(resolve(edlPath)), {
-      ...(outputPath ? { outputPath: resolve(outputPath) } : {}),
-      quality,
-      signal,
-    }));
+    const quality = qualityOnly ? requestedOutputPath : (requestedQuality ?? 'draft');
+    const result = await runWithInterrupt((signal) =>
+      renderEditedProjectAsync(
+        resolve(project),
+        assetId,
+        readJson(resolve(transcriptPath)),
+        readJson(resolve(edlPath)),
+        {
+          ...(outputPath ? { outputPath: resolve(outputPath) } : {}),
+          quality,
+          signal,
+        },
+      ),
+    );
     console.log(JSON.stringify(result, null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'render' && commandArgs.length >= 3 && commandArgs.length <= 6) {
     const [, project, timelinePath, outputPath, quality = 'draft', optionsPath] = commandArgs;
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    console.log(JSON.stringify(await runWithInterrupt((signal) => renderTimelineAsync(resolve(project), readJson(resolve(timelinePath)), outputPath ? resolve(outputPath) : undefined, quality, { ...options, signal })), null, 2));
+    console.log(
+      JSON.stringify(
+        await runWithInterrupt((signal) =>
+          renderTimelineAsync(
+            resolve(project),
+            readJson(resolve(timelinePath)),
+            outputPath ? resolve(outputPath) : undefined,
+            quality,
+            { ...options, signal },
+          ),
+        ),
+        null,
+        2,
+      ),
+    );
     return;
   }
-  if (command === 'timeline' && commandArgs[0] === 'render-range' && commandArgs.length >= 6 && commandArgs.length <= 8) {
+  if (
+    command === 'timeline' &&
+    commandArgs[0] === 'render-range' &&
+    commandArgs.length >= 6 &&
+    commandArgs.length <= 8
+  ) {
     const [, project, timelinePath, startText, endText, outputPath, quality = 'draft', optionsPath] = commandArgs;
     const startSeconds = Number(startText);
     const endSeconds = Number(endText);
-    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)) throw new TypeError('Timeline range start and end must be numbers in seconds.');
+    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds))
+      throw new TypeError('Timeline range start and end must be numbers in seconds.');
     const timeline = readJson(resolve(timelinePath));
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    console.log(JSON.stringify(await runWithInterrupt((signal) => renderTimelineRangeAsync(resolve(project), timeline, startSeconds, endSeconds, resolve(outputPath), quality, { ...options, signal })), null, 2));
+    console.log(
+      JSON.stringify(
+        await runWithInterrupt((signal) =>
+          renderTimelineRangeAsync(resolve(project), timeline, startSeconds, endSeconds, resolve(outputPath), quality, {
+            ...options,
+            signal,
+          }),
+        ),
+        null,
+        2,
+      ),
+    );
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'from-edl' && commandArgs.length >= 4 && commandArgs.length <= 5) {
@@ -308,35 +390,41 @@ async function main(args) {
     const [, project, ...mediaPaths] = commandArgs;
     let reportedBatchPercent = -1;
     const reportedAssetProgress = new Map();
-    const result = await runWithInterrupt((signal) => registerMediaAssetsAsync(resolve(project), mediaPaths, {
-      signal,
-      onProgress(event) {
-        if (event.stage === 'asset-batch' && event.phase === 'started') {
-          process.stderr.write(`Media batch: started (${event.total} sources)\n`);
-        } else if (event.stage === 'asset-batch' && event.phase === 'completed') {
-          process.stderr.write(`Media batch: complete (${event.registered} registered, ${event.failed ?? 0} failed)\n`);
-        } else if (event.stage === 'asset-batch' && event.phase === 'progress') {
-          const percent = Math.floor(event.percent);
-          if (percent > reportedBatchPercent) {
-            reportedBatchPercent = percent;
-            process.stderr.write(`Media batch: ${event.completed}/${event.total} (${percent}%)\n`);
-          }
-        } else if (event.phase === 'progress' && Number.isFinite(event.percent)) {
-          const key = `${event.assetId}:${event.stage}`;
-          const percent = Math.floor(event.percent);
-          if (percent > (reportedAssetProgress.get(key) ?? -1)) {
-            reportedAssetProgress.set(key, percent);
-            process.stderr.write(`${event.assetId}: ${event.stage} ${percent}%\n`);
-          }
-        } else if (event.phase === 'started') {
-          process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} started\n`);
-        } else if (event.phase === 'completed' && event.stage !== 'asset-batch') {
-          process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} complete\n`);
-        } else if (event.phase === 'failed') {
-          process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} failed\n`);
-        }
-      },
-    }), 'Batch asset registration');
+    const result = await runWithInterrupt(
+      (signal) =>
+        registerMediaAssetsAsync(resolve(project), mediaPaths, {
+          signal,
+          onProgress(event) {
+            if (event.stage === 'asset-batch' && event.phase === 'started') {
+              process.stderr.write(`Media batch: started (${event.total} sources)\n`);
+            } else if (event.stage === 'asset-batch' && event.phase === 'completed') {
+              process.stderr.write(
+                `Media batch: complete (${event.registered} registered, ${event.failed ?? 0} failed)\n`,
+              );
+            } else if (event.stage === 'asset-batch' && event.phase === 'progress') {
+              const percent = Math.floor(event.percent);
+              if (percent > reportedBatchPercent) {
+                reportedBatchPercent = percent;
+                process.stderr.write(`Media batch: ${event.completed}/${event.total} (${percent}%)\n`);
+              }
+            } else if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+              const key = `${event.assetId}:${event.stage}`;
+              const percent = Math.floor(event.percent);
+              if (percent > (reportedAssetProgress.get(key) ?? -1)) {
+                reportedAssetProgress.set(key, percent);
+                process.stderr.write(`${event.assetId}: ${event.stage} ${percent}%\n`);
+              }
+            } else if (event.phase === 'started') {
+              process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} started\n`);
+            } else if (event.phase === 'completed' && event.stage !== 'asset-batch') {
+              process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} complete\n`);
+            } else if (event.phase === 'failed') {
+              process.stderr.write(`${event.assetId ?? event.stage}: ${event.stage} failed\n`);
+            }
+          },
+        }),
+      'Batch asset registration',
+    );
     console.log(JSON.stringify(result, null, 2));
     if (result.failed.length > 0) process.exitCode = 1;
     return;
@@ -344,25 +432,29 @@ async function main(args) {
   if (command === 'asset' && commandArgs[0] === 'register' && commandArgs.length >= 3 && commandArgs.length <= 4) {
     const [, project, media, id] = commandArgs;
     const reportedAssetProgress = new Map();
-    const asset = await runWithInterrupt((signal) => registerMediaAssetAsync(resolve(project), media, {
-      ...(id ? { id } : {}),
-      signal,
-      onProgress(event) {
-        if (event.phase === 'progress' && Number.isFinite(event.percent)) {
-          const percent = Math.floor(event.percent);
-          if (percent > (reportedAssetProgress.get(event.stage) ?? -1)) {
-            reportedAssetProgress.set(event.stage, percent);
-            process.stderr.write(`${event.stage === 'asset-copy' ? 'Media copy' : 'Media publish'}: ${percent}%\n`);
-          }
-        } else if (event.phase === 'started') {
-          process.stderr.write(event.stage + ': started\n');
-        } else if (event.phase === 'completed') {
-          process.stderr.write(event.stage + ': complete\n');
-        } else if (event.phase === 'failed') {
-          process.stderr.write(event.stage + ': failed\n');
-        }
-      },
-    }), 'Asset registration');
+    const asset = await runWithInterrupt(
+      (signal) =>
+        registerMediaAssetAsync(resolve(project), media, {
+          ...(id ? { id } : {}),
+          signal,
+          onProgress(event) {
+            if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+              const percent = Math.floor(event.percent);
+              if (percent > (reportedAssetProgress.get(event.stage) ?? -1)) {
+                reportedAssetProgress.set(event.stage, percent);
+                process.stderr.write(`${event.stage === 'asset-copy' ? 'Media copy' : 'Media publish'}: ${percent}%\n`);
+              }
+            } else if (event.phase === 'started') {
+              process.stderr.write(`${event.stage}: started\n`);
+            } else if (event.phase === 'completed') {
+              process.stderr.write(`${event.stage}: complete\n`);
+            } else if (event.phase === 'failed') {
+              process.stderr.write(`${event.stage}: failed\n`);
+            }
+          },
+        }),
+      'Asset registration',
+    );
     console.log(JSON.stringify(asset, null, 2));
     return;
   }
@@ -376,24 +468,28 @@ async function main(args) {
   }
   if (command === 'asset' && commandArgs[0] === 'verify' && commandArgs.length === 2) {
     let reportedVerifyPercent = -1;
-    const results = await runWithInterrupt((signal) => verifyProjectAssetsAsync(resolve(commandArgs[1]), {
-      signal,
-      onProgress(event) {
-        if (event.phase === 'progress') {
-          const percent = Math.floor(event.percent);
-          if (percent > reportedVerifyPercent) {
-            reportedVerifyPercent = percent;
-            process.stderr.write('Asset integrity scan: ' + percent + '%\n');
-          }
-        } else if (event.phase === 'started') {
-          process.stderr.write('Asset integrity scan: started\n');
-        } else if (event.phase === 'completed') {
-          process.stderr.write('Asset integrity scan: complete\n');
-        } else if (event.phase === 'failed') {
-          process.stderr.write('Asset integrity scan: failed\n');
-        }
-      },
-    }), 'Asset verification');
+    const results = await runWithInterrupt(
+      (signal) =>
+        verifyProjectAssetsAsync(resolve(commandArgs[1]), {
+          signal,
+          onProgress(event) {
+            if (event.phase === 'progress') {
+              const percent = Math.floor(event.percent);
+              if (percent > reportedVerifyPercent) {
+                reportedVerifyPercent = percent;
+                process.stderr.write(`Asset integrity scan: ${percent}%\n`);
+              }
+            } else if (event.phase === 'started') {
+              process.stderr.write('Asset integrity scan: started\n');
+            } else if (event.phase === 'completed') {
+              process.stderr.write('Asset integrity scan: complete\n');
+            } else if (event.phase === 'failed') {
+              process.stderr.write('Asset integrity scan: failed\n');
+            }
+          },
+        }),
+      'Asset verification',
+    );
     console.log(JSON.stringify(results, null, 2));
     if (results.some((asset) => asset.status !== 'ok')) process.exitCode = 1;
     return;
@@ -401,51 +497,65 @@ async function main(args) {
   if (command === 'asset' && commandArgs[0] === 'relink' && commandArgs.length === 4) {
     const [, project, assetId, media] = commandArgs;
     let reportedRelinkPercent = -1;
-    const asset = await runWithInterrupt((signal) => relinkProjectAssetAsync(resolve(project), assetId, resolve(media), {
-      signal,
-      onProgress(event) {
-        if (event.stage === 'asset-relink-copy' && event.phase === 'progress') {
-          const percent = Math.floor(event.percent);
-          if (percent > reportedRelinkPercent) {
-            reportedRelinkPercent = percent;
-            process.stderr.write('Replacement media copy: ' + percent + '%\n');
-          }
-        } else if (event.phase === 'started') {
-          process.stderr.write(event.stage + ': started\n');
-        } else if (event.phase === 'completed') {
-          process.stderr.write(event.stage + ': complete\n');
-        } else if (event.phase === 'failed') {
-          process.stderr.write(event.stage + ': failed\n');
-        }
-      },
-    }), 'Asset relinking');
+    const asset = await runWithInterrupt(
+      (signal) =>
+        relinkProjectAssetAsync(resolve(project), assetId, resolve(media), {
+          signal,
+          onProgress(event) {
+            if (event.stage === 'asset-relink-copy' && event.phase === 'progress') {
+              const percent = Math.floor(event.percent);
+              if (percent > reportedRelinkPercent) {
+                reportedRelinkPercent = percent;
+                process.stderr.write(`Replacement media copy: ${percent}%\n`);
+              }
+            } else if (event.phase === 'started') {
+              process.stderr.write(`${event.stage}: started\n`);
+            } else if (event.phase === 'completed') {
+              process.stderr.write(`${event.stage}: complete\n`);
+            } else if (event.phase === 'failed') {
+              process.stderr.write(`${event.stage}: failed\n`);
+            }
+          },
+        }),
+      'Asset relinking',
+    );
     console.log(JSON.stringify(asset, null, 2));
     return;
   }
-  if (command === 'asset' && commandArgs[0] === 'proxy' && commandArgs[1] === 'create' && commandArgs.length >= 4 && commandArgs.length <= 7) {
+  if (
+    command === 'asset' &&
+    commandArgs[0] === 'proxy' &&
+    commandArgs[1] === 'create' &&
+    commandArgs.length >= 4 &&
+    commandArgs.length <= 7
+  ) {
     const [, , project, assetId, maxDimension, crf, frameRate] = commandArgs;
     let reportedProxyPercent = -1;
-    const proxy = await runWithInterrupt((signal) => createAssetProxyAsync(resolve(project), assetId, {
-      ...(maxDimension ? { maxDimension: Number(maxDimension) } : {}),
-      ...(crf ? { crf: Number(crf) } : {}),
-      ...(frameRate ? { frameRate: normalizeFrameRate(frameRate) } : {}),
-      signal,
-      onProgress(event) {
-        if (event.stage === 'proxy-generation' && event.phase === 'progress') {
-          const percent = Math.floor(event.percent);
-          if (percent > reportedProxyPercent) {
-            reportedProxyPercent = percent;
-            process.stderr.write(`Proxy encoding: ${percent}%\n`);
-          }
-        } else if (event.phase === 'started') {
-          process.stderr.write(`${event.stage}: started\n`);
-        } else if (event.phase === 'completed') {
-          process.stderr.write(`${event.stage}: complete\n`);
-        } else if (event.phase === 'skipped') {
-          process.stderr.write(`${event.stage}: skipped (${event.reason})\n`);
-        }
-      },
-    }), 'Proxy generation');
+    const proxy = await runWithInterrupt(
+      (signal) =>
+        createAssetProxyAsync(resolve(project), assetId, {
+          ...(maxDimension ? { maxDimension: Number(maxDimension) } : {}),
+          ...(crf ? { crf: Number(crf) } : {}),
+          ...(frameRate ? { frameRate: normalizeFrameRate(frameRate) } : {}),
+          signal,
+          onProgress(event) {
+            if (event.stage === 'proxy-generation' && event.phase === 'progress') {
+              const percent = Math.floor(event.percent);
+              if (percent > reportedProxyPercent) {
+                reportedProxyPercent = percent;
+                process.stderr.write(`Proxy encoding: ${percent}%\n`);
+              }
+            } else if (event.phase === 'started') {
+              process.stderr.write(`${event.stage}: started\n`);
+            } else if (event.phase === 'completed') {
+              process.stderr.write(`${event.stage}: complete\n`);
+            } else if (event.phase === 'skipped') {
+              process.stderr.write(`${event.stage}: skipped (${event.reason})\n`);
+            }
+          },
+        }),
+      'Proxy generation',
+    );
     console.log(JSON.stringify(proxy, null, 2));
     return;
   }
@@ -453,39 +563,49 @@ async function main(args) {
     const [, project, assetId, optionsPath] = commandArgs;
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
     const reportedPreviewProgress = new Map();
-    const preview = await runWithInterrupt((signal) => generateAssetPreview(resolve(project), assetId, {
-      ...options,
-      signal,
-      onProgress(event) {
-        const stageName = event.stage === 'preview' ? '' : event.stage.replace('preview-', '');
-        const label = `Asset preview${stageName ? ` ${stageName}` : ''}`;
-        if (event.phase === 'progress' && Number.isFinite(event.percent)) {
-          const percent = Math.floor(event.percent);
-          if (percent > (reportedPreviewProgress.get(event.stage) ?? -1)) {
-            reportedPreviewProgress.set(event.stage, percent);
-            process.stderr.write(`${label}: ${percent}%\n`);
-          }
-        } else if (event.phase === 'started') {
-          process.stderr.write(`${label}: started\n`);
-        } else if (event.phase === 'completed') {
-          process.stderr.write(`${label}: complete\n`);
-        } else if (event.phase === 'skipped') {
-          process.stderr.write(`${label}: skipped (${event.reason})\n`);
-        } else if (event.phase === 'failed') {
-          process.stderr.write(`${label}: failed\n`);
-        }
-      },
-    }), 'Asset preview');
+    const preview = await runWithInterrupt(
+      (signal) =>
+        generateAssetPreview(resolve(project), assetId, {
+          ...options,
+          signal,
+          onProgress(event) {
+            const stageName = event.stage === 'preview' ? '' : event.stage.replace('preview-', '');
+            const label = `Asset preview${stageName ? ` ${stageName}` : ''}`;
+            if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+              const percent = Math.floor(event.percent);
+              if (percent > (reportedPreviewProgress.get(event.stage) ?? -1)) {
+                reportedPreviewProgress.set(event.stage, percent);
+                process.stderr.write(`${label}: ${percent}%\n`);
+              }
+            } else if (event.phase === 'started') {
+              process.stderr.write(`${label}: started\n`);
+            } else if (event.phase === 'completed') {
+              process.stderr.write(`${label}: complete\n`);
+            } else if (event.phase === 'skipped') {
+              process.stderr.write(`${label}: skipped (${event.reason})\n`);
+            } else if (event.phase === 'failed') {
+              process.stderr.write(`${label}: failed\n`);
+            }
+          },
+        }),
+      'Asset preview',
+    );
     console.log(JSON.stringify(preview, null, 2));
     return;
   }
   if (command === 'probe' && commandArgs.length === 1) {
-    const media = await runWithInterrupt((signal) => probeMediaAsync(commandArgs[0], { requireVideo: false, signal }), 'Media probe');
+    const media = await runWithInterrupt(
+      (signal) => probeMediaAsync(commandArgs[0], { requireVideo: false, signal }),
+      'Media probe',
+    );
     console.log(JSON.stringify(media, null, 2));
     return;
   }
   if (command === 'media' && commandArgs[0] === 'support' && commandArgs.length === 2) {
-    const report = await runWithInterrupt((signal) => inspectMediaCompatibility(commandArgs[1], { signal }), 'Media support inspection');
+    const report = await runWithInterrupt(
+      (signal) => inspectMediaCompatibility(commandArgs[1], { signal }),
+      'Media support inspection',
+    );
     console.log(JSON.stringify(report, null, 2));
     if (!report.compatible) process.exitCode = 1;
     return;
@@ -504,7 +624,10 @@ async function main(args) {
   }
   if (command === 'detect-silence' && commandArgs.length >= 2 && commandArgs.length <= 3) {
     const [mediaPath, outputPath, optionsPath] = commandArgs;
-    writeNewFile(resolve(outputPath), detectAcousticSilence(resolve(mediaPath), optionsPath ? readJson(resolve(optionsPath)) : {}));
+    writeNewFile(
+      resolve(outputPath),
+      detectAcousticSilence(resolve(mediaPath), optionsPath ? readJson(resolve(optionsPath)) : {}),
+    );
     console.log(`Wrote ${resolve(outputPath)}`);
     return;
   }
@@ -521,42 +644,51 @@ async function main(args) {
   }
   if (command === 'detect-scenes' && commandArgs.length >= 2 && commandArgs.length <= 3) {
     const [mediaPath, outputPath, optionsPath] = commandArgs;
-    const result = await runWithInterrupt((signal) => detectSceneChangesAsync(resolve(mediaPath), {
-      ...(optionsPath ? readJson(resolve(optionsPath)) : {}),
-      signal,
-    }), 'Scene detection');
+    const result = await runWithInterrupt(
+      (signal) =>
+        detectSceneChangesAsync(resolve(mediaPath), {
+          ...(optionsPath ? readJson(resolve(optionsPath)) : {}),
+          signal,
+        }),
+      'Scene detection',
+    );
     writeNewFile(resolve(outputPath), result);
     console.log(`Wrote ${resolve(outputPath)} (review required)`);
     return;
   }
   if (command === 'scene-review' && commandArgs.length >= 2 && commandArgs.length <= 3) {
     const [mediaPath, outputDirectory, optionsPath] = commandArgs;
-    const result = await runWithInterrupt((signal) => createSceneReviewPackAsync(
-      resolve(mediaPath),
-      resolve(outputDirectory),
-      {
-        ...(optionsPath ? readJson(resolve(optionsPath)) : {}),
-        signal,
-        onProgress(event) {
-          if (event.phase === 'progress' && Number.isFinite(event.percent)) {
-            process.stderr.write(`Scene thumbnails: ${Math.floor(event.percent)}% (${event.completed}/${event.total})\n`);
-          } else if (event.phase === 'started') {
-            process.stderr.write(`${event.stage}: started\n`);
-          } else if (event.phase === 'completed') {
-            process.stderr.write(`${event.stage}: complete\n`);
-          } else if (event.phase === 'failed') {
-            process.stderr.write(`${event.stage}: failed\n`);
-          }
-        },
-      },
-    ), 'Scene review pack generation');
+    const result = await runWithInterrupt(
+      (signal) =>
+        createSceneReviewPackAsync(resolve(mediaPath), resolve(outputDirectory), {
+          ...(optionsPath ? readJson(resolve(optionsPath)) : {}),
+          signal,
+          onProgress(event) {
+            if (event.phase === 'progress' && Number.isFinite(event.percent)) {
+              process.stderr.write(
+                `Scene thumbnails: ${Math.floor(event.percent)}% (${event.completed}/${event.total})\n`,
+              );
+            } else if (event.phase === 'started') {
+              process.stderr.write(`${event.stage}: started\n`);
+            } else if (event.phase === 'completed') {
+              process.stderr.write(`${event.stage}: complete\n`);
+            } else if (event.phase === 'failed') {
+              process.stderr.write(`${event.stage}: failed\n`);
+            }
+          },
+        }),
+      'Scene review pack generation',
+    );
     console.log(JSON.stringify(result, null, 2));
     return;
   }
   if (command === 'analysis-to-edl' && commandArgs.length >= 2 && commandArgs.length <= 3) {
     const [analysisPath, outputPath, optionsPath] = commandArgs;
     const result = readJson(resolve(analysisPath));
-    writeNewFile(resolve(outputPath), mediaAnalysisToEdl(result.analysis ?? result, optionsPath ? readJson(resolve(optionsPath)) : {}));
+    writeNewFile(
+      resolve(outputPath),
+      mediaAnalysisToEdl(result.analysis ?? result, optionsPath ? readJson(resolve(optionsPath)) : {}),
+    );
     console.log(`Wrote ${resolve(outputPath)} (review required)`);
     return;
   }
@@ -568,7 +700,10 @@ async function main(args) {
   }
   if (command === 'transcript' && commandArgs[0] === 'correct' && commandArgs.length === 4) {
     const [, transcriptPath, correctionsPath, outputPath] = commandArgs;
-    writeNewFile(resolve(outputPath), applyTranscriptCorrections(readJson(resolve(transcriptPath)), readJson(resolve(correctionsPath))));
+    writeNewFile(
+      resolve(outputPath),
+      applyTranscriptCorrections(readJson(resolve(transcriptPath)), readJson(resolve(correctionsPath))),
+    );
     console.log(`Wrote ${resolve(outputPath)}`);
     return;
   }
@@ -593,7 +728,15 @@ async function main(args) {
   if (command === 'render' && commandArgs.length >= 1 && commandArgs.length <= 4) {
     const [projectPath, outputPath, quality = 'draft', optionsPath] = commandArgs;
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
-    console.log(JSON.stringify(await runWithInterrupt((signal) => renderProjectAsync(projectPath, outputPath, quality, { ...options, signal })), null, 2));
+    console.log(
+      JSON.stringify(
+        await runWithInterrupt((signal) =>
+          renderProjectAsync(projectPath, outputPath, quality, { ...options, signal }),
+        ),
+        null,
+        2,
+      ),
+    );
     return;
   }
   if (command === 'transcribe' && commandArgs.length >= 2 && commandArgs.length <= 4) {
