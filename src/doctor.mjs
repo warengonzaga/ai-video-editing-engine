@@ -35,7 +35,7 @@ for (const result of results) {
     console.log('  Install FFmpeg with ffprobe and make both commands available on PATH.');
     console.log('  Guide: https://ffmpeg.org/download.html');
   } else if (!result.ok && (result.name === 'HyperFrames' || result.name === 'GSAP')) {
-    console.log('  Run bun install in the engine repository.');
+    console.log('  Install dependencies with `bun install` in a source checkout, or reinstall the `aivee` package.');
   }
 }
 

@@ -371,7 +371,7 @@ duration preceding each word. Source transcript and EDL files are never modified
 | Reproducible container rendering | Docker, if selected for the render workflow |
 
 The engine checks the tools needed by the requested operation. For example,
-transcript retiming does not require FFmpeg, a browser, or API keys. `bun run
+transcript retiming does not require FFmpeg, a browser, or API keys. `aivee
 doctor` checks the JavaScript runtime, FFmpeg, ffprobe, HyperFrames, and GSAP, then runs
 HyperFrames' environment doctor for browser/render setup and optional local AI
 runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
@@ -385,7 +385,7 @@ reports whether the decoder and demuxer lists could be read. Container and
 decoder fields are independent checks; having both does not prove that every
 media stream combination will decode. Format availability reflects the relevant local FFmpeg,
 ffprobe, HyperFrames, encoder, and filter inventory. The browser runtime is
-reported as unchecked and must be verified with `bun run doctor`. The report
+reported as unchecked and must be verified with `aivee doctor`. The report
 marks a format available when its render runtime and at least one compatible
 encoder are present; `defaultCodecAvailable` indicates whether the default
 encoder is installed. It does not guarantee that every input codec or

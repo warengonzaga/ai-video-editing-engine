@@ -810,6 +810,8 @@ function resolveHyperframesPackage() {
   try {
     return require.resolve('hyperframes/package.json');
   } catch {
-    throw new Error('HyperFrames is not installed. Run bun install in the engine repository.');
+    throw new Error(
+      'HyperFrames is not installed. Install dependencies with `bun install` in a source checkout, or reinstall the `aivee` package.',
+    );
   }
 }

@@ -112,7 +112,7 @@ export function getEngineCapabilities(options = {}) {
       },
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
-      browserRuntime: { available: null, checked: false, checkCommand: 'bun run doctor' },
+      browserRuntime: { available: null, checked: false, checkCommand: 'aivee doctor' },
     },
     media: {
       assetIngest: {
