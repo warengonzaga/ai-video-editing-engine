@@ -1,5 +1,5 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import { assertFfmpegEncoder, parseFfmpegEncoders, parseFfmpegFilters } from '../src/media/ffmpeg-capabilities.mjs';
 
 test('parses filter names without treating the FFmpeg table header as a capability', () => {

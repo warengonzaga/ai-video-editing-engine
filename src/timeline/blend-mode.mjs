@@ -28,7 +28,5 @@ export function validateBlendMode(clip, trackKind) {
 }
 
 export function blendModeStyle(clip) {
-  return clip.blendMode && clip.blendMode !== 'normal'
-    ? `mix-blend-mode:${clip.blendMode};`
-    : '';
+  return clip.blendMode && clip.blendMode !== 'normal' ? `mix-blend-mode:${clip.blendMode};` : '';
 }

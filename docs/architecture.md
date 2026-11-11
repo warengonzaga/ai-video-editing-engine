@@ -348,7 +348,7 @@ duration preceding each word. Source transcript and EDL files are never modified
 
 ## Tool boundary
 
-- Node.js owns the CLI, validation, orchestration, and file handling.
+- The published CLI and JavaScript API run on Node.js. Bun is the repository package manager, script runtime, and test runner. The engine code uses JavaScript built-ins for the CLI, validation, orchestration, and file handling.
 - FFmpeg and ffprobe handle media probing, cuts, and encoding.
 - HyperFrames renders HTML compositions; its supported browser runtime is part
   of the render environment.
@@ -362,7 +362,7 @@ duration preceding each word. Source transcript and EDL files are never modified
 
 | Capability | Requirements |
 | --- | --- |
-| Transcript and EDL validation/retiming | Node.js 22+; current code uses built-ins only |
+| Transcript and EDL validation/retiming | Node.js 22+ for the published CLI, or Bun 1.4+ in this repository; current code uses built-ins only |
 | Probe, cut, and encode media | FFmpeg and ffprobe |
 | Render HTML compositions | HyperFrames, FFmpeg, and the browser runtime supported by the pinned HyperFrames version |
 | Animate compositions | GSAP, when the composition uses animation |
@@ -371,8 +371,8 @@ duration preceding each word. Source transcript and EDL files are never modified
 | Reproducible container rendering | Docker, if selected for the render workflow |
 
 The engine checks the tools needed by the requested operation. For example,
-transcript retiming does not require FFmpeg, a browser, or API keys. `npm run
-doctor` checks Node.js, FFmpeg, ffprobe, HyperFrames, and GSAP, then runs
+transcript retiming does not require FFmpeg, a browser, or API keys. `bun run
+doctor` checks the JavaScript runtime, FFmpeg, ffprobe, HyperFrames, and GSAP, then runs
 HyperFrames' environment doctor for browser/render setup and optional local AI
 runtimes. Consumers can query the versioned `getEngineCapabilities()` API or
 `aivee capabilities` CLI command to discover required tools, common
@@ -385,7 +385,7 @@ reports whether the decoder and demuxer lists could be read. Container and
 decoder fields are independent checks; having both does not prove that every
 media stream combination will decode. Format availability reflects the relevant local FFmpeg,
 ffprobe, HyperFrames, encoder, and filter inventory. The browser runtime is
-reported as unchecked and must be verified with `npm run doctor`. The report
+reported as unchecked and must be verified with `bun run doctor`. The report
 marks a format available when its render runtime and at least one compatible
 encoder are present; `defaultCodecAvailable` indicates whether the default
 encoder is installed. It does not guarantee that every input codec or

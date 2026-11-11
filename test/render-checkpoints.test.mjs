@@ -1,9 +1,15 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fingerprintRenderProject, prepareRenderCheckpoint, pruneExpiredRenderCheckpoints, restoreRenderCheckpoint, saveRenderCheckpoint } from '../src/render/checkpoints.mjs';
+import test from 'node:test';
+import {
+  fingerprintRenderProject,
+  prepareRenderCheckpoint,
+  pruneExpiredRenderCheckpoints,
+  restoreRenderCheckpoint,
+  saveRenderCheckpoint,
+} from '../src/render/checkpoints.mjs';
 import { resolveRenderControlArgs } from '../src/render/formats.mjs';
 import { renderProject } from '../src/render/hyperframes.mjs';
 
@@ -48,7 +54,14 @@ test('stores, restores, rejects corrupted, and expires completed render checkpoi
 });
 
 test('validates checkpoint resource limits and async-only render control', () => {
-  assert.deepEqual(resolveRenderControlArgs({ resumeCheckpoint: true, checkpointMaxBytes: 2 * 1024 * 1024, checkpointMaxAgeHours: 12 }), []);
+  assert.deepEqual(
+    resolveRenderControlArgs({
+      resumeCheckpoint: true,
+      checkpointMaxBytes: 2 * 1024 * 1024,
+      checkpointMaxAgeHours: 12,
+    }),
+    [],
+  );
   assert.throws(() => resolveRenderControlArgs({ resumeCheckpoint: 'yes' }), /resumeCheckpoint must be a boolean/);
   assert.throws(() => resolveRenderControlArgs({ checkpointMaxBytes: 1024 }), /checkpointMaxBytes/);
   assert.throws(() => resolveRenderControlArgs({ checkpointMaxAgeHours: 721 }), /checkpointMaxAgeHours/);

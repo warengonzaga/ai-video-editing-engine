@@ -18,7 +18,8 @@ export function normalizeFrameRate(value) {
   if (rational) {
     let numerator = Number(rational[1]);
     let denominator = Number(rational[2]);
-    if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || denominator <= 0) throw new TypeError('Frame rate rational must use positive safe integers.');
+    if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || denominator <= 0)
+      throw new TypeError('Frame rate rational must use positive safe integers.');
     const divisor = gcd(numerator, denominator);
     numerator /= divisor;
     denominator /= divisor;
@@ -26,7 +27,8 @@ export function normalizeFrameRate(value) {
     validateRate(rate);
     return denominator === 1 ? numerator : `${numerator}/${denominator}`;
   }
-  if (!/^\d+(?:\.\d+)?$/.test(input)) throw new TypeError('Frame rate must be an integer, decimal, or numerator/denominator value.');
+  if (!/^\d+(?:\.\d+)?$/.test(input))
+    throw new TypeError('Frame rate must be an integer, decimal, or numerator/denominator value.');
   const decimal = Number(input);
   if (!Number.isFinite(decimal)) throw new TypeError('Frame rate must be finite.');
   const common = COMMON_RATES.find(([rate]) => Math.abs(rate - decimal) < 0.0005);
@@ -49,7 +51,8 @@ export function frameRateNumber(value) {
 }
 
 function validateRate(rate) {
-  if (!Number.isFinite(rate) || rate < 1 || rate > 240) throw new TypeError('Frame rate must be between 1 and 240 fps.');
+  if (!Number.isFinite(rate) || rate < 1 || rate > 240)
+    throw new TypeError('Frame rate must be between 1 and 240 fps.');
 }
 
 function gcd(a, b) {

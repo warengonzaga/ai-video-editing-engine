@@ -1,9 +1,9 @@
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, renameSync, rmSync, unlinkSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { frameRateNumber } from '../media/frame-rate.mjs';
+import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
 import { runProcess } from '../render/process.mjs';
 import { createFfmpegProgressParser, emitRenderProgress } from '../render/progress.mjs';
 
@@ -17,16 +17,22 @@ const EQ_FIELDS = new Set(['frequencyHz', 'gainDB', 'q']);
 export function validateAudioMastering(timeline) {
   const settings = timeline.audioMastering;
   if (settings === undefined) return undefined;
-  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) throw new TypeError('Timeline audioMastering must be an object.');
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings))
+    throw new TypeError('Timeline audioMastering must be an object.');
   const allowed = new Set([...Object.keys(DEFAULTS), 'equalizer', 'limiter', 'channelLayout']);
-  for (const field of Object.keys(settings)) if (!allowed.has(field)) throw new TypeError(`Timeline audioMastering has an unsupported setting: ${field}.`);
+  for (const field of Object.keys(settings))
+    if (!allowed.has(field)) throw new TypeError(`Timeline audioMastering has an unsupported setting: ${field}.`);
   validateEqualizer(settings.equalizer);
   validateLimiter(settings.limiter);
   if (settings.channelLayout !== undefined && !['mono', 'stereo'].includes(settings.channelLayout)) {
     throw new TypeError('Timeline audioMastering.channelLayout must be mono or stereo.');
   }
   const values = { ...DEFAULTS, ...settings };
-  if (!Number.isFinite(values.integratedLoudnessLUFS) || values.integratedLoudnessLUFS < -70 || values.integratedLoudnessLUFS > -5) {
+  if (
+    !Number.isFinite(values.integratedLoudnessLUFS) ||
+    values.integratedLoudnessLUFS < -70 ||
+    values.integratedLoudnessLUFS > -5
+  ) {
     throw new TypeError('Timeline audioMastering.integratedLoudnessLUFS must be between -70 and -5 LUFS.');
   }
   if (!Number.isFinite(values.truePeakDBTP) || values.truePeakDBTP < -9 || values.truePeakDBTP > 0) {
@@ -50,30 +56,72 @@ export function masterAudioFile(outputPath, format, settings, fps) {
   const equalizerFilters = buildEqualizerFilters(settings.equalizer);
   const preLoudnessFilters = [...channelFilter, ...equalizerFilters];
   const preLoudnessPrefix = preLoudnessFilters.length ? `${preLoudnessFilters.join(',')},` : '';
-  const analysis = spawnSync('ffmpeg', [
-    '-nostdin', '-hide_banner', '-v', 'info', '-i', outputPath,
-    '-map', '0:a:0', '-af', `${preLoudnessPrefix}${baseFilter}:print_format=json`, '-f', 'null', nullDevice(),
-  ], { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
-  if (analysis.error || analysis.status !== 0) throw new Error(`Could not analyze rendered audio loudness: ${analysis.error?.message ?? analysis.stderr.trim()}`);
+  const analysis = spawnSync(
+    'ffmpeg',
+    [
+      '-nostdin',
+      '-hide_banner',
+      '-v',
+      'info',
+      '-i',
+      outputPath,
+      '-map',
+      '0:a:0',
+      '-af',
+      `${preLoudnessPrefix}${baseFilter}:print_format=json`,
+      '-f',
+      'null',
+      nullDevice(),
+    ],
+    { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+  );
+  if (analysis.error || analysis.status !== 0)
+    throw new Error(`Could not analyze rendered audio loudness: ${analysis.error?.message ?? analysis.stderr.trim()}`);
   const loudness = parseLoudnessAnalysis(analysis.stderr);
   const loudnessFilter = loudness.measured
     ? `${baseFilter}:measured_I=${loudness.measured.input_i}:measured_TP=${loudness.measured.input_tp}:measured_LRA=${loudness.measured.input_lra}:measured_thresh=${loudness.measured.input_thresh}:offset=${loudness.measured.target_offset}:linear=true:print_format=summary`
-    : loudness.silent ? undefined : `${baseFilter}:print_format=summary`;
+    : loudness.silent
+      ? undefined
+      : `${baseFilter}:print_format=summary`;
   const limiterFilter = settings.limiter ? buildLimiterFilter(settings.limiter) : undefined;
   const filter = buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter, targetDuration);
   const extension = extname(outputPath);
-  const temporaryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`);
+  const temporaryPath = join(
+    dirname(outputPath),
+    `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`,
+  );
   try {
     const audioCodec = format === 'webm' ? ['-c:a', 'libopus', '-b:a', '192k'] : ['-c:a', 'aac', '-b:a', '256k'];
-    const encode = spawnSync('ffmpeg', [
-      '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', outputPath,
-      '-map', '0:v:0', '-map', '0:a:0', '-c:v', 'copy', ...audioCodec,
-      ...(filter ? ['-af', filter] : []), '-ar', '48000',
-      ...(settings.channelLayout ? ['-ac', settings.channelLayout === 'mono' ? '1' : '2', '-channel_layout', settings.channelLayout] : []),
-      ...(format === 'mp4' || format === 'mov' ? ['-movflags', '+faststart'] : []),
-      temporaryPath,
-    ], { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
-    if (encode.error || encode.status !== 0) throw new Error(`Could not apply rendered audio mastering: ${encode.error?.message ?? encode.stderr.trim()}`);
+    const encode = spawnSync(
+      'ffmpeg',
+      [
+        '-nostdin',
+        '-hide_banner',
+        '-v',
+        'error',
+        '-y',
+        '-i',
+        outputPath,
+        '-map',
+        '0:v:0',
+        '-map',
+        '0:a:0',
+        '-c:v',
+        'copy',
+        ...audioCodec,
+        ...(filter ? ['-af', filter] : []),
+        '-ar',
+        '48000',
+        ...(settings.channelLayout
+          ? ['-ac', settings.channelLayout === 'mono' ? '1' : '2', '-channel_layout', settings.channelLayout]
+          : []),
+        ...(format === 'mp4' || format === 'mov' ? ['-movflags', '+faststart'] : []),
+        temporaryPath,
+      ],
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 4 * 1024 * 1024 },
+    );
+    if (encode.error || encode.status !== 0)
+      throw new Error(`Could not apply rendered audio mastering: ${encode.error?.message ?? encode.stderr.trim()}`);
     const mastered = probeMedia(temporaryPath);
     validateMasteredOutput(mastered, input, settings, targetDuration, fps);
     unlinkSync(outputPath);
@@ -98,39 +146,88 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
   const preLoudnessFilters = [...channelFilter, ...equalizerFilters];
   const preLoudnessPrefix = preLoudnessFilters.length ? `${preLoudnessFilters.join(',')},` : '';
   emitRenderProgress(onProgress, 'mastering-analysis', 'started');
-  const analysisProgress = onProgress ? createFfmpegProgressParser(onProgress, 'mastering-analysis', input.durationSeconds) : undefined;
-  const analysis = await runProcess('ffmpeg', [
-    '-nostdin', '-hide_banner', '-v', 'info', '-i', outputPath,
-    '-map', '0:a:0', '-af', `${preLoudnessPrefix}${baseFilter}:print_format=json`,
-    ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []), '-f', 'null', nullDevice(),
-  ], { signal, stdio: 'capture', ...(analysisProgress ? { onStdout: analysisProgress.push } : {}) });
+  const analysisProgress = onProgress
+    ? createFfmpegProgressParser(onProgress, 'mastering-analysis', input.durationSeconds)
+    : undefined;
+  const analysis = await runProcess(
+    'ffmpeg',
+    [
+      '-nostdin',
+      '-hide_banner',
+      '-v',
+      'info',
+      '-i',
+      outputPath,
+      '-map',
+      '0:a:0',
+      '-af',
+      `${preLoudnessPrefix}${baseFilter}:print_format=json`,
+      ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []),
+      '-f',
+      'null',
+      nullDevice(),
+    ],
+    { signal, stdio: 'capture', ...(analysisProgress ? { onStdout: analysisProgress.push } : {}) },
+  );
   analysisProgress?.flush();
   emitRenderProgress(onProgress, 'mastering-analysis', 'completed');
   const loudness = parseLoudnessAnalysis(analysis.stderr);
   const loudnessFilter = loudness.measured
     ? `${baseFilter}:measured_I=${loudness.measured.input_i}:measured_TP=${loudness.measured.input_tp}:measured_LRA=${loudness.measured.input_lra}:measured_thresh=${loudness.measured.input_thresh}:offset=${loudness.measured.target_offset}:linear=true:print_format=summary`
-    : loudness.silent ? undefined : `${baseFilter}:print_format=summary`;
+    : loudness.silent
+      ? undefined
+      : `${baseFilter}:print_format=summary`;
   const limiterFilter = settings.limiter ? buildLimiterFilter(settings.limiter) : undefined;
   const filter = buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter, targetDuration);
   const extension = extname(outputPath);
-  const temporaryPath = join(dirname(outputPath), `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`);
+  const temporaryPath = join(
+    dirname(outputPath),
+    `.${basename(outputPath, extension)}.${randomUUID()}.master${extension}`,
+  );
   try {
     const audioCodec = format === 'webm' ? ['-c:a', 'libopus', '-b:a', '192k'] : ['-c:a', 'aac', '-b:a', '256k'];
     emitRenderProgress(onProgress, 'mastering-encode', 'started', { codec: audioCodec[1] });
-    const encodeProgress = onProgress ? createFfmpegProgressParser(onProgress, 'mastering-encode', input.durationSeconds, { codec: audioCodec[1] }) : undefined;
-    await runProcess('ffmpeg', [
-      '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', outputPath,
-      '-map', '0:v:0', '-map', '0:a:0', '-c:v', 'copy', ...audioCodec,
-      ...(filter ? ['-af', filter] : []), '-ar', '48000',
-      ...(settings.channelLayout ? ['-ac', settings.channelLayout === 'mono' ? '1' : '2', '-channel_layout', settings.channelLayout] : []),
-      ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []),
-      ...(format === 'mp4' || format === 'mov' ? ['-movflags', '+faststart'] : []),
-      temporaryPath,
-    ], { signal, ...(encodeProgress ? {
-      stdio: 'capture',
-      onStdout: encodeProgress.push,
-      onStderr: (chunk) => process.stderr.write(chunk),
-    } : {}) });
+    const encodeProgress = onProgress
+      ? createFfmpegProgressParser(onProgress, 'mastering-encode', input.durationSeconds, { codec: audioCodec[1] })
+      : undefined;
+    await runProcess(
+      'ffmpeg',
+      [
+        '-nostdin',
+        '-hide_banner',
+        '-v',
+        'error',
+        '-y',
+        '-i',
+        outputPath,
+        '-map',
+        '0:v:0',
+        '-map',
+        '0:a:0',
+        '-c:v',
+        'copy',
+        ...audioCodec,
+        ...(filter ? ['-af', filter] : []),
+        '-ar',
+        '48000',
+        ...(settings.channelLayout
+          ? ['-ac', settings.channelLayout === 'mono' ? '1' : '2', '-channel_layout', settings.channelLayout]
+          : []),
+        ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []),
+        ...(format === 'mp4' || format === 'mov' ? ['-movflags', '+faststart'] : []),
+        temporaryPath,
+      ],
+      {
+        signal,
+        ...(encodeProgress
+          ? {
+              stdio: 'capture',
+              onStdout: encodeProgress.push,
+              onStderr: (chunk) => process.stderr.write(chunk),
+            }
+          : {}),
+      },
+    );
     encodeProgress?.flush();
     emitRenderProgress(onProgress, 'mastering-encode', 'completed', { codec: audioCodec[1] });
     emitRenderProgress(onProgress, 'mastering-validation', 'started');
@@ -153,9 +250,15 @@ export async function masterAudioFileAsync(outputPath, format, settings, fps, si
 
 function validateEqualizer(equalizer) {
   if (equalizer === undefined) return;
-  if (!Array.isArray(equalizer) || equalizer.length > 10) throw new TypeError('Timeline audioMastering.equalizer must be an array with at most 10 bands.');
+  if (!Array.isArray(equalizer) || equalizer.length > 10)
+    throw new TypeError('Timeline audioMastering.equalizer must be an array with at most 10 bands.');
   for (const [index, band] of equalizer.entries()) {
-    if (!band || typeof band !== 'object' || Array.isArray(band) || Object.keys(band).some((field) => !EQ_FIELDS.has(field))) {
+    if (
+      !band ||
+      typeof band !== 'object' ||
+      Array.isArray(band) ||
+      Object.keys(band).some((field) => !EQ_FIELDS.has(field))
+    ) {
       throw new TypeError(`Timeline audioMastering.equalizer band ${index} has an invalid shape.`);
     }
     if (!Number.isFinite(band.frequencyHz) || band.frequencyHz < 20 || band.frequencyHz > 20000) {
@@ -173,7 +276,12 @@ function validateEqualizer(equalizer) {
 function validateLimiter(limiter) {
   if (limiter === undefined) return;
   const fields = ['limitDBFS', 'attackMs', 'releaseMs'];
-  if (!limiter || typeof limiter !== 'object' || Array.isArray(limiter) || Object.keys(limiter).some((field) => !fields.includes(field))) {
+  if (
+    !limiter ||
+    typeof limiter !== 'object' ||
+    Array.isArray(limiter) ||
+    Object.keys(limiter).some((field) => !fields.includes(field))
+  ) {
     throw new TypeError('Timeline audioMastering.limiter has an invalid shape.');
   }
   if (!Number.isFinite(limiter.limitDBFS) || limiter.limitDBFS < -20 || limiter.limitDBFS > 0) {
@@ -198,7 +306,13 @@ function buildLimiterFilter({ limitDBFS, attackMs, releaseMs }) {
 
 function buildMasteringFilter(preLoudnessFilters, loudnessFilter, limiterFilter, targetDuration) {
   const duration = Number(targetDuration.toFixed(9));
-  return [...preLoudnessFilters, loudnessFilter, limiterFilter, `apad=whole_dur=${duration}`, `atrim=duration=${duration}`]
+  return [
+    ...preLoudnessFilters,
+    loudnessFilter,
+    limiterFilter,
+    `apad=whole_dur=${duration}`,
+    `atrim=duration=${duration}`,
+  ]
     .filter(Boolean)
     .join(',');
 }
@@ -208,10 +322,14 @@ function validateMasteredOutput(mastered, input, settings, targetDuration, fps) 
   const frameTolerance = 1 / frameRateNumber(fps);
   const videoDuration = mastered.streamTiming.videoDurationSeconds ?? mastered.durationSeconds;
   const audioDuration = mastered.streamTiming.audioDurationSeconds ?? mastered.durationSeconds;
-  if (!mastered.hasAudio || mastered.width !== input.width || mastered.height !== input.height
-      || (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels)
-      || Math.abs(videoDuration - targetDuration) > frameTolerance
-      || Math.abs(audioDuration - videoDuration) > frameTolerance) {
+  if (
+    !mastered.hasAudio ||
+    mastered.width !== input.width ||
+    mastered.height !== input.height ||
+    (expectedChannels !== undefined && mastered.audioChannels !== expectedChannels) ||
+    Math.abs(videoDuration - targetDuration) > frameTolerance ||
+    Math.abs(audioDuration - videoDuration) > frameTolerance
+  ) {
     throw new Error('Mastered output failed audio/video stream or channel-layout validation.');
   }
 }

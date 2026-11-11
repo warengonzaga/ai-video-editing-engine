@@ -8,12 +8,34 @@ import { validateTimeline } from '../timeline/validate.mjs';
 
 const bridgePath = fileURLToPath(new URL('./otio_bridge.py', import.meta.url));
 const ENGINE_CLIP_SETTINGS = new Set([
-  'audioEffects', 'volumeKeyframes', 'reverse', 'speedRamp',
-  'transitionIn', 'transitionOut', 'fadeInSeconds', 'fadeOutSeconds',
-  'keyframes', 'fit', 'x', 'y', 'width', 'height',
-  'objectPositionX', 'objectPositionY', 'zoom', 'mask', 'blendMode',
-  'brightness', 'contrast', 'saturation', 'blurPixels', 'hueDegrees',
-  'audioStreamIndex', 'videoStreamIndex', 'opacity', 'volume',
+  'audioEffects',
+  'volumeKeyframes',
+  'reverse',
+  'speedRamp',
+  'transitionIn',
+  'transitionOut',
+  'fadeInSeconds',
+  'fadeOutSeconds',
+  'keyframes',
+  'fit',
+  'x',
+  'y',
+  'width',
+  'height',
+  'objectPositionX',
+  'objectPositionY',
+  'zoom',
+  'mask',
+  'blendMode',
+  'brightness',
+  'contrast',
+  'saturation',
+  'blurPixels',
+  'hueDegrees',
+  'audioStreamIndex',
+  'videoStreamIndex',
+  'opacity',
+  'volume',
 ]);
 const ENGINE_TRACK_SETTINGS = new Set(['audioEffects', 'volumeKeyframes', 'volume']);
 
@@ -26,12 +48,16 @@ function runBridge(request) {
     maxBuffer: 64 * 1024 * 1024,
   });
   if (result.error) {
-    throw new Error(`Could not start the OpenTimelineIO bridge with ${python}: ${result.error.message}. Install the optional dependency with "python -m pip install -r requirements-otio.txt" or set AIVE_OTIO_PYTHON.`);
+    throw new Error(
+      `Could not start the OpenTimelineIO bridge with ${python}: ${result.error.message}. Install the optional dependency with "python -m pip install -r requirements-otio.txt" or set AIVE_OTIO_PYTHON.`,
+    );
   }
   if (result.status !== 0) {
     const details = result.stderr.trim() || result.stdout.trim();
     if (/No module named ['"]?opentimelineio/.test(details)) {
-      throw new Error('OpenTimelineIO is not installed. Install the optional dependency with "python -m pip install -r requirements-otio.txt" or set AIVE_OTIO_PYTHON.');
+      throw new Error(
+        'OpenTimelineIO is not installed. Install the optional dependency with "python -m pip install -r requirements-otio.txt" or set AIVE_OTIO_PYTHON.',
+      );
     }
     throw new Error(`OpenTimelineIO interchange failed: ${details || `Python exited with status ${result.status}`}`);
   }
@@ -65,22 +91,34 @@ export function importTimelineFromOtio(projectPath, otioPath) {
 
   for (const sourceTrack of imported.tracks) {
     const engineTrack = original?.tracks.find((track) => track.id === sourceTrack.engineTrackId);
-    const trackId = uniqueId(engineTrack?.id ?? safeId(sourceTrack.name, `${sourceTrack.kind}-track-${sourceTrack.order + 1}`), usedTrackIds);
+    const trackId = uniqueId(
+      engineTrack?.id ?? safeId(sourceTrack.name, `${sourceTrack.kind}-track-${sourceTrack.order + 1}`),
+      usedTrackIds,
+    );
     const usedClipIds = new Set();
     const clips = [];
     const hasCrossfades = sourceTrack.clips.some((clip) => clip.crossfade);
-    const trackState = sourceTrack.kind === 'audio'
-      ? {
-        ...(sourceTrack.muted !== undefined
-          ? { muted: sourceTrack.muted }
-          : sourceTrack.enabled === false && sourceTrack.solo !== true ? { muted: true } : engineTrack?.muted === true ? { muted: false } : {}),
-        ...(sourceTrack.solo === undefined ? {} : { solo: sourceTrack.solo }),
-        ...(sourceTrack.locked === undefined ? {} : { locked: sourceTrack.locked }),
-      }
-      : {
-        ...(sourceTrack.enabled === false ? { visible: false } : engineTrack?.visible === false ? { visible: true } : {}),
-        ...(sourceTrack.locked === undefined ? {} : { locked: sourceTrack.locked }),
-      };
+    const trackState =
+      sourceTrack.kind === 'audio'
+        ? {
+            ...(sourceTrack.muted !== undefined
+              ? { muted: sourceTrack.muted }
+              : sourceTrack.enabled === false && sourceTrack.solo !== true
+                ? { muted: true }
+                : engineTrack?.muted === true
+                  ? { muted: false }
+                  : {}),
+            ...(sourceTrack.solo === undefined ? {} : { solo: sourceTrack.solo }),
+            ...(sourceTrack.locked === undefined ? {} : { locked: sourceTrack.locked }),
+          }
+        : {
+            ...(sourceTrack.enabled === false
+              ? { visible: false }
+              : engineTrack?.visible === false
+                ? { visible: true }
+                : {}),
+            ...(sourceTrack.locked === undefined ? {} : { locked: sourceTrack.locked }),
+          };
     for (const sourceClip of sourceTrack.clips) {
       if (!existsSync(sourceClip.path)) throw new Error(`OTIO clip media is missing: ${sourceClip.path}`);
       const engineAsset = original?.assets.find((asset) => asset.id === sourceClip.engineAssetId);
@@ -99,7 +137,9 @@ export function importTimelineFromOtio(projectPath, otioPath) {
           usedIds.add(asset.id);
         }
       }
-      const priorClip = sourceClip.crossfade ? {} : { ...(engineTrack?.clips.find((clip) => clip.id === sourceClip.engineClipId) ?? {}) };
+      const priorClip = sourceClip.crossfade
+        ? {}
+        : { ...(engineTrack?.clips.find((clip) => clip.id === sourceClip.engineClipId) ?? {}) };
       delete priorClip.playbackRate;
       delete priorClip.speedRamp;
       delete priorClip.reverse;
@@ -108,7 +148,10 @@ export function importTimelineFromOtio(projectPath, otioPath) {
       }
       const clip = {
         ...priorClip,
-        id: uniqueId(priorClip.id ?? safeId(sourceClip.name, `${sourceTrack.kind}-clip-${clips.length + 1}`), usedClipIds),
+        id: uniqueId(
+          priorClip.id ?? safeId(sourceClip.name, `${sourceTrack.kind}-clip-${clips.length + 1}`),
+          usedClipIds,
+        ),
         assetId: asset.id,
         sourceIn: sourceClip.sourceIn,
         sourceOut: sourceClip.sourceOut,
@@ -117,11 +160,15 @@ export function importTimelineFromOtio(projectPath, otioPath) {
         ...(sourceClip.enabled === false || Object.hasOwn(priorClip, 'enabled') ? { enabled: sourceClip.enabled } : {}),
         ...(sourceClip.playbackRate !== undefined ? { playbackRate: sourceClip.playbackRate } : {}),
         ...(sourceClip.crossfade?.role === 'incoming' ? { fadeInSeconds: sourceClip.crossfade.durationSeconds } : {}),
-        ...(sourceClip.crossfade?.role === 'outgoing' && sourceTrack.kind === 'audio' ? { fadeOutSeconds: sourceClip.crossfade.durationSeconds } : {}),
+        ...(sourceClip.crossfade?.role === 'outgoing' && sourceTrack.kind === 'audio'
+          ? { fadeOutSeconds: sourceClip.crossfade.durationSeconds }
+          : {}),
       };
       clips.push(clip);
     }
-    const importedTrackSettings = Object.fromEntries(Object.entries(sourceTrack.engineSettings ?? {}).filter(([key]) => ENGINE_TRACK_SETTINGS.has(key)));
+    const importedTrackSettings = Object.fromEntries(
+      Object.entries(sourceTrack.engineSettings ?? {}).filter(([key]) => ENGINE_TRACK_SETTINGS.has(key)),
+    );
     tracks.push({
       ...(engineTrack ?? {}),
       ...importedTrackSettings,
@@ -138,7 +185,9 @@ export function importTimelineFromOtio(projectPath, otioPath) {
     if (track.kind !== 'overlay') continue;
     tracks.push({ ...track, order: tracks.length, id: uniqueId(track.id, usedTrackIds) });
   }
-  tracks.forEach((track, order) => { track.order = order; });
+  tracks.forEach((track, order) => {
+    track.order = order;
+  });
   const durationSeconds = Math.max(
     original?.project.durationSeconds ?? projectMeta.durationSeconds,
     imported.durationSeconds ?? 0,
@@ -161,9 +210,13 @@ function assetMatchesReference(root, asset, sourcePath, cache) {
   const key = `${asset.id}\0${resolve(sourcePath)}`;
   if (cache.has(key)) return cache.get(key);
   const registeredPath = resolve(root, asset.path);
-  if (!existsSync(registeredPath) || !existsSync(sourcePath)
-      || !statSync(registeredPath).isFile() || !statSync(sourcePath).isFile()
-      || lstatSync(registeredPath).isSymbolicLink()) {
+  if (
+    !existsSync(registeredPath) ||
+    !existsSync(sourcePath) ||
+    !statSync(registeredPath).isFile() ||
+    !statSync(sourcePath).isFile() ||
+    lstatSync(registeredPath).isSymbolicLink()
+  ) {
     cache.set(key, false);
     return false;
   }
@@ -177,8 +230,11 @@ function hashFile(path) {
   const descriptor = openSync(path, 'r');
   const buffer = Buffer.allocUnsafe(1024 * 1024);
   try {
-    let bytes;
-    while ((bytes = readSync(descriptor, buffer, 0, buffer.length, null)) > 0) hash.update(buffer.subarray(0, bytes));
+    let bytes = readSync(descriptor, buffer, 0, buffer.length, null);
+    while (bytes > 0) {
+      hash.update(buffer.subarray(0, bytes));
+      bytes = readSync(descriptor, buffer, 0, buffer.length, null);
+    }
   } finally {
     closeSync(descriptor);
   }
@@ -186,7 +242,10 @@ function hashFile(path) {
 }
 
 function safeId(value, fallback) {
-  const id = String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const id = String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
   return /^[a-z]/.test(id) ? id : fallback;
 }
 

@@ -1,9 +1,20 @@
 import { randomUUID } from 'node:crypto';
-import { closeSync, existsSync, lstatSync, openSync, readFileSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  lstatSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { editTimeline, editTimelineBatch } from './edit.mjs';
-import { validateTimeline } from './validate.mjs';
 import { timelineFingerprint } from './fingerprint.mjs';
+import { validateTimeline } from './validate.mjs';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -34,12 +45,16 @@ export function applyTimelineReviewPlan(timelinePath, plan, { limit } = {}) {
     const { path, timeline } = readTimeline(timelinePath);
     const baseHash = hashTimeline(timeline);
     if (baseHash !== plan.baseTimelineSha256) {
-      throw new Error('Review plan is stale because the timeline changed after the plan was created. Generate a new plan.');
+      throw new Error(
+        'Review plan is stale because the timeline changed after the plan was created. Generate a new plan.',
+      );
     }
     const next = editTimelineBatch(timeline, plan.operations);
     const history = loadHistory(path, limit);
     if (history.timelineHash !== baseHash) {
-      throw new Error('Review plan is stale because the timeline history changed after the plan was created. Generate a new plan.');
+      throw new Error(
+        'Review plan is stale because the timeline history changed after the plan was created. Generate a new plan.',
+      );
     }
     const undo = [...history.undo, history.timeline].slice(-history.limit);
     const result = commitHistory(path, {
@@ -130,7 +145,8 @@ function loadHistory(timelinePath, requestedLimit, { createIfMissing = false } =
     return state;
   }
   if (lstatSync(historyPath).isSymbolicLink()) throw new TypeError('Timeline history file cannot be a symbolic link.');
-  if (statSync(historyPath).size > MAX_HISTORY_BYTES) throw new RangeError(`Timeline history exceeds the ${MAX_HISTORY_BYTES / 1024 / 1024} MiB limit.`);
+  if (statSync(historyPath).size > MAX_HISTORY_BYTES)
+    throw new RangeError(`Timeline history exceeds the ${MAX_HISTORY_BYTES / 1024 / 1024} MiB limit.`);
   const state = JSON.parse(readFileSync(historyPath, 'utf8'));
   validateHistory(state);
   if (requestedLimit !== undefined && requestedLimit !== state.limit) {
@@ -143,13 +159,16 @@ function loadHistory(timelinePath, requestedLimit, { createIfMissing = false } =
     writeTimelineFile(path, state.timeline);
     return state;
   }
-  throw new Error(`Timeline changed outside its history session: ${path}. Use timeline history reset to start a new session.`);
+  throw new Error(
+    `Timeline changed outside its history session: ${path}. Use timeline history reset to start a new session.`,
+  );
 }
 
 function readTimeline(timelinePath) {
   const path = resolve(timelinePath);
   if (!existsSync(path)) throw new Error(`Timeline file not found: ${path}`);
-  if (lstatSync(path).isSymbolicLink()) throw new TypeError('Timeline file cannot be a symbolic link when using persistent history.');
+  if (lstatSync(path).isSymbolicLink())
+    throw new TypeError('Timeline file cannot be a symbolic link when using persistent history.');
   const timeline = JSON.parse(readFileSync(path, 'utf8'));
   validateTimeline(timeline);
   return { path, timeline };
@@ -211,16 +230,24 @@ function removeStaleHistoryLock(lockPath) {
 }
 
 function validateHistory(state) {
-  if (!state || state.schemaVersion !== 1 || !Number.isSafeInteger(state.limit)
-      || state.limit < 1 || state.limit > MAX_LIMIT || !Array.isArray(state.undo)
-      || !Array.isArray(state.redo) || state.undo.length > state.limit
-      || state.redo.length > state.limit || !/^[\da-f]{64}$/.test(state.timelineHash ?? '')
-      || (state.previousTimelineHash !== null && !/^[\da-f]{64}$/.test(state.previousTimelineHash ?? ''))) {
+  if (
+    state?.schemaVersion !== 1 ||
+    !Number.isSafeInteger(state.limit) ||
+    state.limit < 1 ||
+    state.limit > MAX_LIMIT ||
+    !Array.isArray(state.undo) ||
+    !Array.isArray(state.redo) ||
+    state.undo.length > state.limit ||
+    state.redo.length > state.limit ||
+    !/^[\da-f]{64}$/.test(state.timelineHash ?? '') ||
+    (state.previousTimelineHash !== null && !/^[\da-f]{64}$/.test(state.previousTimelineHash ?? ''))
+  ) {
     throw new TypeError('Persistent timeline history has an invalid schema.');
   }
   validateTimeline(state.timeline);
   for (const snapshot of [...state.undo, ...state.redo]) validateTimeline(snapshot);
-  if (hashTimeline(state.timeline) !== state.timelineHash) throw new TypeError('Persistent timeline history snapshot does not match its fingerprint.');
+  if (hashTimeline(state.timeline) !== state.timelineHash)
+    throw new TypeError('Persistent timeline history snapshot does not match its fingerprint.');
 }
 
 function validateLimit(limit) {
@@ -271,11 +298,20 @@ function hashTimeline(timeline) {
 }
 
 function validateReviewPlan(plan) {
-  if (!plan || typeof plan !== 'object' || Array.isArray(plan)
-      || plan.schemaVersion !== 1 || plan.reviewRequired !== true
-      || !/^[a-z][a-z0-9-]*$/.test(plan.type ?? '')
-      || !/^[a-f0-9]{64}$/.test(plan.baseTimelineSha256 ?? '')
-      || !Array.isArray(plan.operations) || plan.operations.length === 0 || plan.operations.length > 2000) {
-    throw new TypeError('Review plan must be a schemaVersion 1 review-required plan with a SHA-256 timeline base and 1–2000 operations.');
+  if (
+    !plan ||
+    typeof plan !== 'object' ||
+    Array.isArray(plan) ||
+    plan.schemaVersion !== 1 ||
+    plan.reviewRequired !== true ||
+    !/^[a-z][a-z0-9-]*$/.test(plan.type ?? '') ||
+    !/^[a-f0-9]{64}$/.test(plan.baseTimelineSha256 ?? '') ||
+    !Array.isArray(plan.operations) ||
+    plan.operations.length === 0 ||
+    plan.operations.length > 2000
+  ) {
+    throw new TypeError(
+      'Review plan must be a schemaVersion 1 review-required plan with a SHA-256 timeline base and 1–2000 operations.',
+    );
   }
 }

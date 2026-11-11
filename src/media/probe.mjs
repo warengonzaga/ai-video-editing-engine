@@ -1,5 +1,5 @@
-import { existsSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runProcess } from '../render/process.mjs';
 
@@ -9,9 +9,11 @@ export function probeMedia(inputPath, { requireVideo = true, timeoutMs } = {}) {
   }
   const path = resolve(inputPath);
   if (!existsSync(path) || !statSync(path).isFile()) throw new Error(`Media file not found: ${path}`);
-  const result = spawnSync('ffprobe', [
-    '-v', 'error', '-show_format', '-show_streams', '-of', 'json', path,
-  ], { encoding: 'utf8', windowsHide: true, ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}) });
+  const result = spawnSync('ffprobe', ['-v', 'error', '-show_format', '-show_streams', '-of', 'json', path], {
+    encoding: 'utf8',
+    windowsHide: true,
+    ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {}),
+  });
   if (result.error || result.status !== 0) {
     throw new Error(`ffprobe failed: ${result.error?.message ?? result.stderr.trim()}`);
   }
@@ -22,9 +24,10 @@ export async function probeMediaAsync(inputPath, { requireVideo = true, signal }
   validateAbortSignal(signal);
   const path = resolve(inputPath);
   if (!existsSync(path) || !statSync(path).isFile()) throw new Error(`Media file not found: ${path}`);
-  const result = await runProcess('ffprobe', [
-    '-v', 'error', '-show_format', '-show_streams', '-of', 'json', path,
-  ], { signal, stdio: 'capture' });
+  const result = await runProcess('ffprobe', ['-v', 'error', '-show_format', '-show_streams', '-of', 'json', path], {
+    signal,
+    stdio: 'capture',
+  });
   return parseProbeOutput(result.stdout, path, { requireVideo });
 }
 
@@ -43,37 +46,38 @@ export function parseProbeOutput(output, path = '', { requireVideo = true } = {}
   }
   const streams = Array.isArray(info.streams) ? info.streams : [];
   const formatDuration = parseOptionalNumber(info.format?.duration);
-  const streamDuration = streams.reduce((duration, stream) =>
-    Math.max(duration, parseStreamDuration(stream)), 0);
-  const durationSeconds = Number.isFinite(formatDuration) && formatDuration > 0
-    ? formatDuration
-    : streamDuration;
-  const videoStreams = streams.filter((stream) => stream.codec_type === 'video').map((stream, index) => ({
-    index,
-    streamIndex: Number.isSafeInteger(stream.index) ? stream.index : index,
-    codec: stream.codec_name ?? null,
-    width: Number(stream.width) || null,
-    height: Number(stream.height) || null,
-    pixelFormat: stream.pix_fmt ?? null,
-    frameRate: parseFrameRate(stream.avg_frame_rate || stream.r_frame_rate),
-    timeBase: stream.time_base ?? null,
-    startSeconds: parseOptionalNumber(stream.start_time),
-    durationSeconds: parseStreamDuration(stream) || null,
-  }));
+  const streamDuration = streams.reduce((duration, stream) => Math.max(duration, parseStreamDuration(stream)), 0);
+  const durationSeconds = Number.isFinite(formatDuration) && formatDuration > 0 ? formatDuration : streamDuration;
+  const videoStreams = streams
+    .filter((stream) => stream.codec_type === 'video')
+    .map((stream, index) => ({
+      index,
+      streamIndex: Number.isSafeInteger(stream.index) ? stream.index : index,
+      codec: stream.codec_name ?? null,
+      width: Number(stream.width) || null,
+      height: Number(stream.height) || null,
+      pixelFormat: stream.pix_fmt ?? null,
+      frameRate: parseFrameRate(stream.avg_frame_rate || stream.r_frame_rate),
+      timeBase: stream.time_base ?? null,
+      startSeconds: parseOptionalNumber(stream.start_time),
+      durationSeconds: parseStreamDuration(stream) || null,
+    }));
   const video = streams.find((stream) => stream.codec_type === 'video');
-  const audioStreams = streams.filter((stream) => stream.codec_type === 'audio').map((stream, index) => ({
-    index,
-    streamIndex: Number.isSafeInteger(stream.index) ? stream.index : index,
-    codec: stream.codec_name ?? null,
-    channels: Number(stream.channels) || null,
-    channelLayout: stream.channel_layout ?? null,
-    sampleRate: Number(stream.sample_rate) || null,
-    startSeconds: parseOptionalNumber(stream.start_time),
-    durationSeconds: parseStreamDuration(stream) || null,
-    timeBase: stream.time_base ?? null,
-    language: typeof stream.tags?.language === 'string' ? stream.tags.language : null,
-    title: typeof stream.tags?.title === 'string' ? stream.tags.title : null,
-  }));
+  const audioStreams = streams
+    .filter((stream) => stream.codec_type === 'audio')
+    .map((stream, index) => ({
+      index,
+      streamIndex: Number.isSafeInteger(stream.index) ? stream.index : index,
+      codec: stream.codec_name ?? null,
+      channels: Number(stream.channels) || null,
+      channelLayout: stream.channel_layout ?? null,
+      sampleRate: Number(stream.sample_rate) || null,
+      startSeconds: parseOptionalNumber(stream.start_time),
+      durationSeconds: parseStreamDuration(stream) || null,
+      timeBase: stream.time_base ?? null,
+      language: typeof stream.tags?.language === 'string' ? stream.tags.language : null,
+      title: typeof stream.tags?.title === 'string' ? stream.tags.title : null,
+    }));
   const audio = audioStreams[0];
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     throw new TypeError('Media must have a finite positive duration.');
@@ -132,12 +136,17 @@ function parseStreamDuration(stream) {
   const duration = parseOptionalNumber(stream.duration);
   if (duration !== null && duration > 0) return duration;
   const ticks = parseOptionalNumber(stream.duration_ts);
-  const [numerator, denominator] = typeof stream.time_base === 'string'
-    ? stream.time_base.split('/').map(Number)
-    : [];
-  if (!Number.isFinite(ticks) || ticks <= 0 || !Number.isFinite(numerator)
-      || !Number.isFinite(denominator) || numerator <= 0 || denominator <= 0) return 0;
-  return ticks * numerator / denominator;
+  const [numerator, denominator] = typeof stream.time_base === 'string' ? stream.time_base.split('/').map(Number) : [];
+  if (
+    !Number.isFinite(ticks) ||
+    ticks <= 0 ||
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(denominator) ||
+    numerator <= 0 ||
+    denominator <= 0
+  )
+    return 0;
+  return (ticks * numerator) / denominator;
 }
 
 function parseFrameRate(value) {

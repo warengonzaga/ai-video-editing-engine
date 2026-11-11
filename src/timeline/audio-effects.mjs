@@ -45,8 +45,10 @@ export function validateAudioClipEffects(effects, clipId) {
 
 export function buildAudioClipEffectFilters(effects = []) {
   return effects.map((effect) => {
-    if (effect.type === 'equalizer') return `equalizer=f=${effect.frequencyHz}:t=q:w=${effect.q ?? 1}:g=${effect.gainDB}`;
-    if (effect.type === 'highpass' || effect.type === 'lowpass') return `${effect.type}=f=${effect.frequencyHz}:p=${effect.order ?? 2}`;
+    if (effect.type === 'equalizer')
+      return `equalizer=f=${effect.frequencyHz}:t=q:w=${effect.q ?? 1}:g=${effect.gainDB}`;
+    if (effect.type === 'highpass' || effect.type === 'lowpass')
+      return `${effect.type}=f=${effect.frequencyHz}:p=${effect.order ?? 2}`;
     if (effect.type === 'compressor') {
       return `acompressor=threshold=${10 ** ((effect.thresholdDB ?? -18) / 20)}:ratio=${effect.ratio}:attack=${effect.attackMs ?? 20}:release=${effect.releaseMs ?? 250}:makeup=${10 ** ((effect.makeupDB ?? 0) / 20)}:detection=rms`;
     }

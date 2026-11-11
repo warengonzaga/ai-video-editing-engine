@@ -5,10 +5,10 @@ This guide covers generic project creation, media registration, editing, renderi
 ## Create a project
 
 ```sh
-npm run new-video -- my-video
-npm run new-video -- vertical-video 1080x1920 30 15
-npm run new-video -- short-video --preset vertical --fit cover
-node src/cli.mjs presets list
+bun run new-video -- my-video
+bun run new-video -- vertical-video 1080x1920 30 15
+bun run new-video -- short-video --preset vertical --fit cover
+bun src/cli.mjs presets list
 ```
 
 The default canvas is 1920×1080 at 30 fps for 10 seconds. Named presets are
@@ -27,7 +27,7 @@ all currently registered project assets. For an existing project missing that
 file, initialize one from its metadata and media catalog with:
 
 ```sh
-node src/cli.mjs timeline create video-projects/my-video
+bun src/cli.mjs timeline create video-projects/my-video
 ```
 
 Use the reviewable `set-project-state` operation to change timeline duration,
@@ -53,11 +53,11 @@ and checks the output rate. Select MP4, WebM, MOV, or GIF by the output file
 extension:
 
 ```sh
-node src/cli.mjs render video-projects/my-video renders/final.webm high
-node src/cli.mjs timeline render video-projects/my-video timeline.json renders/final.mov standard
-node src/cli.mjs timeline render video-projects/my-video timeline.json renders/final.mp4 high render-options.json
-node src/cli.mjs timeline render-range video-projects/my-video timeline.json 12.5 24 renders/segment.mp4 standard
-node src/cli.mjs render video-projects/my-video renders/frames high png-options.json
+bun src/cli.mjs render video-projects/my-video renders/final.webm high
+bun src/cli.mjs timeline render video-projects/my-video timeline.json renders/final.mov standard
+bun src/cli.mjs timeline render video-projects/my-video timeline.json renders/final.mp4 high render-options.json
+bun src/cli.mjs timeline render-range video-projects/my-video timeline.json 12.5 24 renders/segment.mp4 standard
+bun src/cli.mjs render video-projects/my-video renders/frames high png-options.json
 ```
 
 `timeline render-range` renders a selected project-time window from the source
@@ -107,7 +107,7 @@ performs a final video encode. Set `"colorProfile": "hdr10"` for MP4 or MOV to
 convert the BT.709 SDR render to 10-bit BT.2020/PQ and encode with HEVC Main 10.
 This SDR-to-HDR conversion maps reference white to 203 nits; it cannot recover
 highlight detail absent from the SDR render. HDR10 output requires FFmpeg's
-`zscale` filter and `libx265`. `npm run doctor` reports filter and encoder
+`zscale` filter and `libx265`. `bun run doctor` reports filter and encoder
 availability. Before rendering, the Engine checks required final encoders and
 filters and reports a setup error before generating timeline proxies or
 starting browser capture when one is missing.
@@ -175,24 +175,24 @@ still needs validation.
 
 ```sh
 # Inspect media and create a project
-node src/cli.mjs probe path/to/source.mp4
-node src/cli.mjs project create my-video 1080x1920 30 15 --background-color '#f3f0eb'
+bun src/cli.mjs probe path/to/source.mp4
+bun src/cli.mjs project create my-video 1080x1920 30 15 --background-color '#f3f0eb'
 
 # Create or import a transcript
-node src/cli.mjs transcribe video-projects/my-video path/to/source.mp4
-node src/cli.mjs import-transcript video-projects/my-video path/to/source.mp4 path/to/captions.srt
-node src/cli.mjs transcript export video-projects/my-video/transcripts/transcript.json vtt output/captions.vtt
+bun src/cli.mjs transcribe video-projects/my-video path/to/source.mp4
+bun src/cli.mjs import-transcript video-projects/my-video path/to/source.mp4 path/to/captions.srt
+bun src/cli.mjs transcript export video-projects/my-video/transcripts/transcript.json vtt output/captions.vtt
 
 # Propose edits, review the EDL, then apply approved cuts
-node src/cli.mjs plan-silence video-projects/my-video/transcripts/transcript.json video-projects/my-video/edits/silence-edl.json
-node src/cli.mjs mistake-candidates video-projects/my-video/transcripts/transcript.json
-node src/cli.mjs apply-edl path/to/source.mp4 path/to/approved-edl.json path/to/clean-cut.mp4
-node src/cli.mjs retime video-projects/my-video/transcripts/transcript.json path/to/approved-edl.json video-projects/my-video/transcripts/retimed.json
+bun src/cli.mjs plan-silence video-projects/my-video/transcripts/transcript.json video-projects/my-video/edits/silence-edl.json
+bun src/cli.mjs mistake-candidates video-projects/my-video/transcripts/transcript.json
+bun src/cli.mjs apply-edl path/to/source.mp4 path/to/approved-edl.json path/to/clean-cut.mp4
+bun src/cli.mjs retime video-projects/my-video/transcripts/transcript.json path/to/approved-edl.json video-projects/my-video/transcripts/retimed.json
 
 # Lint, preview, and render the composition
-node src/cli.mjs lint video-projects/my-video
-node src/cli.mjs preview video-projects/my-video
-node src/cli.mjs render video-projects/my-video
+bun src/cli.mjs lint video-projects/my-video
+bun src/cli.mjs preview video-projects/my-video
+bun src/cli.mjs render video-projects/my-video
 ```
 
 ### Assemble an edited video in one render
@@ -202,27 +202,27 @@ imported or generated transcript, apply a reviewed EDL, retime the transcript,
 generate captions, and render the final composition:
 
 ```sh
-node src/cli.mjs project create my-edit --preset landscape
-node src/cli.mjs asset register video-projects/my-edit path/to/source.mp4 camera
-node src/cli.mjs asset register-many video-projects/my-edit path/to/camera.mp4 path/to/music.wav path/to/logo.png
-node src/cli.mjs transcribe video-projects/my-edit video-projects/my-edit/assets/camera.mp4
+bun src/cli.mjs project create my-edit --preset landscape
+bun src/cli.mjs asset register video-projects/my-edit path/to/source.mp4 camera
+bun src/cli.mjs asset register-many video-projects/my-edit path/to/camera.mp4 path/to/music.wav path/to/logo.png
+bun src/cli.mjs transcribe video-projects/my-edit video-projects/my-edit/assets/camera.mp4
 
 # Check copied media and restore a moved or damaged asset under its existing ID.
-node src/cli.mjs asset verify video-projects/my-edit
-node src/cli.mjs asset relink video-projects/my-edit camera path/to/replacement.mp4
-node src/cli.mjs asset preview video-projects/my-edit camera
+bun src/cli.mjs asset verify video-projects/my-edit
+bun src/cli.mjs asset relink video-projects/my-edit camera path/to/replacement.mp4
+bun src/cli.mjs asset preview video-projects/my-edit camera
 
 # Create a reusable draft proxy; request proxy use in timeline render options.
-node src/cli.mjs asset proxy create video-projects/my-edit camera 960 28
+bun src/cli.mjs asset proxy create video-projects/my-edit camera 960 28
 # Normalize a VFR source proxy to the 30 fps project timeline.
-node src/cli.mjs asset proxy create video-projects/my-edit camera 960 28 30
-node src/cli.mjs timeline render video-projects/my-edit timeline.json renders/review.mp4 draft render-options.json
+bun src/cli.mjs asset proxy create video-projects/my-edit camera 960 28 30
+bun src/cli.mjs timeline render video-projects/my-edit timeline.json renders/review.mp4 draft render-options.json
 
 # Generate a proposal, review it, then save approved decisions as approved.json.
-node src/cli.mjs detect-silence video-projects/my-edit/assets/camera.mp4 video-projects/my-edit/edits/silence-proposal.json
+bun src/cli.mjs detect-silence video-projects/my-edit/assets/camera.mp4 video-projects/my-edit/edits/silence-proposal.json
 # Find candidate shot boundaries; inspect the analysis before editing.
-node src/cli.mjs detect-scenes video-projects/my-edit/assets/camera.mp4 video-projects/my-edit/edits/scene-candidates.json
-node src/cli.mjs edit video-projects/my-edit camera video-projects/my-edit/transcripts/transcript.json path/to/approved.json
+bun src/cli.mjs detect-scenes video-projects/my-edit/assets/camera.mp4 video-projects/my-edit/edits/scene-candidates.json
+bun src/cli.mjs edit video-projects/my-edit camera video-projects/my-edit/transcripts/transcript.json path/to/approved.json
 ```
 
 Consumers can inject a transcription provider without coupling the Engine to
@@ -302,7 +302,7 @@ and metadata for every video and audio stream. The command returns versioned
 manifest metadata as JSON without touching media files:
 
 ```sh
-node src/cli.mjs asset list video-projects/my-edit
+bun src/cli.mjs asset list video-projects/my-edit
 ```
 
 The JavaScript API exposes the same operation as
@@ -316,7 +316,7 @@ longer needed. The API returns the removed asset metadata and confirms that the
 files were preserved:
 
 ```sh
-node src/cli.mjs asset unregister video-projects/my-edit unused-intro
+bun src/cli.mjs asset unregister video-projects/my-edit unused-intro
 ```
 
 The JavaScript API exposes the same operation as
@@ -375,7 +375,7 @@ useful. The JavaScript API is `detectSceneChangesAsync(mediaPath, options)` and
 supports `AbortSignal` cancellation.
 
 ```sh
-node src/cli.mjs detect-scenes path/to/source.mp4 edits/scene-candidates.json
+bun src/cli.mjs detect-scenes path/to/source.mp4 edits/scene-candidates.json
 ```
 
 Scene candidates can guide a provider or editing agent when selecting ranges
@@ -387,7 +387,7 @@ each detected shot, a contact sheet, and `scene-review.json` mapping shot
 indexes and time ranges to the images:
 
 ```sh
-node src/cli.mjs scene-review path/to/source.mp4 video-projects/review/source-shots
+bun src/cli.mjs scene-review path/to/source.mp4 video-projects/review/source-shots
 ```
 
 The default pack is bounded to 300 shots and a 60-frame contact sheet. Use an
@@ -419,7 +419,7 @@ optional source trim selections:
 ```
 
 ```sh
-node src/cli.mjs timeline plan-broll timeline.json scene-review.json broll-source video-broll placements.json edits/broll-plan.json
+bun src/cli.mjs timeline plan-broll timeline.json scene-review.json broll-source video-broll placements.json edits/broll-plan.json
 ```
 
 The command writes a `reviewRequired` plan with validated `add-clip` operations,
@@ -430,7 +430,7 @@ The selected source ranges must fit within their reviewed shot. Review the saved
 then explicitly apply it through the undoable command:
 
 ```sh
-node src/cli.mjs timeline apply-plan timeline.json edits/broll-plan.json
+bun src/cli.mjs timeline apply-plan timeline.json edits/broll-plan.json
 ```
 
 Application refuses if the timeline has changed since planning. The JavaScript
@@ -453,8 +453,8 @@ and a reason. Convert explicit suggestions into a review-required EDL draft,
 then approve it only after review:
 
 ```sh
-node src/cli.mjs analysis-to-edl edits/analysis.json edits/candidate-edl.json
-node src/cli.mjs approve-edl edits/candidate-edl.json edits/approved-edl.json
+bun src/cli.mjs analysis-to-edl edits/analysis.json edits/candidate-edl.json
+bun src/cli.mjs approve-edl edits/candidate-edl.json edits/approved-edl.json
 ```
 
 Candidate EDLs carry `reviewStatus: "needs-review"`; rendering, timeline
@@ -468,7 +468,7 @@ receives normalized media metadata and optional provider settings; suggestions
 are written to a new JSON file and existing output is never overwritten:
 
 ```sh
-node src/cli.mjs analyze path/to/source.mp4 path/to/provider.mjs edits/analysis.json provider-options.json
+bun src/cli.mjs analyze path/to/source.mp4 path/to/provider.mjs edits/analysis.json provider-options.json
 ```
 
 Keep provider credentials in the provider's own runtime configuration. The
@@ -491,7 +491,7 @@ project format, assets, ordered tracks, clip source and timeline ranges,
 transitions, and audio settings before it proposes an edit:
 
 ```sh
-node src/cli.mjs timeline inspect timeline.json
+bun src/cli.mjs timeline inspect timeline.json
 ```
 
 The JavaScript API exports the same view through
@@ -642,7 +642,7 @@ duration change and each added, removed, or updated track and clip as JSON; it
 does not write a timeline file:
 
 ```sh
-node src/cli.mjs timeline preview-edit timeline.json edits/insert-gap.json
+bun src/cli.mjs timeline preview-edit timeline.json edits/insert-gap.json
 ```
 
 After reviewing the preview, apply the same operation plan to a new timeline
@@ -659,7 +659,7 @@ file. For example, save this as `edits/insert-gap.json`:
 Then write the result to a new timeline file:
 
 ```sh
-node src/cli.mjs timeline edit timeline.json edits/insert-gap.json timeline-edited.json
+bun src/cli.mjs timeline edit timeline.json edits/insert-gap.json timeline-edited.json
 ```
 
 The operation file can also be a JSON array. The Engine applies each operation
@@ -740,11 +740,11 @@ other one-shot processes, persistent history operates directly on a timeline
 file and keeps a bounded hidden sidecar beside it:
 
 ```sh
-node src/cli.mjs timeline preview-edit timeline.json edits/move-intro.json
-node src/cli.mjs timeline project-edit timeline.json edits/move-intro.json
-node src/cli.mjs timeline undo timeline.json
-node src/cli.mjs timeline redo timeline.json
-node src/cli.mjs timeline history timeline.json
+bun src/cli.mjs timeline preview-edit timeline.json edits/move-intro.json
+bun src/cli.mjs timeline project-edit timeline.json edits/move-intro.json
+bun src/cli.mjs timeline undo timeline.json
+bun src/cli.mjs timeline redo timeline.json
+bun src/cli.mjs timeline history timeline.json
 ```
 
 The first edit creates `.timeline.json.history.json`; the default history limit
@@ -1154,8 +1154,8 @@ gaps. Install the pinned Python adapter, then use a project timeline:
 
 ```powershell
 python -m pip install -r requirements-otio.txt
-node src/cli.mjs timeline export-otio video-projects/my-edit timeline.json review.otio
-node src/cli.mjs timeline import-otio video-projects/my-edit edit.otio imported-timeline.json
+bun src/cli.mjs timeline export-otio video-projects/my-edit timeline.json review.otio
+bun src/cli.mjs timeline import-otio video-projects/my-edit edit.otio imported-timeline.json
 ```
 
 The bridge uses the maintained OpenTimelineIO Python library; the Node.js API
@@ -1187,7 +1187,7 @@ Standard OTIO playback still represents only the interoperable subset; other
 editors may ignore or remove Engine metadata, and may not reproduce those
 settings when rendering.
 
-Run `npm run doctor` or `node src/cli.mjs capabilities` to check whether the
+Run `bun run doctor` or `bun src/cli.mjs capabilities` to check whether the
 selected Python environment has OpenTimelineIO and its `otio_json` adapter.
 Set `AIVE_OTIO_PYTHON` to the Python command for a separate environment when
 needed; the JavaScript capability API accepts the same override as `otioPython`.

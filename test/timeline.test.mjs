@@ -1,21 +1,70 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateTimeline } from '../src/timeline/validate.mjs';
-import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
-import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
-import { addTimelineClip, addTimelineTrack, crossfadeTimelineClips, detachAudioFromTimelineClip, duplicateTimelineClip, editTimeline, editTimelineBatch, extractTimelineRange, insertTimelineGap, moveTimelineClip, moveTimelineClipToTrack, previewTimelineEdit, removeTimelineClip, removeTimelineTrack, reorderTimelineTrack, rippleDeleteTimelineClip, setTimelineOverlay, setTimelineTransition, slipTimelineClip, splitTimelineClip, trimTimelineClip } from '../src/timeline/edit.mjs';
-import { createTimelineHistory } from '../src/timeline/history.mjs';
-import { transitionClipPath } from '../src/timeline/transition.mjs';
-import { createCaptionTrack } from '../src/timeline/captions.mjs';
-import { CAPTION_LAYOUT_PRESETS } from '../src/timeline/caption-layouts.mjs';
-import { inspectTimeline } from '../src/timeline/inspect.mjs';
-import { buildAudioVolumeAutomation } from '../src/timeline/audio-mix.mjs';
-import { assignRenderTrackIndices } from '../src/timeline/layers.mjs';
-import { timelineForRender } from '../src/timeline/track-state.mjs';
+import test from 'node:test';
 import { validateAudioMastering } from '../src/timeline/audio-mastering.mjs';
+import { buildAudioVolumeAutomation } from '../src/timeline/audio-mix.mjs';
+import { CAPTION_LAYOUT_PRESETS } from '../src/timeline/caption-layouts.mjs';
+import { createCaptionTrack } from '../src/timeline/captions.mjs';
+import {
+  addTimelineClip,
+  addTimelineTrack,
+  crossfadeTimelineClips,
+  detachAudioFromTimelineClip,
+  duplicateTimelineClip,
+  editTimeline,
+  editTimelineBatch,
+  extractTimelineRange,
+  insertTimelineGap,
+  moveTimelineClip,
+  moveTimelineClipToTrack,
+  previewTimelineEdit,
+  removeTimelineClip,
+  removeTimelineTrack,
+  reorderTimelineTrack,
+  rippleDeleteTimelineClip,
+  setTimelineOverlay,
+  setTimelineTransition,
+  slipTimelineClip,
+  splitTimelineClip,
+  trimTimelineClip,
+} from '../src/timeline/edit.mjs';
+import { timelineFromEdl } from '../src/timeline/from-edl.mjs';
+import { createTimelineHistory } from '../src/timeline/history.mjs';
+import { inspectTimeline } from '../src/timeline/inspect.mjs';
+import { assignRenderTrackIndices } from '../src/timeline/layers.mjs';
+import { resolveSourceFit } from '../src/timeline/source-fit.mjs';
 import { speedRampDuration } from '../src/timeline/speed-ramp.mjs';
+import { timelineForRender } from '../src/timeline/track-state.mjs';
+import { transitionClipPath } from '../src/timeline/transition.mjs';
+import { validateTimeline } from '../src/timeline/validate.mjs';
 
-const valid = { schemaVersion: 1, project: { id: 'sample-edit', width: 1920, height: 1080, fps: 30, durationSeconds: 8 }, assets: [{ id: 'camera', path: 'assets/camera.mp4' }], tracks: [{ id: 'video-main', kind: 'video', order: 0, clips: [{ id: 'clip-one', assetId: 'camera', sourceIn: 0, sourceOut: 3, timelineStart: 0, durationSeconds: 3 }, { id: 'clip-two', assetId: 'camera', sourceIn: 5, sourceOut: 10, timelineStart: 3, durationSeconds: 5 }] }, { id: 'music', kind: 'audio', order: 1, clips: [{ id: 'music-bed', assetId: 'camera', sourceIn: 0, sourceOut: 8, timelineStart: 0, durationSeconds: 8 }] }, { id: 'graphics', kind: 'overlay', order: 2, clips: [{ id: 'title', composition: 'compositions/title.html', timelineStart: 0, durationSeconds: 2 }] }] };
+const valid = {
+  schemaVersion: 1,
+  project: { id: 'sample-edit', width: 1920, height: 1080, fps: 30, durationSeconds: 8 },
+  assets: [{ id: 'camera', path: 'assets/camera.mp4' }],
+  tracks: [
+    {
+      id: 'video-main',
+      kind: 'video',
+      order: 0,
+      clips: [
+        { id: 'clip-one', assetId: 'camera', sourceIn: 0, sourceOut: 3, timelineStart: 0, durationSeconds: 3 },
+        { id: 'clip-two', assetId: 'camera', sourceIn: 5, sourceOut: 10, timelineStart: 3, durationSeconds: 5 },
+      ],
+    },
+    {
+      id: 'music',
+      kind: 'audio',
+      order: 1,
+      clips: [{ id: 'music-bed', assetId: 'camera', sourceIn: 0, sourceOut: 8, timelineStart: 0, durationSeconds: 8 }],
+    },
+    {
+      id: 'graphics',
+      kind: 'overlay',
+      order: 2,
+      clips: [{ id: 'title', composition: 'compositions/title.html', timelineStart: 0, durationSeconds: 2 }],
+    },
+  ],
+};
 
 test('timeline history supports bounded undo, redo, reset, and safe snapshots', () => {
   const history = createTimelineHistory(valid, { limit: 2 });
@@ -52,7 +101,14 @@ test('timeline edit batches apply atomically and occupy one history entry', () =
   const result = editTimelineBatch(valid, operations);
   assert.equal(result.tracks[0].clips[1].timelineStart, 4);
   assert.deepEqual(valid, original);
-  assert.throws(() => editTimelineBatch(valid, [operations[0], { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 5 }]), /Unknown clip/);
+  assert.throws(
+    () =>
+      editTimelineBatch(valid, [
+        operations[0],
+        { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 5 },
+      ]),
+    /Unknown clip/,
+  );
   assert.throws(() => editTimelineBatch(valid, []), /non-empty array/);
   assert.throws(() => editTimelineBatch(valid, new Array(1)), /operation must be an object/);
 
@@ -61,7 +117,11 @@ test('timeline edit batches apply atomically and occupy one history entry', () =
   assert.equal(history.undoDepth, 1);
   assert.equal(history.undo().tracks[0].clips[1].timelineStart, 3);
   assert.equal(history.redo().tracks[0].clips[1].timelineStart, 4);
-  assert.throws(() => history.applyBatch([operations[0], { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 5 }]), /Unknown clip/);
+  assert.throws(
+    () =>
+      history.applyBatch([operations[0], { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 5 }]),
+    /Unknown clip/,
+  );
   assert.equal(history.undoDepth, 1);
   assert.equal(history.current.tracks[0].clips[1].timelineStart, 4);
 });
@@ -79,16 +139,25 @@ test('timeline edit preview reports exact clip and duration changes without muta
   assert.equal(preview.durationAfterSeconds, 12);
   assert.equal(preview.durationDeltaSeconds, 4);
   assert.ok(preview.changes.some((change) => change.entity === 'clip' && change.change === 'added'));
-  assert.ok(preview.changes.some((change) => change.entity === 'clip' && change.clipId === 'clip-two' && change.after.timelineStart === 7));
+  assert.ok(
+    preview.changes.some(
+      (change) => change.entity === 'clip' && change.clipId === 'clip-two' && change.after.timelineStart === 7,
+    ),
+  );
   assert.deepEqual(valid, original);
-  assert.throws(() => previewTimelineEdit(valid, [
-    { type: 'move', trackId: 'video-main', clipId: 'clip-two', timelineStart: 7 },
-    { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 9 },
-  ]), /Unknown clip/);
+  assert.throws(
+    () =>
+      previewTimelineEdit(valid, [
+        { type: 'move', trackId: 'video-main', clipId: 'clip-two', timelineStart: 7 },
+        { type: 'move', trackId: 'video-main', clipId: 'missing', timelineStart: 9 },
+      ]),
+    /Unknown clip/,
+  );
   assert.deepEqual(valid, original);
 });
 
-test('validates a generic timeline with clips, audio, and composition overlays', () => assert.equal(validateTimeline(valid), valid));
+test('validates a generic timeline with clips, audio, and composition overlays', () =>
+  assert.equal(validateTimeline(valid), valid));
 
 test('requires explicit track overlap policy to be boolean', () => {
   const timeline = structuredClone(valid);
@@ -124,7 +193,10 @@ test('filters muted and hidden tracks from render state without mutating the edi
   };
 
   const renderState = timelineForRender(timeline);
-  assert.deepEqual(renderState.tracks.map((track) => track.id), ['graphics']);
+  assert.deepEqual(
+    renderState.tracks.map((track) => track.id),
+    ['graphics'],
+  );
   assert.deepEqual(renderState.audioMix, { ducking: [], sidechain: [] });
   assert.equal(timeline.tracks[0].visible, false);
   assert.equal(timeline.tracks[1].muted, true);
@@ -151,8 +223,12 @@ test('adds and removes timeline tracks and clips as immutable edits', () => {
   assert.equal(withTrack.tracks.length, 4);
   assert.equal(valid.tracks.length, 3);
   const withClip = addTimelineClip(withTrack, 'music-two', {
-    id: 'music-two-clip', assetId: 'camera', sourceIn: 0, sourceOut: 2,
-    timelineStart: 7, durationSeconds: 2,
+    id: 'music-two-clip',
+    assetId: 'camera',
+    sourceIn: 0,
+    sourceOut: 2,
+    timelineStart: 7,
+    durationSeconds: 2,
   });
   assert.equal(withClip.project.durationSeconds, 9);
   assert.equal(withClip.tracks[3].clips.length, 1);
@@ -171,29 +247,54 @@ test('moves clips between compatible tracks while preserving their edit data', (
   source.keyframes = [{ time: 0, properties: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } }];
   const originalClip = structuredClone(source);
   const moved = moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'video-broll', 4);
-  assert.equal(moved.tracks.find((track) => track.id === 'video-main').clips.some((clip) => clip.id === 'clip-one'), false);
+  assert.equal(
+    moved.tracks.find((track) => track.id === 'video-main').clips.some((clip) => clip.id === 'clip-one'),
+    false,
+  );
   const clip = moved.tracks.find((track) => track.id === 'video-broll').clips[0];
   assert.equal(clip.timelineStart, 4);
   assert.deepEqual(clip.keyframes, source.keyframes);
   assert.deepEqual(withTarget.tracks[0].clips[0], originalClip);
-  assert.equal(editTimeline(withTarget, { type: 'move-track', trackId: 'video-main', clipId: 'clip-one', targetTrackId: 'video-broll' }).tracks.find((track) => track.id === 'video-broll').clips[0].timelineStart, 0);
+  assert.equal(
+    editTimeline(withTarget, {
+      type: 'move-track',
+      trackId: 'video-main',
+      clipId: 'clip-one',
+      targetTrackId: 'video-broll',
+    }).tracks.find((track) => track.id === 'video-broll').clips[0].timelineStart,
+    0,
+  );
   const occupiedTarget = addTimelineTrack(valid, {
-    id: 'video-occupied', kind: 'video', order: 3,
+    id: 'video-occupied',
+    kind: 'video',
+    order: 3,
     clips: [{ id: 'target-clip', assetId: 'camera', sourceIn: 0, sourceOut: 2, timelineStart: 1, durationSeconds: 2 }],
   });
-  assert.throws(() => moveTimelineClipToTrack(occupiedTarget, 'video-main', 'clip-one', 'video-occupied', 1), /overlapping clips/);
-  assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'music'), /Cannot move a video clip to a track of kind audio/);
+  assert.throws(
+    () => moveTimelineClipToTrack(occupiedTarget, 'video-main', 'clip-one', 'video-occupied', 1),
+    /overlapping clips/,
+  );
+  assert.throws(
+    () => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'music'),
+    /Cannot move a video clip to a track of kind audio/,
+  );
   assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'missing', 'video-broll'), /Unknown clip/);
-  assert.throws(() => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'missing'), /Unknown timeline track/);
+  assert.throws(
+    () => moveTimelineClipToTrack(withTarget, 'video-main', 'clip-one', 'missing'),
+    /Unknown timeline track/,
+  );
 });
 
 test('reorders visual and audio tracks without changing clips', () => {
   const reordered = reorderTimelineTrack(valid, 'graphics', 0);
-  assert.deepEqual(reordered.tracks.map(({ id, order }) => ({ id, order })), [
-    { id: 'graphics', order: 0 },
-    { id: 'video-main', order: 1 },
-    { id: 'music', order: 2 },
-  ]);
+  assert.deepEqual(
+    reordered.tracks.map(({ id, order }) => ({ id, order })),
+    [
+      { id: 'graphics', order: 0 },
+      { id: 'video-main', order: 1 },
+      { id: 'music', order: 2 },
+    ],
+  );
   assert.deepEqual(reordered.tracks[0].clips, valid.tracks[2].clips);
   assert.equal(valid.tracks[2].order, 2);
   assert.deepEqual(editTimeline(valid, { type: 'reorder-track', trackId: 'music', order: 0 }).tracks[0].id, 'music');
@@ -215,7 +316,16 @@ test('duplicates a clip with its complete edit metadata and a new position', () 
   assert.deepEqual(copy.transitionOut, originalClip.transitionOut);
   assert.equal(duplicated.project.durationSeconds, 11);
   assert.deepEqual(source.tracks[0].clips[0], originalClip);
-  assert.equal(editTimeline(source, { type: 'duplicate-clip', trackId: 'video-main', clipId: 'clip-one', newClipId: 'copy-two', timelineStart: 8 }).tracks[0].clips.find((clip) => clip.id === 'copy-two').timelineStart, 8);
+  assert.equal(
+    editTimeline(source, {
+      type: 'duplicate-clip',
+      trackId: 'video-main',
+      clipId: 'clip-one',
+      newClipId: 'copy-two',
+      timelineStart: 8,
+    }).tracks[0].clips.find((clip) => clip.id === 'copy-two').timelineStart,
+    8,
+  );
   assert.throws(() => duplicateTimelineClip(source, 'video-main', 'clip-one', 'copy-two', 2), /overlapping clips/);
   assert.throws(() => duplicateTimelineClip(source, 'video-main', 'clip-one', 'invalid ID', 7), /kebab-case/);
   assert.throws(() => duplicateTimelineClip(source, 'video-main', 'clip-one', 'copy', -1), /non-negative/);
@@ -227,8 +337,32 @@ test('detaches a video clip audio range to a synchronized audio track', () => {
   timeline.assets[0].hasAudio = true;
   timeline.assets[0].durationSeconds = 10;
   timeline.assets[0].audioStreams = [
-    { index: 0, streamIndex: 1, codec: 'aac', channels: 2, channelLayout: 'stereo', sampleRate: 48000, startSeconds: 0, durationSeconds: 10, timeBase: '1/48000', language: 'eng', title: 'Narration' },
-    { index: 1, streamIndex: 2, codec: 'aac', channels: 1, channelLayout: 'mono', sampleRate: 44100, startSeconds: 0, durationSeconds: 10, timeBase: '1/44100', language: 'spa', title: 'Spanish' },
+    {
+      index: 0,
+      streamIndex: 1,
+      codec: 'aac',
+      channels: 2,
+      channelLayout: 'stereo',
+      sampleRate: 48000,
+      startSeconds: 0,
+      durationSeconds: 10,
+      timeBase: '1/48000',
+      language: 'eng',
+      title: 'Narration',
+    },
+    {
+      index: 1,
+      streamIndex: 2,
+      codec: 'aac',
+      channels: 1,
+      channelLayout: 'mono',
+      sampleRate: 44100,
+      startSeconds: 0,
+      durationSeconds: 10,
+      timeBase: '1/44100',
+      language: 'spa',
+      title: 'Spanish',
+    },
   ];
   timeline.tracks[0].clips[0].timelineStart = 1;
   timeline.tracks[0].clips[1].timelineStart = 4;
@@ -244,31 +378,69 @@ test('detaches a video clip audio range to a synchronized audio track', () => {
   assert.equal(audioTrack.kind, 'audio');
   assert.equal(audioTrack.order, 3);
   assert.deepEqual(
-    { assetId: audioClip.assetId, sourceIn: audioClip.sourceIn, sourceOut: audioClip.sourceOut, timelineStart: audioClip.timelineStart, durationSeconds: audioClip.durationSeconds, playbackRate: audioClip.playbackRate },
+    {
+      assetId: audioClip.assetId,
+      sourceIn: audioClip.sourceIn,
+      sourceOut: audioClip.sourceOut,
+      timelineStart: audioClip.timelineStart,
+      durationSeconds: audioClip.durationSeconds,
+      playbackRate: audioClip.playbackRate,
+    },
     { assetId: 'camera', sourceIn: 0, sourceOut: 3, timelineStart: 1, durationSeconds: 3, playbackRate: undefined },
   );
   assert.deepEqual(audioClip.speedRamp, timeline.tracks[0].clips[0].speedRamp);
   assert.equal(audioClip.audioStreamIndex, 1);
   assert.deepEqual(timeline, original);
-  assert.deepEqual(editTimeline(timeline, { type: 'detach-audio', trackId: 'video-main', clipId: 'clip-one', audioTrackId: 'audio-camera', audioClipId: 'clip-one-audio', audioStreamIndex: 1 }), detached);
-  assert.throws(() => detachAudioFromTimelineClip(timeline, 'video-main', 'clip-one', 'graphics', 'clip-one-audio'), /not an audio track/);
-  assert.throws(() => detachAudioFromTimelineClip(timeline, 'missing', 'clip-one', 'audio-camera', 'clip-one-audio'), /Unknown video track/);
-  assert.throws(() => detachAudioFromTimelineClip(timeline, 'video-main', 'missing', 'audio-camera', 'clip-one-audio'), /Unknown clip/);
-  assert.throws(() => detachAudioFromTimelineClip(timeline, 'video-main', 'clip-one', 'audio-camera', 'clip-one-audio', 2), /exceeds the audio streams/);
+  assert.deepEqual(
+    editTimeline(timeline, {
+      type: 'detach-audio',
+      trackId: 'video-main',
+      clipId: 'clip-one',
+      audioTrackId: 'audio-camera',
+      audioClipId: 'clip-one-audio',
+      audioStreamIndex: 1,
+    }),
+    detached,
+  );
+  assert.throws(
+    () => detachAudioFromTimelineClip(timeline, 'video-main', 'clip-one', 'graphics', 'clip-one-audio'),
+    /not an audio track/,
+  );
+  assert.throws(
+    () => detachAudioFromTimelineClip(timeline, 'missing', 'clip-one', 'audio-camera', 'clip-one-audio'),
+    /Unknown video track/,
+  );
+  assert.throws(
+    () => detachAudioFromTimelineClip(timeline, 'video-main', 'missing', 'audio-camera', 'clip-one-audio'),
+    /Unknown clip/,
+  );
+  assert.throws(
+    () => detachAudioFromTimelineClip(timeline, 'video-main', 'clip-one', 'audio-camera', 'clip-one-audio', 2),
+    /exceeds the audio streams/,
+  );
 
   const constantRateTimeline = structuredClone(original);
   constantRateTimeline.tracks[0].clips[0].timelineStart = 1;
   constantRateTimeline.tracks[0].clips[0].durationSeconds = 2;
   delete constantRateTimeline.tracks[0].clips[0].speedRamp;
   constantRateTimeline.tracks[0].clips[0].playbackRate = 1.5;
-  const constantRateAudio = detachAudioFromTimelineClip(constantRateTimeline, 'video-main', 'clip-one', 'audio-camera', 'clip-one-audio').tracks[3].clips[0];
+  const constantRateAudio = detachAudioFromTimelineClip(
+    constantRateTimeline,
+    'video-main',
+    'clip-one',
+    'audio-camera',
+    'clip-one-audio',
+  ).tracks[3].clips[0];
   assert.equal(constantRateAudio.playbackRate, 1.5);
   assert.equal(constantRateAudio.durationSeconds, 2);
   assert.equal(constantRateAudio.sourceOut, 3);
 
   const silent = structuredClone(timeline);
   silent.assets[0].hasAudio = false;
-  assert.throws(() => detachAudioFromTimelineClip(silent, 'video-main', 'clip-one', 'audio-camera', 'clip-one-audio'), /without an audio stream/);
+  assert.throws(
+    () => detachAudioFromTimelineClip(silent, 'video-main', 'clip-one', 'audio-camera', 'clip-one-audio'),
+    /without an audio stream/,
+  );
 });
 
 test('ripple-deletes one clip range across tracks and retimes linked media', () => {
@@ -284,26 +456,54 @@ test('ripple-deletes one clip range across tracks and retimes linked media', () 
   assert.equal(timeline.project.durationSeconds, 8);
   assert.equal(timeline.tracks[1].clips[0].sourceIn, 0);
   assert.equal(validateTimeline(ripple), ripple);
-  assert.deepEqual(editTimeline(timeline, { type: 'ripple-delete', trackId: 'video-main', clipId: 'clip-one' }), ripple);
+  assert.deepEqual(
+    editTimeline(timeline, { type: 'ripple-delete', trackId: 'video-main', clipId: 'clip-one' }),
+    ripple,
+  );
 });
 
 test('extracts a non-destructive render range with timing, automation, captions, and markers', () => {
   const timeline = structuredClone(valid);
-  timeline.markers = [{ id: 'chapter-two', timeSeconds: 2, label: 'Chapter 2' }, { id: 'outside', timeSeconds: 6, label: 'Outside' }];
-  timeline.tracks[1].volumeKeyframes = [{ time: 0, volume: 0.5 }, { time: 4, volume: 1 }, { time: 8, volume: 0.25 }];
-  timeline.tracks[2].clips = [{
-    id: 'timed-title', text: 'First second third', timelineStart: 1, durationSeconds: 4,
-    wordTimings: [{ text: 'First', start: 0.2, end: 0.6 }, { text: 'second', start: 1.2, end: 1.8 }, { text: 'third', start: 2.4, end: 3.2 }],
-    wordHighlightColor: '#ff0000',
-  }];
+  timeline.markers = [
+    { id: 'chapter-two', timeSeconds: 2, label: 'Chapter 2' },
+    { id: 'outside', timeSeconds: 6, label: 'Outside' },
+  ];
+  timeline.tracks[1].volumeKeyframes = [
+    { time: 0, volume: 0.5 },
+    { time: 4, volume: 1 },
+    { time: 8, volume: 0.25 },
+  ];
+  timeline.tracks[2].clips = [
+    {
+      id: 'timed-title',
+      text: 'First second third',
+      timelineStart: 1,
+      durationSeconds: 4,
+      wordTimings: [
+        { text: 'First', start: 0.2, end: 0.6 },
+        { text: 'second', start: 1.2, end: 1.8 },
+        { text: 'third', start: 2.4, end: 3.2 },
+      ],
+      wordHighlightColor: '#ff0000',
+    },
+  ];
   const range = extractTimelineRange(timeline, 1, 4);
   assert.equal(range.project.durationSeconds, 3);
-  assert.deepEqual(range.tracks[0].clips.map(({ sourceIn, sourceOut, timelineStart, durationSeconds }) => ({ sourceIn, sourceOut, timelineStart, durationSeconds })), [
-    { sourceIn: 1, sourceOut: 3, timelineStart: 0, durationSeconds: 2 },
-    { sourceIn: 5, sourceOut: 6, timelineStart: 2, durationSeconds: 1 },
-  ]);
+  assert.deepEqual(
+    range.tracks[0].clips.map(({ sourceIn, sourceOut, timelineStart, durationSeconds }) => ({
+      sourceIn,
+      sourceOut,
+      timelineStart,
+      durationSeconds,
+    })),
+    [
+      { sourceIn: 1, sourceOut: 3, timelineStart: 0, durationSeconds: 2 },
+      { sourceIn: 5, sourceOut: 6, timelineStart: 2, durationSeconds: 1 },
+    ],
+  );
   assert.deepEqual(range.tracks[1].volumeKeyframes, [
-    { time: 0, volume: 0.625 }, { time: 3, volume: 1 },
+    { time: 0, volume: 0.625 },
+    { time: 3, volume: 1 },
   ]);
   const caption = range.tracks[2].clips.find((clip) => clip.id === 'timed-title');
   assert.equal(caption.text, 'First second third');
@@ -342,8 +542,15 @@ test('ripple deletion splits straddling clips and clips word-timed overlays at t
   ];
   timeline.tracks[0].clips[0].width = 0.2;
   timeline.tracks[2].clips.push({
-    id: 'timed-title', text: 'Before middle after', timelineStart: 2, durationSeconds: 4,
-    wordTimings: [{ text: 'Before', start: 0.1, end: 0.4 }, { text: 'middle', start: 1, end: 1.5 }, { text: 'after', start: 2, end: 3 }],
+    id: 'timed-title',
+    text: 'Before middle after',
+    timelineStart: 2,
+    durationSeconds: 4,
+    wordTimings: [
+      { text: 'Before', start: 0.1, end: 0.4 },
+      { text: 'middle', start: 1, end: 1.5 },
+      { text: 'after', start: 2, end: 3 },
+    ],
     wordHighlightColor: '#ff0000',
   });
   const ripple = rippleDeleteTimelineClip(timeline, 'video-main', 'clip-two');
@@ -376,8 +583,14 @@ test('inserts a synchronized gap across tracks while preserving clip source timi
     { time: 3, properties: { x: 0.2, y: 0, width: 0.2, height: 1 } },
   ];
   timeline.tracks[2].clips.push({
-    id: 'timed-title', text: 'Before after', timelineStart: 1, durationSeconds: 4,
-    wordTimings: [{ text: 'Before', start: 0.1, end: 0.4 }, { text: 'after', start: 2, end: 3 }],
+    id: 'timed-title',
+    text: 'Before after',
+    timelineStart: 1,
+    durationSeconds: 4,
+    wordTimings: [
+      { text: 'Before', start: 0.1, end: 0.4 },
+      { text: 'after', start: 2, end: 3 },
+    ],
     wordHighlightColor: '#ff0000',
   });
 
@@ -435,7 +648,10 @@ test('slips a media clip source range without moving or resizing it', () => {
   assert.deepEqual(clip.keyframes, timeline.tracks[0].clips[0].keyframes);
   assert.equal(slipped.project.durationSeconds, 8);
   assert.equal(timeline.tracks[0].clips[0].sourceIn, 0);
-  assert.deepEqual(editTimeline(timeline, { type: 'slip', trackId: 'video-main', clipId: 'clip-one', sourceDelta: 1.25 }), slipped);
+  assert.deepEqual(
+    editTimeline(timeline, { type: 'slip', trackId: 'video-main', clipId: 'clip-one', sourceDelta: 1.25 }),
+    slipped,
+  );
   assert.throws(() => slipTimelineClip(valid, 'graphics', 'title', 1), /cannot be source-slipped/);
   assert.throws(() => slipTimelineClip(valid, 'video-main', 'clip-one', -0.1), /source range/);
 
@@ -446,28 +662,68 @@ test('slips a media clip source range without moving or resizing it', () => {
 });
 
 test('rejects path traversal, missing assets, overlaps, and out-of-range clips', () => {
-  assert.throws(() => validateTimeline({ ...valid, assets: [{ id: 'camera', path: '../private.mp4' }] }), /project-relative/);
-  assert.throws(() => validateTimeline({ ...valid, tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], assetId: 'missing' }] }] }), /missing its asset/);
-  assert.throws(() => validateTimeline({ ...valid, tracks: [{ ...valid.tracks[0], clips: [valid.tracks[0].clips[0], { ...valid.tracks[0].clips[1], timelineStart: 2 }] }] }), /overlapping clips/);
-  assert.throws(() => validateTimeline({ ...valid, tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], timelineStart: 7 }] }] }), /timeline bounds/);
+  assert.throws(
+    () => validateTimeline({ ...valid, assets: [{ id: 'camera', path: '../private.mp4' }] }),
+    /project-relative/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], assetId: 'missing' }] }],
+      }),
+    /missing its asset/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        tracks: [
+          { ...valid.tracks[0], clips: [valid.tracks[0].clips[0], { ...valid.tracks[0].clips[1], timelineStart: 2 }] },
+        ],
+      }),
+    /overlapping clips/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], timelineStart: 7 }] }],
+      }),
+    /timeline bounds/,
+  );
 });
 
 test('enforces exact clip source duration and registered asset boundaries', () => {
   const bounded = { ...valid, assets: [{ id: 'camera', path: 'assets/camera.mp4', durationSeconds: 10 }] };
   assert.equal(validateTimeline(bounded), bounded);
-  assert.throws(() => validateTimeline({
-    ...bounded,
-    tracks: [{ ...bounded.tracks[0], clips: [{ ...bounded.tracks[0].clips[0], sourceOut: 3.04 }] }],
-  }), /source range must match/);
-  assert.throws(() => validateTimeline({
-    ...bounded,
-    project: { ...bounded.project, durationSeconds: 9 },
-    tracks: [{ ...bounded.tracks[0], clips: [{ ...bounded.tracks[0].clips[1], sourceOut: 10.01, durationSeconds: 5.01 }] }],
-  }), /exceeds asset camera duration/);
-  assert.throws(() => validateTimeline({
-    ...valid,
-    assets: [{ id: 'camera', path: 'assets/camera.mp4', streamTiming: { videoStartSeconds: Number.NaN } }],
-  }), /streamTiming.videoStartSeconds must be finite/);
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...bounded,
+        tracks: [{ ...bounded.tracks[0], clips: [{ ...bounded.tracks[0].clips[0], sourceOut: 3.04 }] }],
+      }),
+    /source range must match/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...bounded,
+        project: { ...bounded.project, durationSeconds: 9 },
+        tracks: [
+          { ...bounded.tracks[0], clips: [{ ...bounded.tracks[0].clips[1], sourceOut: 10.01, durationSeconds: 5.01 }] },
+        ],
+      }),
+    /exceeds asset camera duration/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        assets: [{ id: 'camera', path: 'assets/camera.mp4', streamTiming: { videoStartSeconds: Number.NaN } }],
+      }),
+    /streamTiming.videoStartSeconds must be finite/,
+  );
 });
 
 test('supports bounded constant playback rates with source-time validation', () => {
@@ -475,14 +731,31 @@ test('supports bounded constant playback rates with source-time validation', () 
   spedUp.tracks[0].clips[0] = { ...spedUp.tracks[0].clips[0], sourceOut: 3, durationSeconds: 1.5, playbackRate: 2 };
   spedUp.tracks[0].clips[1].timelineStart = 1.5;
   assert.equal(validateTimeline(spedUp), spedUp);
-  assert.throws(() => validateTimeline({
-    ...spedUp,
-    tracks: [{ ...spedUp.tracks[0], clips: [{ ...spedUp.tracks[0].clips[0], playbackRate: 0.05 }, spedUp.tracks[0].clips[1]] }, ...spedUp.tracks.slice(1)],
-  }), /playbackRate must be from 0.1 to 5/);
-  assert.throws(() => validateTimeline({
-    ...spedUp,
-    tracks: [{ ...spedUp.tracks[0], clips: [{ ...spedUp.tracks[0].clips[0], sourceOut: 2.9 }, spedUp.tracks[0].clips[1]] }, ...spedUp.tracks.slice(1)],
-  }), /multiplied by playbackRate/);
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...spedUp,
+        tracks: [
+          {
+            ...spedUp.tracks[0],
+            clips: [{ ...spedUp.tracks[0].clips[0], playbackRate: 0.05 }, spedUp.tracks[0].clips[1]],
+          },
+          ...spedUp.tracks.slice(1),
+        ],
+      }),
+    /playbackRate must be from 0.1 to 5/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...spedUp,
+        tracks: [
+          { ...spedUp.tracks[0], clips: [{ ...spedUp.tracks[0].clips[0], sourceOut: 2.9 }, spedUp.tracks[0].clips[1]] },
+          ...spedUp.tracks.slice(1),
+        ],
+      }),
+    /multiplied by playbackRate/,
+  );
 });
 
 test('validates source-based smooth speed ramps and their integrated duration', () => {
@@ -511,8 +784,37 @@ test('validates source-based smooth speed ramps and their integrated duration', 
 test('validates clip-local visual transform keyframes', () => {
   const timeline = structuredClone(valid);
   timeline.tracks[0].clips[0].keyframes = [
-    { time: 0, properties: { x: 0, y: 0.1, width: 0.5, height: 0.5, opacity: 0, rotationDegrees: -5, objectPositionX: 0, objectPositionY: 0.5, zoom: 1, brightness: 1, contrast: 1 } },
-    { time: 2, properties: { x: 0.5, opacity: 1, rotationDegrees: 5, objectPositionX: 1, objectPositionY: 0.4, zoom: 2, saturation: 1.2, blurPixels: 0, hueDegrees: 15 }, ease: 'power2.out' },
+    {
+      time: 0,
+      properties: {
+        x: 0,
+        y: 0.1,
+        width: 0.5,
+        height: 0.5,
+        opacity: 0,
+        rotationDegrees: -5,
+        objectPositionX: 0,
+        objectPositionY: 0.5,
+        zoom: 1,
+        brightness: 1,
+        contrast: 1,
+      },
+    },
+    {
+      time: 2,
+      properties: {
+        x: 0.5,
+        opacity: 1,
+        rotationDegrees: 5,
+        objectPositionX: 1,
+        objectPositionY: 0.4,
+        zoom: 2,
+        saturation: 1.2,
+        blurPixels: 0,
+        hueDegrees: 15,
+      },
+      ease: 'power2.out',
+    },
   ];
   assert.equal(validateTimeline(timeline), timeline);
   const compositionTimeline = structuredClone(valid);
@@ -524,8 +826,14 @@ test('validates clip-local visual transform keyframes', () => {
 
   const invalidCases = [
     [{ time: 0.1, properties: { x: 0 } }],
-    [{ time: 0, properties: { x: 0 } }, { time: 0, properties: { x: 0.1 } }],
-    [{ time: 0, properties: { x: 0 } }, { time: 3.1, properties: { x: 0.1 } }],
+    [
+      { time: 0, properties: { x: 0 } },
+      { time: 0, properties: { x: 0.1 } },
+    ],
+    [
+      { time: 0, properties: { x: 0 } },
+      { time: 3.1, properties: { x: 0.1 } },
+    ],
     [{ time: 0, properties: { x: 0.9 } }],
     [{ time: 0, properties: { opacity: 1.1 } }],
     [{ time: 0, properties: { brightness: 5.1 } }],
@@ -540,10 +848,17 @@ test('validates clip-local visual transform keyframes', () => {
     [{ time: 0, properties: { x: 0 }, ease: { type: 'range', name: 'power2.out', from: 0.8, to: 0.2 } }],
   ];
   for (const keyframes of invalidCases) {
-    assert.throws(() => validateTimeline({
-      ...valid,
-      tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], keyframes }] }, ...valid.tracks.slice(1)],
-    }), /keyframe/);
+    assert.throws(
+      () =>
+        validateTimeline({
+          ...valid,
+          tracks: [
+            { ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], keyframes }] },
+            ...valid.tracks.slice(1),
+          ],
+        }),
+      /keyframe/,
+    );
   }
   const overlayCrop = structuredClone(valid);
   overlayCrop.tracks[2].clips[0].keyframes = [{ time: 0, properties: { objectPositionX: 0.5 } }];
@@ -551,14 +866,21 @@ test('validates clip-local visual transform keyframes', () => {
   const overlayZoom = structuredClone(valid);
   overlayZoom.tracks[2].clips[0].keyframes = [{ time: 0, properties: { zoom: 2 } }];
   assert.throws(() => validateTimeline(overlayZoom), /zoom must be between 1 and 4 on a video track/);
-  assert.throws(() => validateTimeline({
-    ...valid,
-    tracks: [
-      valid.tracks[0],
-      { ...valid.tracks[1], clips: [{ ...valid.tracks[1].clips[0], keyframes: [{ time: 0, properties: { opacity: 1 } }] }] },
-      ...valid.tracks.slice(2),
-    ],
-  }), /video and overlay/);
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        tracks: [
+          valid.tracks[0],
+          {
+            ...valid.tracks[1],
+            clips: [{ ...valid.tracks[1].clips[0], keyframes: [{ time: 0, properties: { opacity: 1 } }] }],
+          },
+          ...valid.tracks.slice(2),
+        ],
+      }),
+    /video and overlay/,
+  );
 });
 
 test('supports project and per-clip source-fit policies with explicit precedence', () => {
@@ -574,15 +896,26 @@ test('supports project and per-clip source-fit policies with explicit precedence
     tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], fit: 'cover' }] }],
   };
   assert.equal(validateTimeline(clipPolicy), clipPolicy);
-  assert.throws(() => validateTimeline({ ...valid, project: { ...valid.project, sourceFit: 'crop' } }), /sourceFit must be one of/);
-  assert.throws(() => validateTimeline({
-    ...valid,
-    tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], fit: 'crop' }] }],
-  }), /fit must be one of/);
-  assert.throws(() => validateTimeline({
-    ...valid,
-    tracks: [{ ...valid.tracks[1], clips: [{ ...valid.tracks[1].clips[0], fit: 'cover' }] }],
-  }), /fit only on a video track/);
+  assert.throws(
+    () => validateTimeline({ ...valid, project: { ...valid.project, sourceFit: 'crop' } }),
+    /sourceFit must be one of/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        tracks: [{ ...valid.tracks[0], clips: [{ ...valid.tracks[0].clips[0], fit: 'crop' }] }],
+      }),
+    /fit must be one of/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...valid,
+        tracks: [{ ...valid.tracks[1], clips: [{ ...valid.tracks[1].clips[0], fit: 'cover' }] }],
+      }),
+    /fit only on a video track/,
+  );
 });
 
 test('validates reusable visual masks on video and overlay clips', () => {
@@ -676,8 +1009,18 @@ test('validates versioned fade and directional wipe transitions', () => {
   overlap.tracks[0].clips[0].transitionOut = { schemaVersion: 1, type: 'wipe', direction: 'left', durationSeconds: 2 };
   assert.throws(() => validateTimeline(overlap), /cannot overlap/);
   const directions = structuredClone(valid);
-  directions.tracks[0].clips[0].transitionIn = { schemaVersion: 1, type: 'wipe', direction: 'left', durationSeconds: 0.5 };
-  directions.tracks[0].clips[0].transitionOut = { schemaVersion: 1, type: 'wipe', direction: 'right', durationSeconds: 0.5 };
+  directions.tracks[0].clips[0].transitionIn = {
+    schemaVersion: 1,
+    type: 'wipe',
+    direction: 'left',
+    durationSeconds: 0.5,
+  };
+  directions.tracks[0].clips[0].transitionOut = {
+    schemaVersion: 1,
+    type: 'wipe',
+    direction: 'right',
+    durationSeconds: 0.5,
+  };
   assert.throws(() => validateTimeline(directions), /same direction/);
   const audio = structuredClone(valid);
   audio.tracks[1].clips[0].transitionIn = { schemaVersion: 1, type: 'fade', durationSeconds: 0.5 };
@@ -686,7 +1029,13 @@ test('validates versioned fade and directional wipe transitions', () => {
 
 test('adds and removes transitions through immutable timeline edits', () => {
   const transition = { schemaVersion: 1, type: 'wipe', direction: 'up', durationSeconds: 0.4 };
-  const changed = editTimeline(valid, { type: 'transition', trackId: 'video-main', clipId: 'clip-one', edge: 'in', transition });
+  const changed = editTimeline(valid, {
+    type: 'transition',
+    trackId: 'video-main',
+    clipId: 'clip-one',
+    edge: 'in',
+    transition,
+  });
   assert.deepEqual(changed.tracks[0].clips[0].transitionIn, transition);
   assert.equal(valid.tracks[0].clips[0].transitionIn, undefined);
   const cleared = setTimelineTransition(changed, 'video-main', 'clip-one', 'in', null);
@@ -702,7 +1051,12 @@ test('adds and removes transitions through immutable timeline edits', () => {
 test('keeps clip-edge transitions on the outer edges when splitting a clip', () => {
   const timeline = structuredClone(valid);
   timeline.tracks[0].clips[0].transitionIn = { schemaVersion: 1, type: 'fade', durationSeconds: 0.4 };
-  timeline.tracks[0].clips[0].transitionOut = { schemaVersion: 1, type: 'wipe', direction: 'left', durationSeconds: 0.4 };
+  timeline.tracks[0].clips[0].transitionOut = {
+    schemaVersion: 1,
+    type: 'wipe',
+    direction: 'left',
+    durationSeconds: 0.4,
+  };
   const split = splitTimelineClip(timeline, 'video-main', 'clip-one', 1.25);
   assert.deepEqual(split.tracks[0].clips[0].transitionIn, timeline.tracks[0].clips[0].transitionIn);
   assert.equal(split.tracks[0].clips[0].transitionOut, undefined);
@@ -711,20 +1065,24 @@ test('keeps clip-edge transitions on the outer edges when splitting a clip', () 
 });
 
 test('compiles an approved EDL into sequential timeline clips', () => {
-  const timeline = timelineFromEdl({ schemaVersion: 1, sourceDurationSeconds: 10, cuts: [{ sourceStart: 2, sourceEnd: 4, reason: 'remove pause' }] }, 'camera');
+  const timeline = timelineFromEdl(
+    { schemaVersion: 1, sourceDurationSeconds: 10, cuts: [{ sourceStart: 2, sourceEnd: 4, reason: 'remove pause' }] },
+    'camera',
+  );
   assert.equal(timeline.project.durationSeconds, 8);
-  assert.deepEqual(timeline.tracks[0].clips.map(({ sourceIn, sourceOut, timelineStart }) => ({ sourceIn, sourceOut, timelineStart })), [
-    { sourceIn: 0, sourceOut: 2, timelineStart: 0 },
-    { sourceIn: 4, sourceOut: 10, timelineStart: 2 },
-  ]);
+  assert.deepEqual(
+    timeline.tracks[0].clips.map(({ sourceIn, sourceOut, timelineStart }) => ({ sourceIn, sourceOut, timelineStart })),
+    [
+      { sourceIn: 0, sourceOut: 2, timelineStart: 0 },
+      { sourceIn: 4, sourceOut: 10, timelineStart: 2 },
+    ],
+  );
 });
 
 test('preserves the source-fit policy when compiling an EDL', () => {
-  const timeline = timelineFromEdl(
-    { schemaVersion: 1, sourceDurationSeconds: 10, cuts: [] },
-    'camera',
-    { sourceFit: 'cover' },
-  );
+  const timeline = timelineFromEdl({ schemaVersion: 1, sourceDurationSeconds: 10, cuts: [] }, 'camera', {
+    sourceFit: 'cover',
+  });
   assert.equal(timeline.project.sourceFit, 'cover');
 });
 
@@ -736,15 +1094,29 @@ test('moves, trims, and splits clips as immutable timeline edits', () => {
 
   const trimmed = trimTimelineClip(valid, 'video-main', 'clip-one', 0.5, 2.5);
   assert.deepEqual(
-    { sourceIn: trimmed.tracks[0].clips[0].sourceIn, sourceOut: trimmed.tracks[0].clips[0].sourceOut, timelineStart: trimmed.tracks[0].clips[0].timelineStart, duration: trimmed.tracks[0].clips[0].durationSeconds },
+    {
+      sourceIn: trimmed.tracks[0].clips[0].sourceIn,
+      sourceOut: trimmed.tracks[0].clips[0].sourceOut,
+      timelineStart: trimmed.tracks[0].clips[0].timelineStart,
+      duration: trimmed.tracks[0].clips[0].durationSeconds,
+    },
     { sourceIn: 0.5, sourceOut: 2.5, timelineStart: 0.5, duration: 2 },
   );
 
   const split = splitTimelineClip(valid, 'video-main', 'clip-one', 1.25);
-  assert.deepEqual(split.tracks[0].clips.slice(0, 2).map(({ id, sourceIn, sourceOut, timelineStart, durationSeconds }) => ({ id, sourceIn, sourceOut, timelineStart, durationSeconds })), [
-    { id: 'clip-one', sourceIn: 0, sourceOut: 1.25, timelineStart: 0, durationSeconds: 1.25 },
-    { id: 'clip-one-right', sourceIn: 1.25, sourceOut: 3, timelineStart: 1.25, durationSeconds: 1.75 },
-  ]);
+  assert.deepEqual(
+    split.tracks[0].clips.slice(0, 2).map(({ id, sourceIn, sourceOut, timelineStart, durationSeconds }) => ({
+      id,
+      sourceIn,
+      sourceOut,
+      timelineStart,
+      durationSeconds,
+    })),
+    [
+      { id: 'clip-one', sourceIn: 0, sourceOut: 1.25, timelineStart: 0, durationSeconds: 1.25 },
+      { id: 'clip-one-right', sourceIn: 1.25, sourceOut: 3, timelineStart: 1.25, durationSeconds: 1.75 },
+    ],
+  );
   assert.throws(() => splitTimelineClip(valid, 'video-main', 'clip-one', 3), /strictly inside/);
 });
 
@@ -781,12 +1153,22 @@ test('preserves playback rate when trimming and splitting media clips', () => {
   timeline.tracks[0].clips[0] = { ...timeline.tracks[0].clips[0], durationSeconds: 1.5, playbackRate: 2 };
   const trimmed = trimTimelineClip(timeline, 'video-main', 'clip-one', 0.5, 2.5);
   assert.deepEqual(
-    { timelineStart: trimmed.tracks[0].clips[0].timelineStart, durationSeconds: trimmed.tracks[0].clips[0].durationSeconds, sourceIn: trimmed.tracks[0].clips[0].sourceIn, sourceOut: trimmed.tracks[0].clips[0].sourceOut },
+    {
+      timelineStart: trimmed.tracks[0].clips[0].timelineStart,
+      durationSeconds: trimmed.tracks[0].clips[0].durationSeconds,
+      sourceIn: trimmed.tracks[0].clips[0].sourceIn,
+      sourceOut: trimmed.tracks[0].clips[0].sourceOut,
+    },
     { timelineStart: 0.25, durationSeconds: 1, sourceIn: 0.5, sourceOut: 2.5 },
   );
   const split = splitTimelineClip(timeline, 'video-main', 'clip-one', 1);
   assert.deepEqual(
-    split.tracks[0].clips.slice(0, 2).map(({ sourceIn, sourceOut, timelineStart, durationSeconds }) => ({ sourceIn, sourceOut, timelineStart, durationSeconds })),
+    split.tracks[0].clips.slice(0, 2).map(({ sourceIn, sourceOut, timelineStart, durationSeconds }) => ({
+      sourceIn,
+      sourceOut,
+      timelineStart,
+      durationSeconds,
+    })),
     [
       { sourceIn: 0, sourceOut: 2, timelineStart: 0, durationSeconds: 1 },
       { sourceIn: 2, sourceOut: 3, timelineStart: 1, durationSeconds: 0.5 },
@@ -804,15 +1186,36 @@ test('rebases eased keyframes when clips are trimmed and split', () => {
   ];
   const split = splitTimelineClip(timeline, 'video-main', 'clip-one', 1);
   assert.equal(split.tracks[0].clips[0].keyframes[1].time, 1);
-  assert.deepEqual(split.tracks[0].clips[0].keyframes[1].eases.x, { type: 'range', name: 'power2.out', from: 0, to: 0.5 });
-  assert.deepEqual(split.tracks[0].clips[1].keyframes[0].properties, { x: 0.4375, width: 0.5, opacity: 0.875, zoom: 1.875, maskProgress: 0.875 });
-  assert.deepEqual(split.tracks[0].clips[1].keyframes[1].eases.opacity, { type: 'range', name: 'power2.out', from: 0.5, to: 1 });
+  assert.deepEqual(split.tracks[0].clips[0].keyframes[1].eases.x, {
+    type: 'range',
+    name: 'power2.out',
+    from: 0,
+    to: 0.5,
+  });
+  assert.deepEqual(split.tracks[0].clips[1].keyframes[0].properties, {
+    x: 0.4375,
+    width: 0.5,
+    opacity: 0.875,
+    zoom: 1.875,
+    maskProgress: 0.875,
+  });
+  assert.deepEqual(split.tracks[0].clips[1].keyframes[1].eases.opacity, {
+    type: 'range',
+    name: 'power2.out',
+    from: 0.5,
+    to: 1,
+  });
 
   const trimmed = trimTimelineClip(timeline, 'video-main', 'clip-one', 0.5, 2.5);
   assert.equal(trimmed.tracks[0].clips[0].keyframes[0].properties.x, 0.2890625);
   assert.equal(trimmed.tracks[0].clips[0].keyframes[0].properties.zoom, 1.578125);
   assert.equal(trimmed.tracks[0].clips[0].keyframes[0].properties.maskProgress, 0.578125);
-  assert.deepEqual(trimmed.tracks[0].clips[0].keyframes.at(-1).eases.x, { type: 'range', name: 'sine.in', from: 0, to: 0.5 });
+  assert.deepEqual(trimmed.tracks[0].clips[0].keyframes.at(-1).eases.x, {
+    type: 'range',
+    name: 'sine.in',
+    from: 0,
+    to: 0.5,
+  });
 });
 
 test('keeps sparse property animations on their own interpolation clocks', () => {
@@ -845,10 +1248,13 @@ test('creates validated timed captions from word or cue transcripts', () => {
   assert.equal(track.clips[0].backgroundColor, '#000000b8');
   assert.equal(track.clips[0].wordTimings, undefined);
   const highlighted = createCaptionTrack(transcript, { wordHighlight: true, wordHighlightColor: '#ff0000' });
-  assert.deepEqual(highlighted.clips[0].wordTimings.map(({ text, start }) => ({ text, start })), [
-    { text: 'Hello', start: 0 },
-    { text: 'there.', start: 0.55 },
-  ]);
+  assert.deepEqual(
+    highlighted.clips[0].wordTimings.map(({ text, start }) => ({ text, start })),
+    [
+      { text: 'Hello', start: 0 },
+      { text: 'there.', start: 0.55 },
+    ],
+  );
   assert.ok(Math.abs(highlighted.clips[0].wordTimings[0].end - 0.5) < 1e-9);
   assert.equal(highlighted.clips[0].wordTimings[1].end, 1);
   assert.equal(highlighted.clips[0].wordHighlightColor, '#ff0000');
@@ -856,15 +1262,29 @@ test('creates validated timed captions from word or cue transcripts', () => {
   const highlightedTimeline = structuredClone(valid);
   highlightedTimeline.tracks.push({ ...highlighted, order: 3 });
   assert.equal(validateTimeline(highlightedTimeline), highlightedTimeline);
-  const cueTranscript = { schemaVersion: 1, durationSeconds: 2, granularity: 'cue', words: [{ start: 0, end: 1, text: 'Hello there.' }] };
+  const cueTranscript = {
+    schemaVersion: 1,
+    durationSeconds: 2,
+    granularity: 'cue',
+    words: [{ start: 0, end: 1, text: 'Hello there.' }],
+  };
   assert.throws(() => createCaptionTrack(cueTranscript, { wordHighlight: true }), /word-level transcript timing/);
   assert.throws(() => createCaptionTrack(transcript, { wordHighlightColor: '#ff0000' }), /requires wordHighlight/);
   assert.throws(() => createCaptionTrack(transcript, { wordHighlightColor: 'red', wordHighlight: true }), /hex color/);
   assert.throws(() => createCaptionTrack(transcript, { wordHighlightAnimation: 'pop' }), /requires wordHighlight/);
-  assert.throws(() => createCaptionTrack(transcript, { wordHighlight: true, wordHighlightAnimation: 'spin' }), /must be scale or pop/);
+  assert.throws(
+    () => createCaptionTrack(transcript, { wordHighlight: true, wordHighlightAnimation: 'spin' }),
+    /must be scale or pop/,
+  );
   for (const invalidHighlight of [
-    { ...highlighted.clips[0], wordTimings: [{ text: 'Different', start: 0, end: 0.5 }, ...highlighted.clips[0].wordTimings.slice(1)] },
-    { ...highlighted.clips[0], wordTimings: [{ text: 'Hello', start: -0.1, end: 0.5 }, ...highlighted.clips[0].wordTimings.slice(1)] },
+    {
+      ...highlighted.clips[0],
+      wordTimings: [{ text: 'Different', start: 0, end: 0.5 }, ...highlighted.clips[0].wordTimings.slice(1)],
+    },
+    {
+      ...highlighted.clips[0],
+      wordTimings: [{ text: 'Hello', start: -0.1, end: 0.5 }, ...highlighted.clips[0].wordTimings.slice(1)],
+    },
     { ...highlighted.clips[0], wordHighlightColor: 'red' },
     { ...highlighted.clips[0], wordHighlightAnimation: 'spin' },
   ]) {
@@ -876,15 +1296,23 @@ test('creates validated timed captions from word or cue transcripts', () => {
   invalidWrapTimeline.tracks.push({ ...highlighted, order: 3, clips: [{ ...highlighted.clips[0], wordWrap: 'yes' }] });
   assert.throws(() => validateTimeline(invalidWrapTimeline), /wordWrap must be a boolean/);
   const styled = createCaptionTrack(transcript, {
-    fontFamily: 'Arial, sans-serif', fontWeight: 700, lineHeight: 1.2,
-    verticalAlign: 'bottom', paddingPixels: 12,
+    fontFamily: 'Arial, sans-serif',
+    fontWeight: 700,
+    lineHeight: 1.2,
+    verticalAlign: 'bottom',
+    paddingPixels: 12,
     textOutline: { color: '#000000', widthPixels: 2 },
     textShadow: { color: '#000000aa', blurPixels: 4, offsetXPixels: 1, offsetYPixels: 2 },
   });
   const styledTimeline = structuredClone(valid);
   styledTimeline.tracks.push({ ...styled, order: 3 });
   assert.equal(validateTimeline(styledTimeline), styledTimeline);
-  for (const [layoutPreset, expectedAlign] of [['subtitle', 'center'], ['social', 'center'], ['socialPop', 'center'], ['lowerThird', 'left']]) {
+  for (const [layoutPreset, expectedAlign] of [
+    ['subtitle', 'center'],
+    ['social', 'center'],
+    ['socialPop', 'center'],
+    ['lowerThird', 'left'],
+  ]) {
     const presetTrack = createCaptionTrack(transcript, { layoutPreset });
     assert.equal(presetTrack.clips[0].textAlign, expectedAlign);
     assert.equal(presetTrack.clips[0].wordWrap, true);
@@ -897,16 +1325,26 @@ test('creates validated timed captions from word or cue transcripts', () => {
   assert.equal(socialPop.clips[0].wordHighlightColor, '#ffe45c');
   const speechBubble = createCaptionTrack(transcript, { layoutPreset: 'speechBubble' });
   assert.ok(Object.isFrozen(CAPTION_LAYOUT_PRESETS.speechBubble.bubble));
-  assert.throws(() => { CAPTION_LAYOUT_PRESETS.speechBubble.bubble.tailSide = 'left'; }, TypeError);
+  assert.throws(() => {
+    CAPTION_LAYOUT_PRESETS.speechBubble.bubble.tailSide = 'left';
+  }, TypeError);
   assert.deepEqual(speechBubble.clips[0].bubble, {
-    tailSide: 'bottom', tailPosition: 0.16, tailSizePixels: 26, cornerRadiusPixels: 28,
+    tailSide: 'bottom',
+    tailPosition: 0.16,
+    tailSizePixels: 26,
+    cornerRadiusPixels: 28,
   });
   const customizedBubble = createCaptionTrack(transcript, {
-    layoutPreset: 'speechBubble', bubble: { tailSide: 'left', tailPosition: 0.35 },
-    backgroundColor: '#ffffff', x: 0.3,
+    layoutPreset: 'speechBubble',
+    bubble: { tailSide: 'left', tailPosition: 0.35 },
+    backgroundColor: '#ffffff',
+    x: 0.3,
   });
   assert.deepEqual(customizedBubble.clips[0].bubble, {
-    tailSide: 'left', tailPosition: 0.35, tailSizePixels: 26, cornerRadiusPixels: 28,
+    tailSide: 'left',
+    tailPosition: 0.35,
+    tailSizePixels: 26,
+    cornerRadiusPixels: 28,
   });
   assert.equal(customizedBubble.clips[0].x, 0.3);
   const bubbleTimeline = structuredClone(valid);
@@ -917,11 +1355,15 @@ test('creates validated timed captions from word or cue transcripts', () => {
   assert.throws(() => validateTimeline(invalidBubbleTimeline), /bubble tailSide/);
   const editedBubbleTimeline = setTimelineOverlay(bubbleTimeline, 'captions', speechBubble.clips[0].id, {
     bubble: { tailSide: 'right', tailPosition: 0.6, tailSizePixels: 20, cornerRadiusPixels: 18 },
-    backgroundColor: '#f5f5f5', x: 0.28,
+    backgroundColor: '#f5f5f5',
+    x: 0.28,
   });
   const inspectedBubble = inspectTimeline(editedBubbleTimeline).tracks[3].clips[0];
   assert.deepEqual(inspectedBubble.bubble, {
-    tailSide: 'right', tailPosition: 0.6, tailSizePixels: 20, cornerRadiusPixels: 18,
+    tailSide: 'right',
+    tailPosition: 0.6,
+    tailSizePixels: 20,
+    cornerRadiusPixels: 18,
   });
   assert.equal(inspectedBubble.backgroundColor, '#f5f5f5');
   assert.equal(inspectedBubble.x, 0.28);
@@ -957,12 +1399,35 @@ test('applies visual or audio crossfades to adjacent clips', () => {
   assert.equal(transitioned.tracks[0].clips[1].fadeInSeconds, 0.5);
   assert.equal(timeline.tracks[0].clips[0].fadeOutSeconds, undefined);
   assert.throws(() => crossfadeTimelineClips(valid, 'video-main', 'clip-one', 'clip-two', 0.5), /already overlap/);
-  assert.throws(() => crossfadeTimelineClips({
-    ...timeline,
-    tracks: [{ ...timeline.tracks[0], clips: timeline.tracks[0].clips.map((clip) => clip.id === 'clip-two' ? { ...clip, timelineStart: 2.51 } : clip) }],
-  }, 'video-main', 'clip-one', 'clip-two', 0.5), /already overlap/);
-  assert.throws(() => crossfadeTimelineClips(timeline, 'video-main', 'clip-two', 'clip-one', 0.5), /already overlap|ordered/);
-  assert.throws(() => crossfadeTimelineClips(timeline, 'video-main', 'clip-one', 'clip-two', 6), /already overlap|cannot exceed/);
+  assert.throws(
+    () =>
+      crossfadeTimelineClips(
+        {
+          ...timeline,
+          tracks: [
+            {
+              ...timeline.tracks[0],
+              clips: timeline.tracks[0].clips.map((clip) =>
+                clip.id === 'clip-two' ? { ...clip, timelineStart: 2.51 } : clip,
+              ),
+            },
+          ],
+        },
+        'video-main',
+        'clip-one',
+        'clip-two',
+        0.5,
+      ),
+    /already overlap/,
+  );
+  assert.throws(
+    () => crossfadeTimelineClips(timeline, 'video-main', 'clip-two', 'clip-one', 0.5),
+    /already overlap|ordered/,
+  );
+  assert.throws(
+    () => crossfadeTimelineClips(timeline, 'video-main', 'clip-one', 'clip-two', 6),
+    /already overlap|cannot exceed/,
+  );
 });
 
 test('crossfades audio with outgoing volume fade and incoming volume fade', () => {
@@ -970,7 +1435,14 @@ test('crossfades audio with outgoing volume fade and incoming volume fade', () =
   timeline.tracks[1].allowOverlap = true;
   timeline.tracks[1].clips[0].durationSeconds = 3;
   timeline.tracks[1].clips[0].sourceOut = 3;
-  timeline.tracks[1].clips.push({ id: 'music-next', assetId: 'camera', sourceIn: 3, sourceOut: 8, timelineStart: 2.5, durationSeconds: 5 });
+  timeline.tracks[1].clips.push({
+    id: 'music-next',
+    assetId: 'camera',
+    sourceIn: 3,
+    sourceOut: 8,
+    timelineStart: 2.5,
+    durationSeconds: 5,
+  });
   const transitioned = crossfadeTimelineClips(timeline, 'music', 'music-bed', 'music-next', 0.5);
   assert.equal(transitioned.tracks[1].clips[0].fadeOutSeconds, 0.5);
   assert.equal(transitioned.tracks[1].clips[1].fadeInSeconds, 0.5);
@@ -995,10 +1467,23 @@ test('builds one combined audio envelope for track gain, fades, and voice duckin
   timeline.tracks[1].clips[0].volume = 0.8;
   timeline.tracks[1].clips[0].fadeInSeconds = 0.5;
   timeline.tracks[1].clips[0].fadeOutSeconds = 0.5;
-  timeline.tracks.push({ id: 'narration', kind: 'audio', order: 3, clips: [
-    { id: 'speech', assetId: 'camera', sourceIn: 0, sourceOut: 2, timelineStart: 1, durationSeconds: 2 },
-  ] });
-  timeline.audioMix = { ducking: [{ sourceTrackId: 'narration', targetTrackId: 'music', attenuation: 0.25, attackSeconds: 0.1, releaseSeconds: 0.3 }] };
+  timeline.tracks.push({
+    id: 'narration',
+    kind: 'audio',
+    order: 3,
+    clips: [{ id: 'speech', assetId: 'camera', sourceIn: 0, sourceOut: 2, timelineStart: 1, durationSeconds: 2 }],
+  });
+  timeline.audioMix = {
+    ducking: [
+      {
+        sourceTrackId: 'narration',
+        targetTrackId: 'music',
+        attenuation: 0.25,
+        attackSeconds: 0.1,
+        releaseSeconds: 0.3,
+      },
+    ],
+  };
   const envelope = buildAudioVolumeAutomation(timeline, timeline.tracks[1], timeline.tracks[1].clips[0]);
   assert.deepEqual(envelope, [
     { time: 0, volume: 0 },
@@ -1010,56 +1495,123 @@ test('builds one combined audio envelope for track gain, fades, and voice duckin
     { time: 7.5, volume: 0.4 },
     { time: 8, volume: 0 },
   ]);
-  assert.throws(() => validateTimeline({ ...timeline, audioMix: { ducking: [{ sourceTrackId: 'music', targetTrackId: 'missing', attenuation: 0.2 }] } }), /two different audio tracks/);
-  assert.throws(() => validateTimeline({ ...timeline, tracks: [{ ...timeline.tracks[0], volume: 0.5 }] }), /audio track/);
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...timeline,
+        audioMix: { ducking: [{ sourceTrackId: 'music', targetTrackId: 'missing', attenuation: 0.2 }] },
+      }),
+    /two different audio tracks/,
+  );
+  assert.throws(
+    () => validateTimeline({ ...timeline, tracks: [{ ...timeline.tracks[0], volume: 0.5 }] }),
+    /audio track/,
+  );
 });
 
 test('validates signal-aware audio sidechain rules and default settings', () => {
   const timeline = structuredClone(valid);
-  timeline.tracks.push({ id: 'narration', kind: 'audio', order: 3, clips: [
-    { id: 'speech', assetId: 'camera', sourceIn: 0, sourceOut: 2, timelineStart: 1, durationSeconds: 2 },
-  ] });
+  timeline.tracks.push({
+    id: 'narration',
+    kind: 'audio',
+    order: 3,
+    clips: [{ id: 'speech', assetId: 'camera', sourceIn: 0, sourceOut: 2, timelineStart: 1, durationSeconds: 2 }],
+  });
   timeline.audioMix = { sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music' }] };
   assert.equal(validateTimeline(timeline), timeline);
-  assert.throws(() => validateTimeline({ ...timeline, audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music', thresholdDb: 1 }] } }), /thresholdDb/);
-  assert.throws(() => validateTimeline({ ...timeline, audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music', ratio: 21 }] } }), /ratio/);
-  assert.throws(() => validateTimeline({ ...timeline, audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music', extra: true }] } }), /unsupported field/);
-  assert.throws(() => validateTimeline({ ...timeline, audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'missing', targetTrackId: 'music' }] } }), /two different non-empty audio tracks/);
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...timeline,
+        audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music', thresholdDb: 1 }] },
+      }),
+    /thresholdDb/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...timeline,
+        audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music', ratio: 21 }] },
+      }),
+    /ratio/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...timeline,
+        audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'narration', targetTrackId: 'music', extra: true }] },
+      }),
+    /unsupported field/,
+  );
+  assert.throws(
+    () =>
+      validateTimeline({
+        ...timeline,
+        audioMix: { ducking: [], sidechain: [{ sourceTrackId: 'missing', targetTrackId: 'music' }] },
+      }),
+    /two different non-empty audio tracks/,
+  );
 });
 
 test('validates optional integrated loudness mastering targets', () => {
   assert.deepEqual(validateAudioMastering({ ...valid, audioMastering: {} }), {
-    integratedLoudnessLUFS: -16, truePeakDBTP: -1.5, loudnessRangeLU: 11,
-  });
-  assert.deepEqual(validateAudioMastering({ ...valid, audioMastering: { integratedLoudnessLUFS: -14, truePeakDBTP: -1, loudnessRangeLU: 8 } }), {
-    integratedLoudnessLUFS: -14, truePeakDBTP: -1, loudnessRangeLU: 8,
-  });
-  assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { truePeakDBTP: 1 } }), /truePeakDBTP/);
-  assert.deepEqual(validateAudioMastering({ ...valid, audioMastering: {
-    equalizer: [{ frequencyHz: 120, gainDB: 3, q: 1.2 }],
-    limiter: { limitDBFS: -1, attackMs: 5, releaseMs: 80 },
-    channelLayout: 'mono',
-  } }), {
     integratedLoudnessLUFS: -16,
     truePeakDBTP: -1.5,
     loudnessRangeLU: 11,
-    equalizer: [{ frequencyHz: 120, gainDB: 3, q: 1.2 }],
-    limiter: { limitDBFS: -1, attackMs: 5, releaseMs: 80 },
-    channelLayout: 'mono',
   });
+  assert.deepEqual(
+    validateAudioMastering({
+      ...valid,
+      audioMastering: { integratedLoudnessLUFS: -14, truePeakDBTP: -1, loudnessRangeLU: 8 },
+    }),
+    {
+      integratedLoudnessLUFS: -14,
+      truePeakDBTP: -1,
+      loudnessRangeLU: 8,
+    },
+  );
+  assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { truePeakDBTP: 1 } }), /truePeakDBTP/);
+  assert.deepEqual(
+    validateAudioMastering({
+      ...valid,
+      audioMastering: {
+        equalizer: [{ frequencyHz: 120, gainDB: 3, q: 1.2 }],
+        limiter: { limitDBFS: -1, attackMs: 5, releaseMs: 80 },
+        channelLayout: 'mono',
+      },
+    }),
+    {
+      integratedLoudnessLUFS: -16,
+      truePeakDBTP: -1.5,
+      loudnessRangeLU: 11,
+      equalizer: [{ frequencyHz: 120, gainDB: 3, q: 1.2 }],
+      limiter: { limitDBFS: -1, attackMs: 5, releaseMs: 80 },
+      channelLayout: 'mono',
+    },
+  );
   for (const equalizer of [
     [{ frequencyHz: 10, gainDB: 1 }],
     [{ frequencyHz: 1000, gainDB: 19 }],
     [{ frequencyHz: 1000, gainDB: 1, q: 0 }],
     [{ frequencyHz: 1000, gainDB: 1, css: '1' }],
-  ]) assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { equalizer } }), /equalizer/);
+  ])
+    assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { equalizer } }), /equalizer/);
   for (const limiter of [
     { limitDBFS: -21, attackMs: 5, releaseMs: 50 },
     { limitDBFS: -1, attackMs: 0, releaseMs: 50 },
     { limitDBFS: -1, attackMs: 5, releaseMs: 1001 },
     { limitDBFS: -1, attackMs: 5, releaseMs: 50, gain: 3 },
-  ]) assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { limiter } }), /limiter/);
+  ])
+    assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { limiter } }), /limiter/);
   assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { extra: true } }), /unsupported setting/);
   assert.throws(() => validateAudioMastering({ ...valid, audioMastering: { channelLayout: '5.1' } }), /channelLayout/);
-  assert.throws(() => validateAudioMastering({ ...valid, tracks: valid.tracks.filter((track) => track.kind !== 'audio'), audioMastering: {} }), /requires at least one audio clip/);
+  assert.throws(
+    () =>
+      validateAudioMastering({
+        ...valid,
+        tracks: valid.tracks.filter((track) => track.kind !== 'audio'),
+        audioMastering: {},
+      }),
+    /requires at least one audio clip/,
+  );
 });

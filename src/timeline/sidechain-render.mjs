@@ -1,10 +1,10 @@
-import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { validateTimeline } from './validate.mjs';
-import { resolveAudioSidechainSettings } from './audio-mix.mjs';
+import { join } from 'node:path';
 import { runProcess } from '../render/process.mjs';
+import { resolveAudioSidechainSettings } from './audio-mix.mjs';
+import { validateTimeline } from './validate.mjs';
 
 export function applySidechainDuckingProxies(root, timeline, temporaryAssets, renderControl) {
   const rules = timeline.audioMix?.sidechain ?? [];
@@ -40,12 +40,36 @@ export function applySidechainDuckingProxies(root, timeline, temporaryAssets, re
           `[target][detector]sidechaincompress=threshold=${threshold}:ratio=${settings.ratio}:attack=${settings.attackSeconds * 1000}:release=${settings.releaseSeconds * 1000}:makeup=1:detection=rms:link=average,atrim=duration=${clip.durationSeconds}[ducked]`,
         ].join(';');
         temporaryAssets.push(absolutePath);
-        runFfmpeg(root, [
-          '-i', sourcePath, '-i', detector.path,
-          '-filter_complex', filter, '-map', '[ducked]', '-vn', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le',
-          absolutePath,
-        ], `Could not apply sidechain compression to clip ${clip.id}`, renderControl);
-        next.assets.push({ id, path: relativePath, type: 'audio', hasAudio: true, durationSeconds: clip.durationSeconds });
+        runFfmpeg(
+          root,
+          [
+            '-i',
+            sourcePath,
+            '-i',
+            detector.path,
+            '-filter_complex',
+            filter,
+            '-map',
+            '[ducked]',
+            '-vn',
+            '-ar',
+            '48000',
+            '-ac',
+            '2',
+            '-c:a',
+            'pcm_s16le',
+            absolutePath,
+          ],
+          `Could not apply sidechain compression to clip ${clip.id}`,
+          renderControl,
+        );
+        next.assets.push({
+          id,
+          path: relativePath,
+          type: 'audio',
+          hasAudio: true,
+          durationSeconds: clip.durationSeconds,
+        });
         clip.assetId = id;
         clip.sourceIn = 0;
         clip.sourceOut = clip.durationSeconds;
@@ -72,7 +96,10 @@ export async function applySidechainDuckingProxiesAsync(root, timeline, temporar
     for (const rule of rules) {
       if (!stems.has(rule.sourceTrackId)) {
         const sourceTrack = next.tracks.find((track) => track.id === rule.sourceTrackId);
-        stems.set(rule.sourceTrackId, await buildTrackStemAsync(root, next, sourceTrack, temporaryAssets, renderControl));
+        stems.set(
+          rule.sourceTrackId,
+          await buildTrackStemAsync(root, next, sourceTrack, temporaryAssets, renderControl),
+        );
       }
     }
 
@@ -96,12 +123,36 @@ export async function applySidechainDuckingProxiesAsync(root, timeline, temporar
           `[target][detector]sidechaincompress=threshold=${threshold}:ratio=${settings.ratio}:attack=${settings.attackSeconds * 1000}:release=${settings.releaseSeconds * 1000}:makeup=1:detection=rms:link=average,atrim=duration=${clip.durationSeconds}[ducked]`,
         ].join(';');
         temporaryAssets.push(absolutePath);
-        await runSidechainFfmpegAsync(root, [
-          '-i', sourcePath, '-i', detector.path,
-          '-filter_complex', filter, '-map', '[ducked]', '-vn', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le',
-          absolutePath,
-        ], `Could not apply sidechain compression to clip ${clip.id}`, renderControl);
-        next.assets.push({ id, path: relativePath, type: 'audio', hasAudio: true, durationSeconds: clip.durationSeconds });
+        await runSidechainFfmpegAsync(
+          root,
+          [
+            '-i',
+            sourcePath,
+            '-i',
+            detector.path,
+            '-filter_complex',
+            filter,
+            '-map',
+            '[ducked]',
+            '-vn',
+            '-ar',
+            '48000',
+            '-ac',
+            '2',
+            '-c:a',
+            'pcm_s16le',
+            absolutePath,
+          ],
+          `Could not apply sidechain compression to clip ${clip.id}`,
+          renderControl,
+        );
+        next.assets.push({
+          id,
+          path: relativePath,
+          type: 'audio',
+          hasAudio: true,
+          durationSeconds: clip.durationSeconds,
+        });
         clip.assetId = id;
         clip.sourceIn = 0;
         clip.sourceOut = clip.durationSeconds;
@@ -127,19 +178,18 @@ function buildTrackStem(root, timeline, track, temporaryAssets, renderControl) {
     const asset = timeline.assets.find((item) => item.id === clip.assetId);
     args.push('-i', join(root, ...asset.path.split('/')));
     const gain = (track.volume ?? 1) * (clip.volume ?? 1);
-    const steps = [
-      `atrim=start=${clip.sourceIn}:end=${clip.sourceOut}`,
-      'asetpts=PTS-STARTPTS',
-      `volume=${gain}`,
-    ];
+    const steps = [`atrim=start=${clip.sourceIn}:end=${clip.sourceOut}`, 'asetpts=PTS-STARTPTS', `volume=${gain}`];
     if (clip.fadeInSeconds > 0) steps.push(`afade=t=in:st=0:d=${clip.fadeInSeconds}`);
-    if (clip.fadeOutSeconds > 0) steps.push(`afade=t=out:st=${clip.durationSeconds - clip.fadeOutSeconds}:d=${clip.fadeOutSeconds}`);
+    if (clip.fadeOutSeconds > 0)
+      steps.push(`afade=t=out:st=${clip.durationSeconds - clip.fadeOutSeconds}:d=${clip.fadeOutSeconds}`);
     steps.push('aresample=48000', 'aformat=sample_fmts=fltp:channel_layouts=stereo');
     steps.push(`adelay=delays=${Math.round(clip.timelineStart * 1000)}:all=1`);
     filters.push(`[${index}:a:0]${steps.join(',')}[source${index}]`);
   }
   const labels = track.clips.map((_, index) => `[source${index}]`).join('');
-  filters.push(`${labels}amix=inputs=${track.clips.length}:duration=longest:normalize=0,apad=whole_dur=${timeline.project.durationSeconds},atrim=duration=${timeline.project.durationSeconds},asetpts=PTS-STARTPTS[stem]`);
+  filters.push(
+    `${labels}amix=inputs=${track.clips.length}:duration=longest:normalize=0,apad=whole_dur=${timeline.project.durationSeconds},atrim=duration=${timeline.project.durationSeconds},asetpts=PTS-STARTPTS[stem]`,
+  );
   args.push('-filter_complex', filters.join(';'));
   args.push('-map', '[stem]', '-vn', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le', absolutePath);
   temporaryAssets.push(absolutePath);
@@ -157,37 +207,42 @@ async function buildTrackStemAsync(root, timeline, track, temporaryAssets, rende
     const asset = timeline.assets.find((item) => item.id === clip.assetId);
     args.push('-i', join(root, ...asset.path.split('/')));
     const gain = (track.volume ?? 1) * (clip.volume ?? 1);
-    const steps = [
-      `atrim=start=${clip.sourceIn}:end=${clip.sourceOut}`,
-      'asetpts=PTS-STARTPTS',
-      `volume=${gain}`,
-    ];
+    const steps = [`atrim=start=${clip.sourceIn}:end=${clip.sourceOut}`, 'asetpts=PTS-STARTPTS', `volume=${gain}`];
     if (clip.fadeInSeconds > 0) steps.push(`afade=t=in:st=0:d=${clip.fadeInSeconds}`);
-    if (clip.fadeOutSeconds > 0) steps.push(`afade=t=out:st=${clip.durationSeconds - clip.fadeOutSeconds}:d=${clip.fadeOutSeconds}`);
+    if (clip.fadeOutSeconds > 0)
+      steps.push(`afade=t=out:st=${clip.durationSeconds - clip.fadeOutSeconds}:d=${clip.fadeOutSeconds}`);
     steps.push('aresample=48000', 'aformat=sample_fmts=fltp:channel_layouts=stereo');
     steps.push(`adelay=delays=${Math.round(clip.timelineStart * 1000)}:all=1`);
     filters.push(`[${index}:a:0]${steps.join(',')}[source${index}]`);
   }
   const labels = track.clips.map((_, index) => `[source${index}]`).join('');
-  filters.push(`${labels}amix=inputs=${track.clips.length}:duration=longest:normalize=0,apad=whole_dur=${timeline.project.durationSeconds},atrim=duration=${timeline.project.durationSeconds},asetpts=PTS-STARTPTS[stem]`);
+  filters.push(
+    `${labels}amix=inputs=${track.clips.length}:duration=longest:normalize=0,apad=whole_dur=${timeline.project.durationSeconds},atrim=duration=${timeline.project.durationSeconds},asetpts=PTS-STARTPTS[stem]`,
+  );
   args.push('-filter_complex', filters.join(';'));
   args.push('-map', '[stem]', '-vn', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le', absolutePath);
   temporaryAssets.push(absolutePath);
-  await runSidechainFfmpegAsync(root, args, `Could not build sidechain detector stem for track ${track.id}`, renderControl);
+  await runSidechainFfmpegAsync(
+    root,
+    args,
+    `Could not build sidechain detector stem for track ${track.id}`,
+    renderControl,
+  );
   return { id, path: absolutePath };
 }
 
 function runFfmpeg(cwd, args, message, renderControl) {
   renderControl?.assertActive();
-  const result = spawnSync('ffmpeg', [
-    '-nostdin', '-hide_banner', '-v', 'error', '-y',
-    '-filter_threads', '1', '-filter_complex_threads', '1', ...args,
-  ], {
-    encoding: 'utf8',
-    windowsHide: true,
-    cwd,
-    ...(renderControl ? { timeout: renderControl.timeoutMs() } : {}),
-  });
+  const result = spawnSync(
+    'ffmpeg',
+    ['-nostdin', '-hide_banner', '-v', 'error', '-y', '-filter_threads', '1', '-filter_complex_threads', '1', ...args],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      cwd,
+      ...(renderControl ? { timeout: renderControl.timeoutMs() } : {}),
+    },
+  );
   renderControl?.assertActive();
   if (result.error || result.status !== 0) {
     const error = renderControl?.processError(result.error);
@@ -198,10 +253,22 @@ function runFfmpeg(cwd, args, message, renderControl) {
 async function runSidechainFfmpegAsync(cwd, args, message, renderControl) {
   try {
     renderControl?.assertActive();
-    await runProcess('ffmpeg', [
-      '-nostdin', '-hide_banner', '-v', 'error', '-y',
-      '-filter_threads', '1', '-filter_complex_threads', '1', ...args,
-    ], { cwd, signal: renderControl?.signal, stdio: 'capture' });
+    await runProcess(
+      'ffmpeg',
+      [
+        '-nostdin',
+        '-hide_banner',
+        '-v',
+        'error',
+        '-y',
+        '-filter_threads',
+        '1',
+        '-filter_complex_threads',
+        '1',
+        ...args,
+      ],
+      { cwd, signal: renderControl?.signal, stdio: 'capture' },
+    );
   } catch (error) {
     if (renderControl?.signal.aborted) throw renderControl.signal.reason ?? error;
     throw new Error(`${message}: ${error.message}`, { cause: error });

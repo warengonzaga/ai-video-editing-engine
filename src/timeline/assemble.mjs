@@ -14,7 +14,8 @@ export function assembleEditedTimeline(projectPath, assetId, transcript, edl, op
   if (!asset) throw new TypeError(`Asset is not registered in this project: ${assetId}`);
   if (asset.type !== 'video') throw new TypeError('Transcript-driven editing requires a registered video asset.');
   validateEdl(edl, asset.durationSeconds);
-  if (Math.abs(transcript.durationSeconds - asset.durationSeconds) > 1e-6) throw new TypeError('Transcript duration must match the registered source media.');
+  if (Math.abs(transcript.durationSeconds - asset.durationSeconds) > 1e-6)
+    throw new TypeError('Transcript duration must match the registered source media.');
 
   const retimedTranscript = retimeTranscript(transcript, edl);
   const timeline = timelineFromEdl(edl, assetId, {
@@ -32,9 +33,11 @@ export function assembleEditedTimeline(projectPath, assetId, transcript, edl, op
     assetStreamTiming: asset.streamTiming,
     includeAudioTrack: asset.hasAudio,
   });
-  if (Math.abs(retimedTranscript.durationSeconds - timeline.project.durationSeconds) > 1e-6) throw new Error('Retimed transcript and edit timeline durations do not match.');
+  if (Math.abs(retimedTranscript.durationSeconds - timeline.project.durationSeconds) > 1e-6)
+    throw new Error('Retimed transcript and edit timeline durations do not match.');
   const captionOptions = { ...options.captionOptions, order: timeline.tracks.length };
-  if (captionOptions.fontSize === undefined) captionOptions.fontSize = Math.max(8, Math.round(54 * Math.min(meta.width, meta.height) / 1080));
+  if (captionOptions.fontSize === undefined)
+    captionOptions.fontSize = Math.max(8, Math.round((54 * Math.min(meta.width, meta.height)) / 1080));
   const captions = createCaptionTrack(retimedTranscript, captionOptions);
   timeline.tracks.push(captions);
   timeline.lineage = {
@@ -89,26 +92,59 @@ function renderEditedProjectWith(projectPath, assetId, transcript, edl, options,
     wroteTranscript = true;
     const render = renderTimelineFunction(root, timeline, outputPath, options.quality ?? 'draft', renderOptions);
     if (render && typeof render.then === 'function') {
-      return render.then((result) => ({ ...result, assetId, timelinePath, approvedEdlPath, retimedTranscriptPath }))
+      return render
+        .then((result) => ({ ...result, assetId, timelinePath, approvedEdlPath, retimedTranscriptPath }))
         .catch((error) => {
-          restoreEditedProject({ metaPath, originalMeta, indexPath, originalHtml, approvedEdlPath, retimedTranscriptPath, timelinePath, wroteEdl, wroteTranscript });
+          restoreEditedProject({
+            metaPath,
+            originalMeta,
+            indexPath,
+            originalHtml,
+            approvedEdlPath,
+            retimedTranscriptPath,
+            timelinePath,
+            wroteEdl,
+            wroteTranscript,
+          });
           throw error;
         });
     }
     return { ...render, assetId, timelinePath, approvedEdlPath, retimedTranscriptPath };
   } catch (error) {
-    restoreEditedProject({ metaPath, originalMeta, indexPath, originalHtml, approvedEdlPath, retimedTranscriptPath, timelinePath, wroteEdl, wroteTranscript });
+    restoreEditedProject({
+      metaPath,
+      originalMeta,
+      indexPath,
+      originalHtml,
+      approvedEdlPath,
+      retimedTranscriptPath,
+      timelinePath,
+      wroteEdl,
+      wroteTranscript,
+    });
     throw error;
   }
 }
 
-function restoreEditedProject({ metaPath, originalMeta, indexPath, originalHtml, approvedEdlPath, retimedTranscriptPath, timelinePath, wroteEdl, wroteTranscript }) {
+function restoreEditedProject({
+  metaPath,
+  originalMeta,
+  indexPath,
+  originalHtml,
+  approvedEdlPath,
+  retimedTranscriptPath,
+  timelinePath,
+  wroteEdl,
+  wroteTranscript,
+}) {
   writeFileSync(metaPath, originalMeta);
   writeFileSync(indexPath, originalHtml);
   if (wroteEdl) unlinkSync(approvedEdlPath);
   if (wroteTranscript) unlinkSync(retimedTranscriptPath);
   if (existsSync(timelinePath)) {
-    try { unlinkSync(timelinePath); } catch {}
+    try {
+      unlinkSync(timelinePath);
+    } catch {}
   }
 }
 

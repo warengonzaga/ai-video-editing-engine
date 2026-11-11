@@ -6,16 +6,14 @@ export function retimeTranscript(transcript, edl) {
   assertEdlApproved(edl);
 
   const words = transcript.words.flatMap((word) => {
-    const containingCut = edl.cuts.find(
-      (cut) => cut.sourceStart <= word.start && cut.sourceEnd >= word.end
-    );
+    const containingCut = edl.cuts.find((cut) => cut.sourceStart <= word.start && cut.sourceEnd >= word.end);
     if (containingCut) return [];
 
-    const partialCut = edl.cuts.find(
-      (cut) => cut.sourceStart < word.end && cut.sourceEnd > word.start
-    );
+    const partialCut = edl.cuts.find((cut) => cut.sourceStart < word.end && cut.sourceEnd > word.start);
     if (partialCut) {
-      throw new TypeError(`EDL cut ${partialCut.sourceStart}-${partialCut.sourceEnd} splits transcript word "${word.text}".`);
+      throw new TypeError(
+        `EDL cut ${partialCut.sourceStart}-${partialCut.sourceEnd} splits transcript word "${word.text}".`,
+      );
     }
 
     const removedBefore = edl.cuts
@@ -24,10 +22,7 @@ export function retimeTranscript(transcript, edl) {
     return [{ ...word, start: word.start - removedBefore, end: word.end - removedBefore }];
   });
 
-  const removedDuration = edl.cuts.reduce(
-    (total, cut) => total + cut.sourceEnd - cut.sourceStart,
-    0
-  );
+  const removedDuration = edl.cuts.reduce((total, cut) => total + cut.sourceEnd - cut.sourceStart, 0);
   if (removedDuration >= transcript.durationSeconds) {
     throw new TypeError('EDL must leave a positive output duration.');
   }
@@ -65,7 +60,12 @@ export function validateEdl(edl, sourceDurationSeconds) {
     if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
       throw new TypeError(`${label} must be an object.`);
     }
-    if (!Number.isFinite(cut.sourceStart) || !Number.isFinite(cut.sourceEnd) || cut.sourceStart < 0 || cut.sourceEnd <= cut.sourceStart) {
+    if (
+      !Number.isFinite(cut.sourceStart) ||
+      !Number.isFinite(cut.sourceEnd) ||
+      cut.sourceStart < 0 ||
+      cut.sourceEnd <= cut.sourceStart
+    ) {
       throw new TypeError(`${label} must have finite times with 0 <= sourceStart < sourceEnd.`);
     }
     if (cut.sourceEnd > sourceDurationSeconds) {
@@ -79,10 +79,7 @@ export function validateEdl(edl, sourceDurationSeconds) {
     }
     previousEnd = cut.sourceEnd;
   }
-  const removedDuration = edl.cuts.reduce(
-    (total, cut) => total + cut.sourceEnd - cut.sourceStart,
-    0
-  );
+  const removedDuration = edl.cuts.reduce((total, cut) => total + cut.sourceEnd - cut.sourceStart, 0);
   if (removedDuration >= sourceDurationSeconds) {
     throw new TypeError('EDL must leave a positive output duration.');
   }

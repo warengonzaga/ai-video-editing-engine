@@ -22,7 +22,11 @@ export async function linkOrCopyAsync(source, destination, { signal, onCopyProgr
     const destinationHandle = await open(destination, 'wx');
     try {
       const progress = onCopyProgress ? createCopyProgress(source, onCopyProgress) : undefined;
-      const streams = [createReadStream(source, { signal }), ...(progress ? [progress] : []), destinationHandle.createWriteStream()];
+      const streams = [
+        createReadStream(source, { signal }),
+        ...(progress ? [progress] : []),
+        destinationHandle.createWriteStream(),
+      ];
       await pipeline(...streams, { signal });
     } catch (copyError) {
       await destinationHandle.close().catch(() => {});
@@ -43,18 +47,27 @@ function copyFileExclusiveSync(source, destination) {
     sourceDescriptor = openSync(source, 'r');
     destinationDescriptor = openSync(destination, 'wx');
     const buffer = Buffer.allocUnsafe(1024 * 1024);
-    let bytesRead;
-    while ((bytesRead = readSync(sourceDescriptor, buffer, 0, buffer.length, null)) > 0) {
+    let bytesRead = readSync(sourceDescriptor, buffer, 0, buffer.length, null);
+    while (bytesRead > 0) {
       let offset = 0;
       while (offset < bytesRead) offset += writeSync(destinationDescriptor, buffer, offset, bytesRead - offset);
+      bytesRead = readSync(sourceDescriptor, buffer, 0, buffer.length, null);
     }
     closeSync(destinationDescriptor);
     destinationDescriptor = undefined;
   } catch (error) {
     if (destinationDescriptor !== undefined) {
-      try { closeSync(destinationDescriptor); } catch { /* Preserve the original copy error. */ }
+      try {
+        closeSync(destinationDescriptor);
+      } catch {
+        /* Preserve the original copy error. */
+      }
       destinationDescriptor = undefined;
-      try { rmSync(destination, { force: true }); } catch { /* Preserve the original copy error. */ }
+      try {
+        rmSync(destination, { force: true });
+      } catch {
+        /* Preserve the original copy error. */
+      }
     }
     throw error;
   } finally {
@@ -67,9 +80,9 @@ function createCopyProgress(source, onCopyProgress) {
   let completedBytes = 0;
   let lastPercent = -1;
   return new Transform({
-    transform(chunk, encoding, callback) {
+    transform(chunk, _encoding, callback) {
       completedBytes += chunk.length;
-      const percent = totalBytes > 0 ? Math.floor(completedBytes / totalBytes * 100) : 100;
+      const percent = totalBytes > 0 ? Math.floor((completedBytes / totalBytes) * 100) : 100;
       if (percent > lastPercent || completedBytes >= totalBytes) {
         lastPercent = percent;
         onCopyProgress(completedBytes, totalBytes);

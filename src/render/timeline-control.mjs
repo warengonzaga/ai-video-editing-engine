@@ -2,8 +2,10 @@ export function createTimelineRenderControl(signal, timeoutSeconds) {
   if (signal !== undefined && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function')) {
     throw new TypeError('Render signal must be an AbortSignal.');
   }
-  if (timeoutSeconds !== undefined
-      && (!Number.isSafeInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 86_400)) {
+  if (
+    timeoutSeconds !== undefined &&
+    (!Number.isSafeInteger(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 86_400)
+  ) {
     throw new TypeError('Render timeoutSeconds must be an integer from 1 to 86400.');
   }
 
@@ -17,7 +19,8 @@ export function createTimelineRenderControl(signal, timeoutSeconds) {
   const relayAbort = () => controller.abort(signal.reason ?? new DOMException('Render was aborted.', 'AbortError'));
   if (signal?.aborted) relayAbort();
   else signal?.addEventListener('abort', relayAbort, { once: true });
-  const timer = deadline === undefined ? undefined : setTimeout(() => controller.abort(timeoutError()), timeoutSeconds * 1000);
+  const timer =
+    deadline === undefined ? undefined : setTimeout(() => controller.abort(timeoutError()), timeoutSeconds * 1000);
   timer?.unref();
 
   return {
@@ -25,7 +28,8 @@ export function createTimelineRenderControl(signal, timeoutSeconds) {
     assertActive() {
       if (signal?.aborted && !controller.signal.aborted) relayAbort();
       if (deadline !== undefined && Date.now() >= deadline) controller.abort(timeoutError());
-      if (controller.signal.aborted) throw controller.signal.reason ?? new DOMException('Render was aborted.', 'AbortError');
+      if (controller.signal.aborted)
+        throw controller.signal.reason ?? new DOMException('Render was aborted.', 'AbortError');
     },
     timeoutMs() {
       if (deadline === undefined) return undefined;

@@ -1,6 +1,11 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { listFfmpegDecoders, listFfmpegDemuxers, listFfmpegEncoders, listFfmpegFilters } from './media/ffmpeg-capabilities.mjs';
+import {
+  listFfmpegDecoders,
+  listFfmpegDemuxers,
+  listFfmpegEncoders,
+  listFfmpegFilters,
+} from './media/ffmpeg-capabilities.mjs';
 import { CANVAS_PRESETS } from './project/presets.mjs';
 
 const require = createRequire(import.meta.url);
@@ -12,14 +17,20 @@ const VIDEO_ENCODERS = Object.freeze({
 });
 
 export function getEngineCapabilities(options = {}) {
-  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new TypeError('Capability options must be an object.');
-  for (const key of Object.keys(options)) if (!['ffmpeg', 'ffprobe', 'otioPython'].includes(key)) throw new TypeError(`Unsupported capability option: ${key}.`);
+  if (!options || typeof options !== 'object' || Array.isArray(options))
+    throw new TypeError('Capability options must be an object.');
+  for (const key of Object.keys(options))
+    if (!['ffmpeg', 'ffprobe', 'otioPython'].includes(key))
+      throw new TypeError(`Unsupported capability option: ${key}.`);
   const ffmpegCommand = options.ffmpeg ?? 'ffmpeg';
   const ffprobeCommand = options.ffprobe ?? 'ffprobe';
   const otioPythonCommand = options.otioPython ?? process.env.AIVE_OTIO_PYTHON ?? process.env.PYTHON ?? 'python';
-  if (typeof ffmpegCommand !== 'string' || !ffmpegCommand.trim()) throw new TypeError('ffmpeg must be a non-empty command path.');
-  if (typeof ffprobeCommand !== 'string' || !ffprobeCommand.trim()) throw new TypeError('ffprobe must be a non-empty command path.');
-  if (typeof otioPythonCommand !== 'string' || !otioPythonCommand.trim()) throw new TypeError('otioPython must be a non-empty command path.');
+  if (typeof ffmpegCommand !== 'string' || !ffmpegCommand.trim())
+    throw new TypeError('ffmpeg must be a non-empty command path.');
+  if (typeof ffprobeCommand !== 'string' || !ffprobeCommand.trim())
+    throw new TypeError('ffprobe must be a non-empty command path.');
+  if (typeof otioPythonCommand !== 'string' || !otioPythonCommand.trim())
+    throw new TypeError('otioPython must be a non-empty command path.');
 
   const nodeVersion = process.versions.node;
   const nodeMajor = Number(nodeVersion.split('.')[0]);
@@ -62,14 +73,18 @@ export function getEngineCapabilities(options = {}) {
     mov: { h264: supportsEncoder('libx264'), h265: supportsEncoder('libx265'), prores: supportsEncoder('prores_ks') },
     webm: { vp9: supportsEncoder('libvpx-vp9') },
   };
-  const outputColorProfiles = (format) => Object.fromEntries(Object.entries(colorProfiles)
-    .filter(([, profile]) => profile.formats.includes(format))
-    .map(([id, profile]) => {
-      const compatibleEncoderAvailable = id === 'hdr10'
-        ? codecsByFormat[format]?.h265 === true
-        : Object.values(codecsByFormat[format] ?? {}).some(Boolean);
-      return [id, profile.available && compatibleEncoderAvailable];
-    }));
+  const outputColorProfiles = (format) =>
+    Object.fromEntries(
+      Object.entries(colorProfiles)
+        .filter(([, profile]) => profile.formats.includes(format))
+        .map(([id, profile]) => {
+          const compatibleEncoderAvailable =
+            id === 'hdr10'
+              ? codecsByFormat[format]?.h265 === true
+              : Object.values(codecsByFormat[format] ?? {}).some(Boolean);
+          return [id, profile.available && compatibleEncoderAvailable];
+        }),
+    );
   const inputContainers = {
     mp4: ['mp4'],
     mov: ['mov'],
@@ -97,7 +112,7 @@ export function getEngineCapabilities(options = {}) {
       },
       hyperframes: { available: hyperframes },
       gsap: { available: gsap },
-      browserRuntime: { available: null, checked: false, checkCommand: 'npm run doctor' },
+      browserRuntime: { available: null, checked: false, checkCommand: 'bun run doctor' },
     },
     media: {
       assetIngest: {
@@ -107,9 +122,28 @@ export function getEngineCapabilities(options = {}) {
         progressCallbacks: {
           supported: true,
           asyncApiOnly: true,
-          stages: ['asset-batch', 'asset-batch-item', 'asset-copy', 'asset-probe', 'asset-publish', 'asset-relink-copy', 'asset-relink-probe', 'asset-relink-publish'],
+          stages: [
+            'asset-batch',
+            'asset-batch-item',
+            'asset-copy',
+            'asset-probe',
+            'asset-publish',
+            'asset-relink-copy',
+            'asset-relink-probe',
+            'asset-relink-publish',
+          ],
           eventFields: ['stage', 'phase'],
-          optionalEventFields: ['percent', 'completed', 'total', 'assetId', 'batchIndex', 'batchTotal', 'registered', 'failed', 'message'],
+          optionalEventFields: [
+            'percent',
+            'completed',
+            'total',
+            'assetId',
+            'batchIndex',
+            'batchTotal',
+            'registered',
+            'failed',
+            'message',
+          ],
         },
       },
       assetVerification: {
@@ -126,12 +160,21 @@ export function getEngineCapabilities(options = {}) {
         available: ffmpeg.available && ffprobe.available,
         inventoryChecked: ffmpeg.available && ffprobe.available && !inputInspectionError,
         ...(inputInspectionError ? { inspectionError: inputInspectionError } : {}),
-        containers: Object.fromEntries(Object.entries(inputContainers)
-          .map(([name, aliases]) => [name, aliases.some((alias) => demuxers.has(alias))])),
-        videoDecoders: Object.fromEntries(['h264', 'hevc', 'av1', 'vp8', 'vp9', 'prores', 'mpeg2video', 'mpeg4']
-          .map((name) => [name, decoders.has(name)])),
-        audioDecoders: Object.fromEntries(['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le']
-          .map((name) => [name, decoders.has(name)])),
+        containers: Object.fromEntries(
+          Object.entries(inputContainers).map(([name, aliases]) => [
+            name,
+            aliases.some((alias) => demuxers.has(alias)),
+          ]),
+        ),
+        videoDecoders: Object.fromEntries(
+          ['h264', 'hevc', 'av1', 'vp8', 'vp9', 'prores', 'mpeg2video', 'mpeg4'].map((name) => [
+            name,
+            decoders.has(name),
+          ]),
+        ),
+        audioDecoders: Object.fromEntries(
+          ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le'].map((name) => [name, decoders.has(name)]),
+        ),
       },
       proxyGeneration: {
         available: ffmpeg.available && ffprobe.available,
@@ -158,8 +201,14 @@ export function getEngineCapabilities(options = {}) {
         cancellation: true,
       },
       sceneReviewPack: {
-        available: ffmpeg.available && ffprobe.available
-          && filters.has('select') && filters.has('metadata') && filters.has('scale') && filters.has('pad') && filters.has('tile'),
+        available:
+          ffmpeg.available &&
+          ffprobe.available &&
+          filters.has('select') &&
+          filters.has('metadata') &&
+          filters.has('scale') &&
+          filters.has('pad') &&
+          filters.has('tile'),
         thumbnailDefaultSize: 320,
         thumbnailSizeRange: [80, 1280],
         defaultContactSheetLimit: 60,
@@ -169,14 +218,25 @@ export function getEngineCapabilities(options = {}) {
         progressCallbacks: {
           supported: true,
           asyncApiOnly: true,
-          stages: ['scene-source-fingerprint', 'scene-analysis', 'scene-thumbnails', 'scene-contact-sheet', 'scene-review-publish'],
+          stages: [
+            'scene-source-fingerprint',
+            'scene-analysis',
+            'scene-thumbnails',
+            'scene-contact-sheet',
+            'scene-review-publish',
+          ],
           eventFields: ['stage', 'phase'],
           optionalEventFields: ['completed', 'total', 'percent', 'message'],
         },
       },
       sceneReviewPlacementPlanning: {
         available: true,
-        requires: ['validated-timeline', 'registered-video-asset-matching-scene-review-sha256', 'scene-review-pack', 'explicit-shot-selections'],
+        requires: [
+          'validated-timeline',
+          'registered-video-asset-matching-scene-review-sha256',
+          'scene-review-pack',
+          'explicit-shot-selections',
+        ],
         output: 'review-required-timeline-operations',
         appliesChanges: false,
         maximumPlacements: 500,
@@ -206,7 +266,24 @@ export function getEngineCapabilities(options = {}) {
       progressCallbacks: {
         supported: true,
         asyncApiOnly: true,
-        stages: ['preprocessing', 'proxy-resolution', 'audio-alignment', 'playback-processing', 'audio-effects', 'sidechain-processing', 'capture', 'encoding', 'validation', 'publish', 'timeline-validation', 'mastering', 'mastering-analysis', 'mastering-encode', 'mastering-validation', 'mastering-publish'],
+        stages: [
+          'preprocessing',
+          'proxy-resolution',
+          'audio-alignment',
+          'playback-processing',
+          'audio-effects',
+          'sidechain-processing',
+          'capture',
+          'encoding',
+          'validation',
+          'publish',
+          'timeline-validation',
+          'mastering',
+          'mastering-analysis',
+          'mastering-encode',
+          'mastering-validation',
+          'mastering-publish',
+        ],
         eventFields: ['stage', 'phase'],
         optionalEventFields: ['percent', 'completed', 'total', 'target', 'codec', 'reason'],
       },
@@ -246,7 +323,11 @@ export function getEngineCapabilities(options = {}) {
         },
       },
       canvasPresets: CANVAS_PRESETS.map(({ id, aspectRatio, width, height, platforms }) => ({
-        id, aspectRatio, width, height, platforms: [...platforms],
+        id,
+        aspectRatio,
+        width,
+        height,
+        platforms: [...platforms],
       })),
       filters: {
         rubberband: filters.has('rubberband'),
@@ -277,11 +358,18 @@ function inspectCommand(command, args = ['-version']) {
 }
 
 function inspectPythonModule(command, moduleName) {
-  const result = spawnSync(command, ['-c', `import ${moduleName} as module; assert 'otio_json' in module.adapters.available_adapter_names(), 'otio_json adapter unavailable'; print(getattr(module, '__version__', 'installed'))`], {
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 1024 * 1024,
-  });
+  const result = spawnSync(
+    command,
+    [
+      '-c',
+      `import ${moduleName} as module; assert 'otio_json' in module.adapters.available_adapter_names(), 'otio_json adapter unavailable'; print(getattr(module, '__version__', 'installed'))`,
+    ],
+    {
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 1024 * 1024,
+    },
+  );
   if (result.error) return { available: false, reason: 'python-not-found' };
   if (result.status !== 0) {
     return {
