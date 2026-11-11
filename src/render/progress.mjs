@@ -20,16 +20,17 @@ export function createFfmpegProgressParser(onProgress, stage, durationSeconds, d
     if (key === 'out_time_us') currentTimeUs = Number(value);
     if (key !== 'progress' || !Number.isFinite(currentTimeUs)) return;
     const completed = Math.max(0, currentTimeUs / 1_000_000);
-    const percent = Math.max(0, Math.min(99, completed / durationSeconds * 100));
+    const percent = Math.max(0, Math.min(99, (completed / durationSeconds) * 100));
     emitRenderProgress(onProgress, stage, 'progress', { percent, completed, total: durationSeconds, ...details });
   };
   return {
     push(chunk) {
       pending += chunk.toString('utf8');
-      let newline;
-      while ((newline = pending.indexOf('\n')) >= 0) {
+      let newline = pending.indexOf('\n');
+      while (newline >= 0) {
         parseLine(pending.slice(0, newline).replace(/\r$/, ''));
         pending = pending.slice(newline + 1);
+        newline = pending.indexOf('\n');
       }
       if (pending.length > 4096) pending = pending.slice(-4096);
     },

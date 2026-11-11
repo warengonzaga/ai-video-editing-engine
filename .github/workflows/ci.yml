@@ -31,11 +31,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
+          bun-version: 1.4.4
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -59,19 +58,22 @@ jobs:
           echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
 
       - name: Install dependencies
-        run: npm ci --no-audit
+        run: bun install --frozen-lockfile
 
       - name: Install optional OTIO adapter for interchange coverage
         run: python -m pip install -r requirements-otio.txt
 
       - name: Install HyperFrames browser
-        run: node node_modules/hyperframes/bin/hyperframes.mjs browser ensure
+        run: bun node_modules/hyperframes/bin/hyperframes.mjs browser ensure
+
+      - name: Check formatting and lint
+        run: bun run check
 
       - name: Run tests
-        run: npm test
+        run: bun test
 
       - name: Render Engine integration smoke
-        run: npm run test:render-smoke
+        run: bun run test:render-smoke
 
       - name: Upload failed render smoke workspace for diagnosis
         if: failure()
@@ -83,4 +85,4 @@ jobs:
           retention-days: 3
 
       - name: Audit production dependencies
-        run: npm audit --omit=dev
+        run: bun audit --omit=dev

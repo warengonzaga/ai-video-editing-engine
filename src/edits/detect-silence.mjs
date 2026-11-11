@@ -8,22 +8,38 @@ export function detectAcousticSilence(inputPath, options = {}) {
   const noiseDb = options.noiseDb ?? -35;
   const minSilenceSeconds = options.minSilenceSeconds ?? 0.5;
   const paddingSeconds = options.paddingSeconds ?? 0.12;
-  if (!Number.isFinite(noiseDb) || noiseDb < -90 || noiseDb > 0) throw new TypeError('noiseDb must be between -90 and 0.');
-  if (!Number.isFinite(minSilenceSeconds) || minSilenceSeconds <= 0) throw new TypeError('minSilenceSeconds must be positive.');
-  if (!Number.isFinite(paddingSeconds) || paddingSeconds < 0) throw new TypeError('paddingSeconds must be non-negative.');
+  if (!Number.isFinite(noiseDb) || noiseDb < -90 || noiseDb > 0)
+    throw new TypeError('noiseDb must be between -90 and 0.');
+  if (!Number.isFinite(minSilenceSeconds) || minSilenceSeconds <= 0)
+    throw new TypeError('minSilenceSeconds must be positive.');
+  if (!Number.isFinite(paddingSeconds) || paddingSeconds < 0)
+    throw new TypeError('paddingSeconds must be non-negative.');
 
-  const result = spawnSync('ffmpeg', [
-    '-nostdin', '-hide_banner', '-i', media.path,
-    '-af', `silencedetect=noise=${noiseDb}dB:d=${minSilenceSeconds}`,
-    '-f', 'null', '-',
-  ], { encoding: 'utf8', windowsHide: true });
-  if (result.error || result.status !== 0) throw new Error(`FFmpeg silence detection failed: ${result.error?.message ?? result.stderr.trim()}`);
+  const result = spawnSync(
+    'ffmpeg',
+    [
+      '-nostdin',
+      '-hide_banner',
+      '-i',
+      media.path,
+      '-af',
+      `silencedetect=noise=${noiseDb}dB:d=${minSilenceSeconds}`,
+      '-f',
+      'null',
+      '-',
+    ],
+    { encoding: 'utf8', windowsHide: true },
+  );
+  if (result.error || result.status !== 0)
+    throw new Error(`FFmpeg silence detection failed: ${result.error?.message ?? result.stderr.trim()}`);
 
   const intervals = parseSilenceIntervals(result.stderr, media.durationSeconds);
   const cuts = intervals.flatMap(({ start, end }) => {
     const sourceStart = round(start + paddingSeconds);
     const sourceEnd = round(end - paddingSeconds);
-    return sourceEnd > sourceStart ? [{ sourceStart, sourceEnd, reason: `acoustic silence (${round(end - start)}s)` }] : [];
+    return sourceEnd > sourceStart
+      ? [{ sourceStart, sourceEnd, reason: `acoustic silence (${round(end - start)}s)` }]
+      : [];
   });
   const edl = { schemaVersion: 1, sourceDurationSeconds: media.durationSeconds, cuts };
   validateEdl(edl, media.durationSeconds);
@@ -42,7 +58,8 @@ export function parseSilenceIntervals(log, durationSeconds) {
       silenceStart = undefined;
     }
   }
-  if (silenceStart !== undefined && durationSeconds > silenceStart) intervals.push({ start: silenceStart, end: durationSeconds });
+  if (silenceStart !== undefined && durationSeconds > silenceStart)
+    intervals.push({ start: silenceStart, end: durationSeconds });
   return intervals;
 }
 

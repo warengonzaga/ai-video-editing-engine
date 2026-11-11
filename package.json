@@ -30,6 +30,7 @@
     "requirements-otio.txt"
   ],
   "description": "Local-first video editing CLI and JavaScript API for AI workflows.",
+  "packageManager": "bun@1.4.4",
   "engines": {
     "node": ">=22"
   },
@@ -43,10 +44,16 @@
     }
   },
   "scripts": {
-    "test": "node --test",
-    "test:render-smoke": "node scripts/render-smoke.mjs",
-    "doctor": "node src/doctor.mjs",
-    "new-video": "node src/cli.mjs project create",
-    "retime": "node src/cli.mjs retime"
+    "test": "bun test",
+    "test:render-smoke": "bun scripts/render-smoke.mjs",
+    "doctor": "bun src/doctor.mjs",
+    "new-video": "bun src/cli.mjs project create",
+    "retime": "bun src/cli.mjs retime",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6"
   }
 }

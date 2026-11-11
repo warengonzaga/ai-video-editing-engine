@@ -1,11 +1,11 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
-import { resolveCanvasPreset } from './presets.mjs';
-import { DEFAULT_SOURCE_FIT, validateSourceFit } from '../timeline/source-fit.mjs';
-import { createProjectTimeline } from '../timeline/project.mjs';
+import { dirname, join, resolve } from 'node:path';
 import { normalizeFrameRate } from '../media/frame-rate.mjs';
 import { DEFAULT_PROJECT_BACKGROUND_COLOR, validateProjectBackgroundColor } from '../timeline/background.mjs';
+import { createProjectTimeline } from '../timeline/project.mjs';
+import { DEFAULT_SOURCE_FIT, validateSourceFit } from '../timeline/source-fit.mjs';
+import { resolveCanvasPreset } from './presets.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -13,7 +13,12 @@ export function createVideoProject(root, slug, options = {}) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     throw new TypeError('Use a lowercase kebab-case slug, not a path.');
   }
-  const { fps: requestedFps = 30, durationSeconds = 10, sourceFit = DEFAULT_SOURCE_FIT, backgroundColor = DEFAULT_PROJECT_BACKGROUND_COLOR } = options;
+  const {
+    fps: requestedFps = 30,
+    durationSeconds = 10,
+    sourceFit = DEFAULT_SOURCE_FIT,
+    backgroundColor = DEFAULT_PROJECT_BACKGROUND_COLOR,
+  } = options;
   if (options.preset !== undefined && (options.width !== undefined || options.height !== undefined)) {
     throw new TypeError('Choose a canvas preset or custom width and height, not both.');
   }
@@ -53,12 +58,24 @@ export function createVideoProject(root, slug, options = {}) {
     const gsapPath = join(dirname(require.resolve('gsap')), 'gsap.min.js');
     copyFileSync(gsapPath, join(projectPath, 'assets', 'gsap.min.js'));
     writeFileSync(join(projectPath, 'meta.json'), `${JSON.stringify(project, null, 2)}\n`, { flag: 'wx' });
-    writeFileSync(join(projectPath, 'hyperframes.json'), `${JSON.stringify({
-      '$schema': 'https://hyperframes.heygen.com/schema/hyperframes.json',
-      paths: { blocks: 'compositions', components: 'compositions/components', assets: 'assets' },
-    }, null, 2)}\n`, { flag: 'wx' });
+    writeFileSync(
+      join(projectPath, 'hyperframes.json'),
+      `${JSON.stringify(
+        {
+          $schema: 'https://hyperframes.heygen.com/schema/hyperframes.json',
+          paths: { blocks: 'compositions', components: 'compositions/components', assets: 'assets' },
+        },
+        null,
+        2,
+      )}\n`,
+      { flag: 'wx' },
+    );
     writeFileSync(join(projectPath, 'index.html'), starterHtml(project), { flag: 'wx' });
-    writeFileSync(join(projectPath, 'timeline.json'), `${JSON.stringify(createProjectTimeline(projectPath), null, 2)}\n`, { flag: 'wx' });
+    writeFileSync(
+      join(projectPath, 'timeline.json'),
+      `${JSON.stringify(createProjectTimeline(projectPath), null, 2)}\n`,
+      { flag: 'wx' },
+    );
   } catch (error) {
     rmSync(projectPath, { recursive: true, force: true });
     throw error;
@@ -94,7 +111,15 @@ function starterHtml({ name, width, height, durationSeconds, backgroundColor }) 
 }
 
 function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  })[character]);
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[character],
+  );
 }

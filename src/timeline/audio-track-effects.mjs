@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { runProcess } from '../render/process.mjs';
@@ -17,7 +17,9 @@ export function applyAudioTrackEffectProxies(root, timeline, temporaryAssets) {
         maxBuffer: 4 * 1024 * 1024,
       });
       if (result.error || result.status !== 0) {
-        throw new Error(`Could not apply audio effects to track ${job.trackId}: ${result.error?.message ?? result.stderr.trim()}`);
+        throw new Error(
+          `Could not apply audio effects to track ${job.trackId}: ${result.error?.message ?? result.stderr.trim()}`,
+        );
       }
     }
     return context.timeline;
@@ -54,7 +56,10 @@ function prepareAudioTrackEffectProxies(root, timeline, temporaryAssets) {
   try {
     for (const track of next.tracks) {
       if (track.kind !== 'audio' || !track.audioEffects?.length || track.clips.length === 0) continue;
-      const sourceClips = track.clips.map((clip) => ({ timelineStart: clip.timelineStart, durationSeconds: clip.durationSeconds }));
+      const sourceClips = track.clips.map((clip) => ({
+        timelineStart: clip.timelineStart,
+        durationSeconds: clip.durationSeconds,
+      }));
       const labels = [];
       const filters = [];
       const args = [];
@@ -77,7 +82,9 @@ function prepareAudioTrackEffectProxies(root, timeline, temporaryAssets) {
       }
       const effectFilters = buildAudioClipEffectFilters(track.audioEffects);
       const outputLabel = 'trackfxout';
-      filters.push(`${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0,apad=whole_dur=${next.project.durationSeconds},atrim=duration=${next.project.durationSeconds},asetpts=PTS-STARTPTS${effectFilters.length ? `,${effectFilters.join(',')}` : ''}[${outputLabel}]`);
+      filters.push(
+        `${labels.join('')}amix=inputs=${labels.length}:duration=longest:normalize=0,apad=whole_dur=${next.project.durationSeconds},atrim=duration=${next.project.durationSeconds},asetpts=PTS-STARTPTS${effectFilters.length ? `,${effectFilters.join(',')}` : ''}[${outputLabel}]`,
+      );
       const id = `track-effects-${track.id}-${randomUUID().slice(0, 8)}`;
       const relativePath = `assets/.${id}-${randomUUID()}.wav`;
       const absolutePath = join(root, ...relativePath.split('/'));
@@ -85,26 +92,56 @@ function prepareAudioTrackEffectProxies(root, timeline, temporaryAssets) {
       jobs.push({
         trackId: track.id,
         args: [
-          '-nostdin', '-hide_banner', '-v', 'error', '-y', '-filter_threads', '1', '-filter_complex_threads', '1',
-          ...args, '-filter_complex', filters.join(';'), '-map', `[${outputLabel}]`, '-vn', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le', absolutePath,
+          '-nostdin',
+          '-hide_banner',
+          '-v',
+          'error',
+          '-y',
+          '-filter_threads',
+          '1',
+          '-filter_complex_threads',
+          '1',
+          ...args,
+          '-filter_complex',
+          filters.join(';'),
+          '-map',
+          `[${outputLabel}]`,
+          '-vn',
+          '-ar',
+          '48000',
+          '-ac',
+          '2',
+          '-c:a',
+          'pcm_s16le',
+          absolutePath,
         ],
       });
-      next.assets.push({ id, path: relativePath, type: 'audio', hasAudio: true, durationSeconds: next.project.durationSeconds });
-      track.clips = [{
-        id: `processed-${track.id}`,
-        assetId: id,
-        sourceIn: 0,
-        sourceOut: next.project.durationSeconds,
-        timelineStart: 0,
+      next.assets.push({
+        id,
+        path: relativePath,
+        type: 'audio',
+        hasAudio: true,
         durationSeconds: next.project.durationSeconds,
-      }];
+      });
+      track.clips = [
+        {
+          id: `processed-${track.id}`,
+          assetId: id,
+          sourceIn: 0,
+          sourceOut: next.project.durationSeconds,
+          timelineStart: 0,
+          durationSeconds: next.project.durationSeconds,
+        },
+      ];
       track.volume = 1;
       delete track.volumeKeyframes;
       delete track.audioEffects;
       track._duckingIntervals = sourceClips;
     }
 
-    const effectedTrackIds = new Set(next.tracks.filter((track) => track.kind === 'audio' && track._duckingIntervals).map((track) => track.id));
+    const effectedTrackIds = new Set(
+      next.tracks.filter((track) => track.kind === 'audio' && track._duckingIntervals).map((track) => track.id),
+    );
     if (next.audioMix?.ducking) {
       const ducking = next.audioMix.ducking.filter((rule) => !effectedTrackIds.has(rule.targetTrackId));
       if (ducking.length === 0) delete next.audioMix.ducking;

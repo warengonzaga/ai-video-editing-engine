@@ -1,19 +1,48 @@
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-import { closeSync, copyFileSync, cpSync, createReadStream, createWriteStream, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  copyFileSync,
+  cpSync,
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { mkdir, mkdtemp, open, readdir, rename, rm } from 'node:fs/promises';
-import { pipeline } from 'node:stream/promises';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, resolve } from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import { hasFfmpegEncoder, hasFfmpegFilter } from '../media/ffmpeg-capabilities.mjs';
+import { frameRateNumber } from '../media/frame-rate.mjs';
 import { probeMedia, probeMediaAsync } from '../media/probe.mjs';
-import { createFfmpegProgressParser, emitRenderProgress } from './progress.mjs';
 import { normalizeTranscript } from '../transcript/normalize.mjs';
 import { parseSubtitleText } from '../transcript/subtitles.mjs';
-import { frameRateNumber } from '../media/frame-rate.mjs';
-import { resolveColorProfile, resolveEncoderArgs, resolveProfileEncoder, resolveRenderControlArgs, resolveRenderFormat, resolveVideoEncoder } from './formats.mjs';
-import { hasFfmpegEncoder, hasFfmpegFilter } from '../media/ffmpeg-capabilities.mjs';
+import {
+  fingerprintRenderProject,
+  prepareRenderCheckpoint,
+  removeRenderCheckpoint,
+  restoreRenderCheckpoint,
+  saveRenderCheckpoint,
+} from './checkpoints.mjs';
+import {
+  resolveColorProfile,
+  resolveEncoderArgs,
+  resolveProfileEncoder,
+  resolveRenderControlArgs,
+  resolveRenderFormat,
+  resolveVideoEncoder,
+} from './formats.mjs';
 import { runProcess } from './process.mjs';
-import { fingerprintRenderProject, prepareRenderCheckpoint, removeRenderCheckpoint, restoreRenderCheckpoint, saveRenderCheckpoint } from './checkpoints.mjs';
+import { createFfmpegProgressParser, emitRenderProgress } from './progress.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -34,19 +63,25 @@ export function importProjectTranscript(projectPath, mediaPath, transcriptPath) 
   const media = probeMedia(mediaPath, { requireVideo: false });
   const inputPath = resolve(transcriptPath);
   const inputExtension = extname(inputPath).toLowerCase();
-  if (!existsSync(join(project, 'meta.json')) || !existsSync(join(project, 'index.html'))) throw new Error(`Not a video project: ${project}`);
+  if (!existsSync(join(project, 'meta.json')) || !existsSync(join(project, 'index.html')))
+    throw new Error(`Not a video project: ${project}`);
   const rawPath = join(project, 'transcript.json');
   const outputPath = join(project, 'transcripts', 'transcript.json');
   if (existsSync(rawPath) || existsSync(outputPath)) {
     throw new Error('This project already has a transcript; create a new project to preserve the existing edit.');
   }
   const granularity = ['.srt', '.vtt'].includes(inputExtension) ? 'cue' : 'word';
-  const raw = granularity === 'cue'
-    ? parseSubtitleText(readFileSync(inputPath, 'utf8'), inputExtension.slice(1))
-    : JSON.parse(readFileSync(inputPath, 'utf8'));
+  const raw =
+    granularity === 'cue'
+      ? parseSubtitleText(readFileSync(inputPath, 'utf8'), inputExtension.slice(1))
+      : JSON.parse(readFileSync(inputPath, 'utf8'));
   const transcript = normalizeTranscript(raw, media.durationSeconds, granularity);
   writeFileSync(outputPath, `${JSON.stringify(transcript, null, 2)}\n`, { flag: 'wx' });
-  return { transcriptPath: outputPath, wordCount: transcript.words.length, durationSeconds: transcript.durationSeconds };
+  return {
+    transcriptPath: outputPath,
+    wordCount: transcript.words.length,
+    durationSeconds: transcript.durationSeconds,
+  };
 }
 
 export function transcribeProject(projectPath, mediaPath, options = {}) {
@@ -81,7 +116,10 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
   const colorProfile = resolveColorProfile(options.colorProfile, format);
   const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder, colorProfile) : videoEncoder;
   if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
-  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter)) throw new Error(`The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`);
+  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter))
+    throw new Error(
+      `The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`,
+    );
   const encoderArgs = resolveEncoderArgs(format, encoderSettings);
   const renderControlArgs = resolveRenderControlArgs(options);
   if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
@@ -92,52 +130,98 @@ export function renderProject(projectPath, outputPath, quality = 'draft', option
   const temporaryOutput = pngSequence
     ? join(temporaryDirectory, 'frames')
     : join(temporaryDirectory, `render.${format}`);
-  const encodedOutput = finalEncoder.codec
-    ? join(temporaryDirectory, `encoded.${format}`)
-    : undefined;
+  const encodedOutput = finalEncoder.codec ? join(temporaryDirectory, `encoded.${format}`) : undefined;
   let outputCreated = false;
 
   try {
-    runHyperframes(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...renderControlArgs, ...encoderArgs, '--output', temporaryOutput], project);
+    runHyperframes(
+      [
+        'render',
+        '--format',
+        format,
+        '--fps',
+        String(meta.fps),
+        '--quality',
+        quality,
+        ...renderControlArgs,
+        ...encoderArgs,
+        '--output',
+        temporaryOutput,
+      ],
+      project,
+    );
     if (pngSequence) {
-      const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'));
+      const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter(
+        (entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'),
+      );
       const expectedFrames = Math.round(meta.durationSeconds * frameRateNumber(meta.fps ?? 30));
-      if (frames.length !== expectedFrames || frames.length === 0) throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
+      if (frames.length !== expectedFrames || frames.length === 0)
+        throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
       for (const frame of frames) {
         const data = readFileSync(join(temporaryOutput, frame.name));
-        if (data.length < 24 || data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a'
-            || data.readUInt32BE(16) !== meta.width || data.readUInt32BE(20) !== meta.height) {
+        if (
+          data.length < 24 ||
+          data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' ||
+          data.readUInt32BE(16) !== meta.width ||
+          data.readUInt32BE(20) !== meta.height
+        ) {
           throw new Error(`PNG sequence frame ${frame.name} has an invalid signature or dimensions.`);
         }
       }
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
       publishPngSequenceSync(temporaryOutput, output, outputDir);
-      return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
+      return {
+        project,
+        output,
+        format,
+        durationSeconds: meta.durationSeconds,
+        width: meta.width,
+        height: meta.height,
+        frameRate: frameRateNumber(meta.fps),
+        frameCount: frames.length,
+      };
     }
     if (finalEncoder.codec) encodeVideoFile(temporaryOutput, encodedOutput, format, finalEncoder, colorProfile);
     const rendered = probeMedia(encodedOutput ?? temporaryOutput);
     const expectedFps = frameRateNumber(meta.fps ?? 30);
     if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / expectedFps)) {
-      throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`);
+      throw new Error(
+        `Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`,
+      );
     }
     if (rendered.width !== meta.width || rendered.height !== meta.height) {
-      throw new Error(`Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`);
+      throw new Error(
+        `Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`,
+      );
     }
-    const renderedFrameRate = rendered.videoCodec === 'gif'
-      ? rendered.nominalFrameRate ?? rendered.frameRate
-      : rendered.frameRate;
+    const renderedFrameRate =
+      rendered.videoCodec === 'gif' ? (rendered.nominalFrameRate ?? rendered.frameRate) : rendered.frameRate;
     if (renderedFrameRate && Math.abs(renderedFrameRate - expectedFps) > 0.001) {
-      throw new Error(`Rendered frame rate ${renderedFrameRate} fps does not match project frame rate ${meta.fps} fps.`);
+      throw new Error(
+        `Rendered frame rate ${renderedFrameRate} fps does not match project frame rate ${meta.fps} fps.`,
+      );
     }
     const expectedCodec = { h264: 'h264', h265: 'hevc', vp9: 'vp9', prores: 'prores' }[finalEncoder.codecId];
     if (expectedCodec && rendered.videoCodec !== expectedCodec) {
-      throw new Error(`Rendered video codec ${rendered.videoCodec} does not match requested codec ${finalEncoder.codecId}.`);
+      throw new Error(
+        `Rendered video codec ${rendered.videoCodec} does not match requested codec ${finalEncoder.codecId}.`,
+      );
     }
     validateColorProfile(rendered, colorProfile);
     closeSync(openSync(output, 'wx'));
     outputCreated = true;
     copyFileSync(encodedOutput ?? temporaryOutput, output);
-    return { project, output, format, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height, frameRate: rendered.frameRate, videoCodec: rendered.videoCodec, ...(colorProfile ? { colorProfile: colorProfile.id } : {}) };
+    return {
+      project,
+      output,
+      format,
+      durationSeconds: rendered.durationSeconds,
+      width: rendered.width,
+      height: rendered.height,
+      frameRate: rendered.frameRate,
+      videoCodec: rendered.videoCodec,
+      ...(colorProfile ? { colorProfile: colorProfile.id } : {}),
+    };
   } catch (error) {
     if (outputCreated && existsSync(output)) unlinkSync(output);
     throw error;
@@ -151,13 +235,18 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
   const indexPath = join(project, 'index.html');
   const metaPath = join(project, 'meta.json');
   if (!existsSync(indexPath) || !existsSync(metaPath)) throw new Error(`Not a video project: ${project}`);
-  if (!['draft', 'standard', 'high'].includes(quality)) throw new TypeError('Quality must be draft, standard, or high.');
+  if (!['draft', 'standard', 'high'].includes(quality))
+    throw new TypeError('Quality must be draft, standard, or high.');
 
   const { signal: externalSignal, onProgress, ...renderOptions } = options;
-  if (externalSignal !== undefined && (typeof externalSignal.aborted !== 'boolean' || typeof externalSignal.addEventListener !== 'function')) {
+  if (
+    externalSignal !== undefined &&
+    (typeof externalSignal.aborted !== 'boolean' || typeof externalSignal.addEventListener !== 'function')
+  ) {
     throw new TypeError('Render signal must be an AbortSignal.');
   }
-  if (onProgress !== undefined && typeof onProgress !== 'function') throw new TypeError('Render onProgress must be a function.');
+  if (onProgress !== undefined && typeof onProgress !== 'function')
+    throw new TypeError('Render onProgress must be a function.');
   const controls = resolveRenderControlArgs(renderOptions);
   const resumeCheckpoint = renderOptions.resumeCheckpoint === true;
   const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
@@ -168,9 +257,13 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
   const colorProfile = resolveColorProfile(renderOptions.colorProfile, format);
   const finalEncoder = colorProfile ? resolveProfileEncoder(format, videoEncoder, colorProfile) : videoEncoder;
   if (finalEncoder.codec) hasFfmpegEncoder(finalEncoder.codec);
-  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter)) throw new Error(`The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`);
+  if (colorProfile && !hasFfmpegFilter(colorProfile.requiredFilter))
+    throw new Error(
+      `The ${colorProfile.id} color profile requires an FFmpeg build with the ${colorProfile.requiredFilter} filter.`,
+    );
   const encoderArgs = resolveEncoderArgs(format, encoderSettings);
-  if (resumeCheckpoint && format === 'png-sequence') throw new TypeError('Resumable checkpoints do not support PNG sequence output.');
+  if (resumeCheckpoint && format === 'png-sequence')
+    throw new TypeError('Resumable checkpoints do not support PNG sequence output.');
   if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
   const outputDir = dirname(output);
   mkdirSync(outputDir, { recursive: true });
@@ -200,7 +293,9 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     });
     checkpoint = await prepareRenderCheckpoint(output, fingerprint, {
       ...(renderOptions.checkpointMaxBytes !== undefined ? { maxBytes: renderOptions.checkpointMaxBytes } : {}),
-      ...(renderOptions.checkpointMaxAgeHours !== undefined ? { maxAgeHours: renderOptions.checkpointMaxAgeHours } : {}),
+      ...(renderOptions.checkpointMaxAgeHours !== undefined
+        ? { maxAgeHours: renderOptions.checkpointMaxAgeHours }
+        : {}),
     });
     checkpointArtifact = await restoreRenderCheckpoint(checkpoint);
     resumedFromCheckpoint = Boolean(checkpointArtifact);
@@ -211,15 +306,28 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
 
   try {
     temporaryDirectory = await mkdtemp(join(tmpdir(), 'aive-render-'));
-    temporaryOutput = pngSequence
-      ? join(temporaryDirectory, 'frames')
-      : join(temporaryDirectory, `render.${format}`);
-    encodedOutput = finalEncoder.codec
-      ? join(temporaryDirectory, `encoded.${format}`)
-      : undefined;
+    temporaryOutput = pngSequence ? join(temporaryDirectory, 'frames') : join(temporaryDirectory, `render.${format}`);
+    encodedOutput = finalEncoder.codec ? join(temporaryDirectory, `encoded.${format}`) : undefined;
     if (!checkpointArtifact) {
       emitRenderProgress(onProgress, 'capture', 'started');
-      await runHyperframesAsync(['render', '--format', format, '--fps', String(meta.fps), '--quality', quality, ...controls, ...encoderArgs, '--output', temporaryOutput], project, control.signal, onProgress);
+      await runHyperframesAsync(
+        [
+          'render',
+          '--format',
+          format,
+          '--fps',
+          String(meta.fps),
+          '--quality',
+          quality,
+          ...controls,
+          ...encoderArgs,
+          '--output',
+          temporaryOutput,
+        ],
+        project,
+        control.signal,
+        onProgress,
+      );
       emitRenderProgress(onProgress, 'capture', 'completed');
       if (checkpoint) {
         emitRenderProgress(onProgress, 'validation', 'started', { target: 'checkpoint-capture' });
@@ -232,16 +340,23 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     }
     if (pngSequence) {
       emitRenderProgress(onProgress, 'validation', 'started', { target: 'png-sequence' });
-      const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'));
+      const frames = readdirSync(temporaryOutput, { withFileTypes: true }).filter(
+        (entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.png'),
+      );
       const expectedFrames = Math.round(meta.durationSeconds * frameRateNumber(meta.fps ?? 30));
-      if (frames.length !== expectedFrames || frames.length === 0) throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
+      if (frames.length !== expectedFrames || frames.length === 0)
+        throw new Error(`PNG sequence has ${frames.length} frames; expected ${expectedFrames}.`);
       for (const frame of frames) {
         control.signal.throwIfAborted();
-        if (!await hasExpectedPngHeader(join(temporaryOutput, frame.name), meta.width, meta.height)) {
+        if (!(await hasExpectedPngHeader(join(temporaryOutput, frame.name), meta.width, meta.height))) {
           throw new Error(`PNG sequence frame ${frame.name} has an invalid signature or dimensions.`);
         }
       }
-      emitRenderProgress(onProgress, 'validation', 'completed', { target: 'png-sequence', completed: frames.length, total: frames.length });
+      emitRenderProgress(onProgress, 'validation', 'completed', {
+        target: 'png-sequence',
+        completed: frames.length,
+        total: frames.length,
+      });
       if (existsSync(output)) throw new Error(`Output already exists: ${output}`);
       control.signal.throwIfAborted();
       emitRenderProgress(onProgress, 'publish', 'started');
@@ -249,12 +364,30 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
       outputCreated = true;
       control.signal.throwIfAborted();
       emitRenderProgress(onProgress, 'publish', 'completed');
-      return { project, output, format, durationSeconds: meta.durationSeconds, width: meta.width, height: meta.height, frameRate: frameRateNumber(meta.fps), frameCount: frames.length };
+      return {
+        project,
+        output,
+        format,
+        durationSeconds: meta.durationSeconds,
+        width: meta.width,
+        height: meta.height,
+        frameRate: frameRateNumber(meta.fps),
+        frameCount: frames.length,
+      };
     }
     const renderArtifact = checkpointArtifact ?? temporaryOutput;
     if (finalEncoder.codec) {
       emitRenderProgress(onProgress, 'encoding', 'started', { codec: finalEncoder.codecId });
-      await encodeVideoFileAsync(renderArtifact, encodedOutput, format, finalEncoder, control.signal, colorProfile, meta.durationSeconds, onProgress);
+      await encodeVideoFileAsync(
+        renderArtifact,
+        encodedOutput,
+        format,
+        finalEncoder,
+        control.signal,
+        colorProfile,
+        meta.durationSeconds,
+        onProgress,
+      );
       emitRenderProgress(onProgress, 'encoding', 'completed', { codec: finalEncoder.codecId });
     } else emitRenderProgress(onProgress, 'encoding', 'skipped', { reason: 'renderer-output-is-final' });
     emitRenderProgress(onProgress, 'validation', 'started', { target: 'final-output' });
@@ -265,19 +398,37 @@ export async function renderProjectAsync(projectPath, outputPath, quality = 'dra
     const outputFile = await open(output, 'wx');
     outputCreated = true;
     emitRenderProgress(onProgress, 'publish', 'started');
-    await pipeline(createReadStream(encodedOutput ?? renderArtifact, { signal: control.signal }),
-      outputFile.createWriteStream(), { signal: control.signal });
+    await pipeline(
+      createReadStream(encodedOutput ?? renderArtifact, { signal: control.signal }),
+      outputFile.createWriteStream(),
+      { signal: control.signal },
+    );
     emitRenderProgress(onProgress, 'publish', 'completed');
     completed = true;
-    return { project, output, format, durationSeconds: rendered.durationSeconds, width: rendered.width, height: rendered.height, frameRate: rendered.frameRate, videoCodec: rendered.videoCodec, ...(colorProfile ? { colorProfile: colorProfile.id } : {}), ...(resumeCheckpoint ? { resumedFromCheckpoint } : {}) };
+    return {
+      project,
+      output,
+      format,
+      durationSeconds: rendered.durationSeconds,
+      width: rendered.width,
+      height: rendered.height,
+      frameRate: rendered.frameRate,
+      videoCodec: rendered.videoCodec,
+      ...(colorProfile ? { colorProfile: colorProfile.id } : {}),
+      ...(resumeCheckpoint ? { resumedFromCheckpoint } : {}),
+    };
   } catch (error) {
     if (outputCreated && existsSync(output)) await rm(output, { recursive: true, force: true });
-    if (checkpointArtifact) error.message += ' The completed capture is preserved for resume; retry the same render options to reuse it.';
+    if (checkpointArtifact)
+      error.message += ' The completed capture is preserved for resume; retry the same render options to reuse it.';
     throw error;
   } finally {
-    if (temporaryOutput) await cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput, temporaryDirectory);
+    if (temporaryOutput)
+      await cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, encodedOutput, temporaryDirectory);
     if (checkpoint && completed) {
-      await removeRenderCheckpoint(checkpoint).catch((error) => process.emitWarning(`Could not remove completed render checkpoint: ${error.message}`));
+      await removeRenderCheckpoint(checkpoint).catch((error) =>
+        process.emitWarning(`Could not remove completed render checkpoint: ${error.message}`),
+      );
     }
     control.dispose();
   }
@@ -288,8 +439,12 @@ async function hasExpectedPngHeader(path, width, height) {
   try {
     const header = Buffer.alloc(24);
     const { bytesRead } = await file.read(header, 0, header.length, 0);
-    return bytesRead === header.length && header.subarray(0, 8).toString('hex') === '89504e470d0a1a0a'
-      && header.readUInt32BE(16) === width && header.readUInt32BE(20) === height;
+    return (
+      bytesRead === header.length &&
+      header.subarray(0, 8).toString('hex') === '89504e470d0a1a0a' &&
+      header.readUInt32BE(16) === width &&
+      header.readUInt32BE(20) === height
+    );
   } finally {
     await file.close();
   }
@@ -314,21 +469,36 @@ async function cleanupTemporaryRenderOutputsAsync(outputDir, temporaryOutput, en
 
 function validateRenderedMedia(rendered, meta, codecId) {
   const expectedFps = frameRateNumber(meta.fps ?? 30);
-  if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / expectedFps)) throw new Error(`Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`);
-  if (rendered.width !== meta.width || rendered.height !== meta.height) throw new Error(`Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`);
-  const renderedFrameRate = rendered.videoCodec === 'gif'
-    ? rendered.nominalFrameRate ?? rendered.frameRate
-    : rendered.frameRate;
-  if (renderedFrameRate && Math.abs(renderedFrameRate - expectedFps) > 0.001) throw new Error(`Rendered frame rate ${renderedFrameRate} fps does not match project frame rate ${meta.fps} fps.`);
+  if (Math.abs(rendered.durationSeconds - meta.durationSeconds) > Math.max(0.15, 1 / expectedFps))
+    throw new Error(
+      `Rendered duration ${rendered.durationSeconds.toFixed(3)}s does not match project duration ${meta.durationSeconds}s.`,
+    );
+  if (rendered.width !== meta.width || rendered.height !== meta.height)
+    throw new Error(
+      `Rendered canvas ${rendered.width}×${rendered.height} does not match project canvas ${meta.width}×${meta.height}.`,
+    );
+  const renderedFrameRate =
+    rendered.videoCodec === 'gif' ? (rendered.nominalFrameRate ?? rendered.frameRate) : rendered.frameRate;
+  if (renderedFrameRate && Math.abs(renderedFrameRate - expectedFps) > 0.001)
+    throw new Error(`Rendered frame rate ${renderedFrameRate} fps does not match project frame rate ${meta.fps} fps.`);
   const expectedCodec = { h264: 'h264', h265: 'hevc', vp9: 'vp9', prores: 'prores' }[codecId];
-  if (expectedCodec && rendered.videoCodec !== expectedCodec) throw new Error(`Rendered video codec ${rendered.videoCodec} does not match requested codec ${codecId}.`);
+  if (expectedCodec && rendered.videoCodec !== expectedCodec)
+    throw new Error(`Rendered video codec ${rendered.videoCodec} does not match requested codec ${codecId}.`);
 }
 
 function validateColorProfile(rendered, colorProfile) {
   if (!colorProfile) return;
-  for (const field of ['colorSpace', 'colorTransfer', 'colorPrimaries', 'colorRange', ...(colorProfile.pixelFormat ? ['pixelFormat'] : [])]) {
+  for (const field of [
+    'colorSpace',
+    'colorTransfer',
+    'colorPrimaries',
+    'colorRange',
+    ...(colorProfile.pixelFormat ? ['pixelFormat'] : []),
+  ]) {
     if (rendered[field] !== colorProfile[field]) {
-      throw new Error(`Rendered ${field} ${rendered[field] ?? 'unknown'} does not match requested ${colorProfile.id} profile (${colorProfile[field]}).`);
+      throw new Error(
+        `Rendered ${field} ${rendered[field] ?? 'unknown'} does not match requested ${colorProfile.id} profile (${colorProfile[field]}).`,
+      );
     }
   }
 }
@@ -389,11 +559,14 @@ function createRenderControl(externalSignal, timeoutSeconds) {
   const relayAbort = () => controller.abort(externalSignal.reason);
   if (externalSignal?.aborted) relayAbort();
   else externalSignal?.addEventListener('abort', relayAbort, { once: true });
-  const timer = timeoutSeconds === undefined ? undefined : setTimeout(() => {
-    const error = new Error(`Render exceeded the configured timeout of ${timeoutSeconds} seconds.`);
-    error.name = 'TimeoutError';
-    controller.abort(error);
-  }, timeoutSeconds * 1000);
+  const timer =
+    timeoutSeconds === undefined
+      ? undefined
+      : setTimeout(() => {
+          const error = new Error(`Render exceeded the configured timeout of ${timeoutSeconds} seconds.`);
+          error.name = 'TimeoutError';
+          controller.abort(error);
+        }, timeoutSeconds * 1000);
   timer?.unref();
   return {
     signal: controller.signal,
@@ -404,10 +577,30 @@ function createRenderControl(externalSignal, timeoutSeconds) {
   };
 }
 
-async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, signal, colorProfile, durationSeconds, onProgress) {
+async function encodeVideoFileAsync(
+  inputPath,
+  outputPath,
+  format,
+  encoder,
+  signal,
+  colorProfile,
+  durationSeconds,
+  onProgress,
+) {
   const args = [
-    '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
-    '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
+    '-nostdin',
+    '-hide_banner',
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    inputPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-c:v',
+    encoder.codec,
   ];
   appendVideoProfileArgs(args, encoder, colorProfile);
   if (encoder.crf !== undefined) {
@@ -418,22 +611,37 @@ async function encodeVideoFileAsync(inputPath, outputPath, format, encoder, sign
   args.push('-c:a', 'copy', '-progress', 'pipe:1', '-nostats');
   if (format === 'mp4' || format === 'mov') args.push('-movflags', '+faststart');
   args.push(outputPath);
-  const progressParser = onProgress ? createFfmpegProgressParser(onProgress, 'encoding', durationSeconds, { codec: encoder.codecId }) : undefined;
+  const progressParser = onProgress
+    ? createFfmpegProgressParser(onProgress, 'encoding', durationSeconds, { codec: encoder.codecId })
+    : undefined;
   await runProcess('ffmpeg', args, {
     signal,
-    ...(progressParser ? {
-      stdio: 'capture',
-      onStdout: progressParser.push,
-      onStderr: (chunk) => process.stderr.write(chunk),
-    } : {}),
+    ...(progressParser
+      ? {
+          stdio: 'capture',
+          onStdout: progressParser.push,
+          onStderr: (chunk) => process.stderr.write(chunk),
+        }
+      : {}),
   });
   progressParser?.flush();
 }
 
 function encodeVideoFile(inputPath, outputPath, format, encoder, colorProfile) {
   const args = [
-    '-nostdin', '-hide_banner', '-v', 'error', '-y', '-i', inputPath,
-    '-map', '0:v:0', '-map', '0:a?', '-c:v', encoder.codec,
+    '-nostdin',
+    '-hide_banner',
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    inputPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-c:v',
+    encoder.codec,
   ];
   appendVideoProfileArgs(args, encoder, colorProfile);
   if (encoder.crf !== undefined) {
@@ -456,9 +664,23 @@ function appendVideoProfileArgs(args, encoder, colorProfile) {
   if (colorProfile) {
     args.push('-vf', colorProfile.filter);
     if (colorProfile.id === 'hdr10') {
-      args.push('-profile:v', 'main10', '-x265-params', `hdr10=1:master-display=${colorProfile.masteringDisplay}:max-cll=${colorProfile.contentLightLevel}`);
+      args.push(
+        '-profile:v',
+        'main10',
+        '-x265-params',
+        `hdr10=1:master-display=${colorProfile.masteringDisplay}:max-cll=${colorProfile.contentLightLevel}`,
+      );
     }
-    args.push('-color_primaries', colorProfile.colorPrimaries, '-color_trc', colorProfile.colorTransfer, '-colorspace', colorProfile.colorSpace, '-color_range', colorProfile.colorRange);
+    args.push(
+      '-color_primaries',
+      colorProfile.colorPrimaries,
+      '-color_trc',
+      colorProfile.colorTransfer,
+      '-colorspace',
+      colorProfile.colorSpace,
+      '-color_range',
+      colorProfile.colorRange,
+    );
   }
 }
 
@@ -493,11 +715,13 @@ async function runHyperframesAsync(args, projectPath, signal, onProgress) {
       cwd: project,
       signal,
       windowsHide: false,
-      ...(progressParser ? {
-        stdio: 'capture',
-        onStdout: progressParser.push,
-        onStderr: (chunk) => process.stderr.write(chunk),
-      } : {}),
+      ...(progressParser
+        ? {
+            stdio: 'capture',
+            onStdout: progressParser.push,
+            onStderr: (chunk) => process.stderr.write(chunk),
+          }
+        : {}),
     });
     progressParser?.flush();
   } catch (error) {
@@ -537,10 +761,11 @@ function createHyperframesProgressParser(onProgress) {
   return {
     push(chunk) {
       pending += chunk.toString('utf8');
-      let newline;
-      while ((newline = pending.indexOf('\n')) >= 0) {
+      let newline = pending.indexOf('\n');
+      while (newline >= 0) {
         parseLine(pending.slice(0, newline).replace(/\r$/, ''));
         pending = pending.slice(newline + 1);
+        newline = pending.indexOf('\n');
       }
       if (pending.length > 16 * 1024) pending = pending.slice(-16 * 1024);
     },
@@ -585,6 +810,8 @@ function resolveHyperframesPackage() {
   try {
     return require.resolve('hyperframes/package.json');
   } catch {
-    throw new Error('HyperFrames is not installed. Run npm install in the engine repository.');
+    throw new Error(
+      'HyperFrames is not installed. Install dependencies with `bun install` in a source checkout, or reinstall the `aivee` package.',
+    );
   }
 }

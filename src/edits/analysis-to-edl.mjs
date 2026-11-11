@@ -1,11 +1,16 @@
-import { validateEdl } from './retime-transcript.mjs';
 import { normalizeMediaFindings } from '../media/analysis-provider.mjs';
+import { validateEdl } from './retime-transcript.mjs';
 
 /** Convert explicit provider cut suggestions into an EDL that requires review. */
 export function mediaAnalysisToEdl(analysis, { minConfidence = 0 } = {}) {
-  if (!analysis || typeof analysis !== 'object' || analysis.schemaVersion !== 1
-      || !Number.isFinite(analysis.durationSeconds) || analysis.durationSeconds <= 0
-      || !Array.isArray(analysis.findings)) {
+  if (
+    !analysis ||
+    typeof analysis !== 'object' ||
+    analysis.schemaVersion !== 1 ||
+    !Number.isFinite(analysis.durationSeconds) ||
+    analysis.durationSeconds <= 0 ||
+    !Array.isArray(analysis.findings)
+  ) {
     throw new TypeError('Media analysis must be a normalized schemaVersion 1 result.');
   }
   if (!Number.isFinite(minConfidence) || minConfidence < 0 || minConfidence > 1) {

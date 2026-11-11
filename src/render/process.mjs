@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
 
-export function runProcess(command, args, { cwd, signal, stdio = 'inherit', windowsHide = true, onStdout, onStderr } = {}) {
+export function runProcess(
+  command,
+  args,
+  { cwd, signal, stdio = 'inherit', windowsHide = true, onStdout, onStderr } = {},
+) {
   if (signal?.aborted) return Promise.reject(abortReason(signal));
   return new Promise((resolve, reject) => {
     const capture = stdio === 'capture';
@@ -37,7 +41,9 @@ export function runProcess(command, args, { cwd, signal, stdio = 'inherit', wind
     };
     const abort = () => {
       if (killPromise) return;
-      killPromise = terminateProcessTree(child, (timer) => { forceTimer = timer; });
+      killPromise = terminateProcessTree(child, (timer) => {
+        forceTimer = timer;
+      });
     };
     signal?.addEventListener('abort', abort, { once: true });
     child.once('error', (error) => {
@@ -48,10 +54,23 @@ export function runProcess(command, args, { cwd, signal, stdio = 'inherit', wind
       if (signal?.aborted) {
         finish(reject, abortReason(signal));
       } else if (code === 0) {
-        finish(resolve, capture ? { stdout: Buffer.concat(output.stdout).toString('utf8'), stderr: Buffer.concat(output.stderr).toString('utf8') } : true);
+        finish(
+          resolve,
+          capture
+            ? {
+                stdout: Buffer.concat(output.stdout).toString('utf8'),
+                stderr: Buffer.concat(output.stderr).toString('utf8'),
+              }
+            : true,
+        );
       } else {
         const stderr = capture ? Buffer.concat(output.stderr).toString('utf8').trim() : '';
-        finish(reject, new Error(`${command} exited with ${signalName ? `signal ${signalName}` : `code ${code}`}.${stderr ? ` ${stderr}` : ''}`));
+        finish(
+          reject,
+          new Error(
+            `${command} exited with ${signalName ? `signal ${signalName}` : `code ${code}`}.${stderr ? ` ${stderr}` : ''}`,
+          ),
+        );
       }
     });
     if (signal?.aborted) abort();
@@ -96,7 +115,11 @@ function terminateProcessTree(child, setForceTimer) {
     child.kill('SIGTERM');
   }
   const forceTimer = setTimeout(() => {
-    try { process.kill(-child.pid, 'SIGKILL'); } catch { /* process tree already exited */ }
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      /* process tree already exited */
+    }
   }, 1500);
   forceTimer.unref();
   setForceTimer(forceTimer);

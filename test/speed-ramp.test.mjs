@@ -1,9 +1,9 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import {
   buildSpeedRampAudioAutomation,
-  sliceSpeedRamp,
   SPEED_RAMP_EASES,
+  sliceSpeedRamp,
   speedRampDuration,
   speedRampPtsExpression,
   speedRampSourceAtTime,
@@ -34,10 +34,14 @@ test('compiles linear video timestamp mapping and bounded audio tempo commands',
   assert.match(audio.commandContents, /0\.05 rubberband@engine_speed_0 tempo 1\.0375;/);
   assert.equal(audio.commandContents.split('\n').length, 39);
 
-  const wide = buildSpeedRampAudioAutomation([
-    { sourceOffset: 0, playbackRate: 0.1 },
-    { sourceOffset: 1, playbackRate: 5 },
-  ], 'assets/.wide.txt', 0.5);
+  const wide = buildSpeedRampAudioAutomation(
+    [
+      { sourceOffset: 0, playbackRate: 0.1 },
+      { sourceOffset: 1, playbackRate: 5 },
+    ],
+    'assets/.wide.txt',
+    0.5,
+  );
   assert.equal((wide.filters.match(/rubberband@engine_speed_/g) ?? []).length, 1);
 });
 
@@ -46,7 +50,10 @@ test('supports eased speed curves and keeps video, audio, and sliced timing alig
     { sourceOffset: 0, playbackRate: 1, ease: 'easeInOutCubic' },
     { sourceOffset: 2, playbackRate: 3 },
   ];
-  const linear = [{ sourceOffset: 0, playbackRate: 1 }, { sourceOffset: 2, playbackRate: 3 }];
+  const linear = [
+    { sourceOffset: 0, playbackRate: 1 },
+    { sourceOffset: 2, playbackRate: 3 },
+  ];
   const duration = speedRampDuration(eased);
   assert.ok(Number.isFinite(duration));
   assert.notEqual(duration, speedRampDuration(linear));
@@ -59,17 +66,32 @@ test('supports eased speed curves and keeps video, audio, and sliced timing alig
   const audio = buildSpeedRampAudioAutomation(eased, 'assets/.eased-tempo.txt', 0.05);
   assert.match(audio.filters, /^asendcmd=f=assets\/\.eased-tempo\.txt,rubberband@engine_speed_0=/);
   assert.ok(audio.commandContents.split('\n').length > 39);
-  const commandAtHalfSourceSecond = audio.commandContents.split('\n')
+  const commandAtHalfSourceSecond = audio.commandContents
+    .split('\n')
     .find((line) => Math.abs(Number(line.split(' ')[0]) - 0.5) < 1e-12);
   assert.ok(commandAtHalfSourceSecond);
 
   validateSpeedRamp({ id: 'eased-clip', sourceIn: 0, sourceOut: 2, durationSeconds: duration, speedRamp: eased });
-  assert.throws(() => validateSpeedRamp({
-    id: 'bad-ease', sourceIn: 0, sourceOut: 2, durationSeconds: duration,
-    speedRamp: [{ ...eased[0], ease: 'spring' }, eased[1]],
-  }), /outgoing ease/);
-  assert.throws(() => validateSpeedRamp({
-    id: 'last-ease', sourceIn: 0, sourceOut: 2, durationSeconds: duration,
-    speedRamp: [eased[0], { ...eased[1], ease: 'linear' }],
-  }), /outgoing ease/);
+  assert.throws(
+    () =>
+      validateSpeedRamp({
+        id: 'bad-ease',
+        sourceIn: 0,
+        sourceOut: 2,
+        durationSeconds: duration,
+        speedRamp: [{ ...eased[0], ease: 'spring' }, eased[1]],
+      }),
+    /outgoing ease/,
+  );
+  assert.throws(
+    () =>
+      validateSpeedRamp({
+        id: 'last-ease',
+        sourceIn: 0,
+        sourceOut: 2,
+        durationSeconds: duration,
+        speedRamp: [eased[0], { ...eased[1], ease: 'linear' }],
+      }),
+    /outgoing ease/,
+  );
 });

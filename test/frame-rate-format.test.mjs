@@ -1,7 +1,14 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeFrameRate, frameRateNumber } from '../src/media/frame-rate.mjs';
-import { resolveColorProfile, resolveEncoderArgs, resolveProfileEncoder, resolveRenderControlArgs, resolveRenderFormat, resolveVideoEncoder } from '../src/render/formats.mjs';
+import test from 'node:test';
+import { frameRateNumber, normalizeFrameRate } from '../src/media/frame-rate.mjs';
+import {
+  resolveColorProfile,
+  resolveEncoderArgs,
+  resolveProfileEncoder,
+  resolveRenderControlArgs,
+  resolveRenderFormat,
+  resolveVideoEncoder,
+} from '../src/render/formats.mjs';
 import { validateTimeline } from '../src/timeline/validate.mjs';
 
 test('normalizes common and rational video frame rates', () => {
@@ -37,9 +44,17 @@ test('validates encoder quality and bitrate overrides', () => {
   assert.throws(() => resolveEncoderArgs('png-sequence', { videoBitrate: '8M' }), /positive bitrate/);
   assert.throws(() => resolveEncoderArgs('mp4', { crf: 23, videoBitrate: '5M' }), /either crf or videoBitrate/);
   assert.throws(() => resolveEncoderArgs('mp4', { videoBitrate: '5; rm -rf' }), /positive bitrate/);
-  assert.deepEqual(resolveVideoEncoder('mp4', { codec: 'h265', crf: 28 }), { codec: 'libx265', codecId: 'h265', crf: 28 });
+  assert.deepEqual(resolveVideoEncoder('mp4', { codec: 'h265', crf: 28 }), {
+    codec: 'libx265',
+    codecId: 'h265',
+    crf: 28,
+  });
   assert.deepEqual(resolveVideoEncoder('mov', { codec: 'prores' }), { codec: 'prores_ks', codecId: 'prores' });
-  assert.deepEqual(resolveVideoEncoder('webm', { codec: 'vp9', videoBitrate: '4M' }), { codec: 'libvpx-vp9', codecId: 'vp9', videoBitrate: '4M' });
+  assert.deepEqual(resolveVideoEncoder('webm', { codec: 'vp9', videoBitrate: '4M' }), {
+    codec: 'libvpx-vp9',
+    codecId: 'vp9',
+    videoBitrate: '4M',
+  });
   assert.deepEqual(resolveEncoderArgs('mp4', { codec: 'h264', crf: 20 }), []);
   assert.throws(() => resolveVideoEncoder('mp4', { codec: 'vp9' }), /unsupported for mp4/);
   assert.throws(() => resolveVideoEncoder('mov', { codec: 'prores', crf: 20 }), /crf/);
@@ -69,15 +84,29 @@ test('resolves real SDR output color conversions and profile encoders', () => {
   assert.equal(hdr10.requiredFilter, 'zscale');
   assert.match(hdr10.masteringDisplay, /R\(35400,14600\)/);
   assert.equal(hdr10.contentLightLevel, '203,203');
-  assert.deepEqual(resolveProfileEncoder('mp4', resolveVideoEncoder('mp4'), hdr10), { codecId: 'h265', codec: 'libx265' });
-  assert.throws(() => resolveProfileEncoder('mp4', resolveVideoEncoder('mp4', { codec: 'h264' }), hdr10), /requires the h265 codec/);
+  assert.deepEqual(resolveProfileEncoder('mp4', resolveVideoEncoder('mp4'), hdr10), {
+    codecId: 'h265',
+    codec: 'libx265',
+  });
+  assert.throws(
+    () => resolveProfileEncoder('mp4', resolveVideoEncoder('mp4', { codec: 'h264' }), hdr10),
+    /requires the h265 codec/,
+  );
   assert.throws(() => resolveColorProfile('hdr10', 'webm'), /requires MP4 or MOV/);
   assert.throws(() => resolveColorProfile('hdr', 'mp4'), /choose rec709, rec2020-sdr, or hdr10/);
 });
 
 test('validates render resource controls', () => {
-  assert.deepEqual(resolveRenderControlArgs({ workers: 2, lowMemoryMode: true }), ['--workers', '2', '--low-memory-mode']);
-  assert.deepEqual(resolveRenderControlArgs({ workers: 'auto', lowMemoryMode: false }), ['--workers', 'auto', '--no-low-memory-mode']);
+  assert.deepEqual(resolveRenderControlArgs({ workers: 2, lowMemoryMode: true }), [
+    '--workers',
+    '2',
+    '--low-memory-mode',
+  ]);
+  assert.deepEqual(resolveRenderControlArgs({ workers: 'auto', lowMemoryMode: false }), [
+    '--workers',
+    'auto',
+    '--no-low-memory-mode',
+  ]);
   assert.deepEqual(resolveRenderControlArgs({}), []);
   assert.throws(() => resolveRenderControlArgs({ workers: 0 }), /workers must/);
   assert.throws(() => resolveRenderControlArgs({ workers: 65 }), /workers must/);
@@ -93,8 +122,20 @@ test('validates a timeline using a rational frame rate', () => {
     schemaVersion: 1,
     project: { id: 'ntsc-demo', width: 1920, height: 1080, fps: '30000/1001', durationSeconds: 1 },
     assets: [{ id: 'camera', path: 'assets/camera.mp4' }],
-    tracks: [{ id: 'video-main', kind: 'video', order: 0, clips: [{ id: 'first-clip', assetId: 'camera', sourceIn: 0, sourceOut: 1, timelineStart: 0, durationSeconds: 1 }] }],
+    tracks: [
+      {
+        id: 'video-main',
+        kind: 'video',
+        order: 0,
+        clips: [
+          { id: 'first-clip', assetId: 'camera', sourceIn: 0, sourceOut: 1, timelineStart: 0, durationSeconds: 1 },
+        ],
+      },
+    ],
   };
   assert.equal(validateTimeline(timeline), timeline);
-  assert.throws(() => validateTimeline({ ...timeline, project: { ...timeline.project, fps: '0/1' } }), /between 1 and 240/);
+  assert.throws(
+    () => validateTimeline({ ...timeline, project: { ...timeline.project, fps: '0/1' } }),
+    /between 1 and 240/,
+  );
 });

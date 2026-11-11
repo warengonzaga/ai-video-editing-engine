@@ -1,5 +1,5 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
+import test from 'node:test';
 import { findMistakeCandidates } from '../src/edits/find-mistake-candidates.mjs';
 import { planSilenceCuts } from '../src/edits/plan-silence-cuts.mjs';
 
@@ -30,10 +30,7 @@ test('proposes a repeated word without applying the cut', () => {
 });
 
 test('requires word-level timing for repeated-word candidates', () => {
-  assert.throws(
-    () => findMistakeCandidates({ ...transcript, granularity: 'cue' }),
-    /word-level transcript/
-  );
+  assert.throws(() => findMistakeCandidates({ ...transcript, granularity: 'cue' }), /word-level transcript/);
 });
 
 test('rejects silence-cut parameters outside their valid range', () => {
