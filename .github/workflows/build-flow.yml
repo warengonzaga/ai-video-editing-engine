@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-flow:
-    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.2
+    uses: wgtechlabs/build-flow-action/.github/workflows/app.yml@v1.0.3
     with:
       ci-profile: node-bun
       ci-runtime-version: '22'
