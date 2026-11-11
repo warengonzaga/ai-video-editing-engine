@@ -14,12 +14,10 @@ still sets up Node.js and npm for the OIDC upload, packs with `bun pm pack` when
 the package manager is Bun, and publishes the GitHub Packages copy with Bun.
 `release-package-manager` is `bun`.
 
-`build-flow-action` v1.0.2 calls `package-build-flow-action` v2.3.0, which always
-runs `scripts.test` during packaging and ignores a failing result. That action
-has no input to skip the package-step test run, and the reusable workflow does
-not expose one. The package job also does not install FFmpeg, so the repeated
-run is noisy and is not the merge gate. Do not remove the `test` script to hide
-it; local development and the manual platform workflow use that script.
+`build-flow-action` v1.0.3 uses `package-build-flow-action` v2.3.1, which does
+not run tests during packaging. The validate job is the only test run. Do not
+remove the `test` script; local development and the manual platform workflow
+use that script.
 
 ## One-time setup
 
