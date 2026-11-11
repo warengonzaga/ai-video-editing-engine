@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.1.1] - 2026-11-11
+
+### Changed
+
+- bump build-flow-action to v1.0.3 (#19)
+- run development on Bun and Biome (#18)
+- pad sidechain inputs so ducked music is not truncated (#17)
+
 ## [0.1.0] - 2026-11-09
 
 ### Added
