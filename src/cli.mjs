@@ -196,7 +196,9 @@ async function main(args) {
   if (command === 'studio' && commandArgs[0] === 'project' && commandArgs[1] === 'create' && commandArgs.length >= 4) {
     const { root, remaining } = extractStudioRoot(commandArgs.slice(4));
     const options = parseProjectOptions(remaining);
-    console.log(JSON.stringify(createStudioProject(commandArgs[2], commandArgs[3], root, options), null, 2));
+    const studioId = commandArgs[2];
+    const project = createStudioProject(studioId, commandArgs[3], root, options);
+    console.log(JSON.stringify({ project, studioData: join(project, 'studio-data', studioId) }, null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'validate' && commandArgs.length === 2) {

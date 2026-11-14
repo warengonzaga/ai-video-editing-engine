@@ -39,7 +39,9 @@ export function createStudioProject(studioId, slug, root, options = {}) {
   try {
     mkdirSync(studioData, { recursive: true });
   } catch (error) {
-    throw new Error(`Project was created at ${project}, but its Studio data directory could not be created: ${error.message}`);
+    throw new Error(
+      `Project was created at ${project}, but its Studio data directory could not be created: ${error.message}`,
+    );
   }
-  return { project, studioData };
+  return project;
 }

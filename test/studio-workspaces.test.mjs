@@ -15,11 +15,10 @@ test('sets up an isolated Studio workspace and creates Engine projects inside it
     assert.equal(paths.root, root);
     assert.equal(existsSync(join(paths.avatarPacks)), true);
     assert.equal(existsSync(join(paths.projects)), true);
-    const { project, studioData } = createStudioProject('explainer', 'open-source', root, { preset: 'vertical' });
+    const project = createStudioProject('explainer', 'open-source', root, { preset: 'vertical' });
     const meta = JSON.parse(readFileSync(join(project, 'meta.json'), 'utf8'));
     assert.equal(project, join(paths.projects, 'open-source'));
-    assert.equal(studioData, join(project, 'studio-data', 'explainer'));
-    assert.equal(existsSync(studioData), true);
+    assert.equal(existsSync(join(project, 'studio-data', 'explainer')), true);
     assert.deepEqual(
       { width: meta.width, height: meta.height, canvasPreset: meta.canvasPreset },
       { width: 1080, height: 1920, canvasPreset: 'vertical' },
