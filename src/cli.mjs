@@ -29,7 +29,6 @@ import {
 } from './project/assets.mjs';
 import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
-import { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 import {
   importProjectTranscript,
   lintProject,
@@ -37,6 +36,7 @@ import {
   renderProjectAsync,
   transcribeProject,
 } from './render/hyperframes.mjs';
+import { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 import { renderEditedProjectAsync } from './timeline/assemble.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
 import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';

@@ -49,7 +49,6 @@ export {
 } from './project/assets.mjs';
 export { createVideoProject } from './project/create.mjs';
 export { CANVAS_PRESETS, listCanvasPresets, resolveCanvasPreset } from './project/presets.mjs';
-export { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 export {
   resolveColorProfile,
   resolveEncoderArgs,
@@ -67,6 +66,7 @@ export {
   renderProjectAsync,
   transcribeProject,
 } from './render/hyperframes.mjs';
+export { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 export { assembleEditedTimeline, renderEditedProject, renderEditedProjectAsync } from './timeline/assemble.mjs';
 export { blendModeStyle, validateBlendMode } from './timeline/blend-mode.mjs';
 export {

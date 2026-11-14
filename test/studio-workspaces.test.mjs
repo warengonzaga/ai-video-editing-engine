@@ -32,11 +32,9 @@ test('sets up an isolated Studio workspace and creates Engine projects inside it
 test('Studio setup CLI returns workspace paths for the host plugin to save', () => {
   const root = mkdtempSync(join(tmpdir(), 'aivee-studio-cli-'));
   try {
-    const output = execFileSync(
-      process.execPath,
-      [cliPath, 'studio', 'setup', 'explainer', '--home', root],
-      { encoding: 'utf8' },
-    );
+    const output = execFileSync(process.execPath, [cliPath, 'studio', 'setup', 'explainer', '--home', root], {
+      encoding: 'utf8',
+    });
     const paths = JSON.parse(output);
     assert.equal(paths.avatarPacks, join(root, 'Studios', 'Explainer', 'Library', 'Avatar Packs'));
     assert.equal(paths.projects, join(root, 'Studios', 'Explainer', 'Projects'));
