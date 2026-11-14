@@ -66,6 +66,7 @@ export {
   renderProjectAsync,
   transcribeProject,
 } from './render/hyperframes.mjs';
+export { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 export { assembleEditedTimeline, renderEditedProject, renderEditedProjectAsync } from './timeline/assemble.mjs';
 export { blendModeStyle, validateBlendMode } from './timeline/blend-mode.mjs';
 export {
