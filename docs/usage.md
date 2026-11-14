@@ -27,7 +27,12 @@ aivee studio project create explainer my-first-film --preset vertical
 
 Studio projects use the same validated project structure and canvas options as
 `project create`, while storing the project under
-`Studios/<Studio Name>/Projects/<slug>`.
+`Studios/<Studio Name>/Projects/<slug>`. The command returns both `project`
+and `studioData` paths. `studioData` points to `studio-data/<studio-id>` inside
+the project; AIVEE creates this empty namespace for the calling Studio but does
+not define or interpret its contents. The Studio owns its workflow files and
+directs composition, while AIVEE owns the project folder, registered media,
+timeline, and renders.
 
 ## Create a project
 
