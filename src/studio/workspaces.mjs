@@ -34,5 +34,14 @@ export function createStudioProject(studioId, slug, root, options = {}) {
     throw new TypeError('Use a lowercase kebab-case slug, not a path.');
   }
   const paths = setupStudioWorkspace(studioId, root);
-  return createVideoProject(paths.studio, slug, { ...options, projectsDirectory: paths.projects });
+  const project = createVideoProject(paths.studio, slug, { ...options, projectsDirectory: paths.projects });
+  const studioData = join(project, 'studio-data', studioId);
+  try {
+    mkdirSync(studioData, { recursive: true });
+  } catch (error) {
+    throw new Error(
+      `Project was created at ${project}, but its Studio data directory could not be created: ${error.message}`,
+    );
+  }
+  return project;
 }
