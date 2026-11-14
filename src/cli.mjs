@@ -36,6 +36,7 @@ import {
   renderProjectAsync,
   transcribeProject,
 } from './render/hyperframes.mjs';
+import { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 import { renderEditedProjectAsync } from './timeline/assemble.mjs';
 import { createCaptionTrack } from './timeline/captions.mjs';
 import { editTimeline, editTimelineBatch, previewTimelineEdit } from './timeline/edit.mjs';
@@ -161,6 +162,21 @@ function parseBackgroundColorFlag(value) {
   return value.toLowerCase() === 'transparent' ? null : value;
 }
 
+function extractStudioRoot(args) {
+  const remaining = [];
+  let root;
+  for (let index = 0; index < args.length; index++) {
+    if (args[index] !== '--home') {
+      remaining.push(args[index]);
+      continue;
+    }
+    if (root !== undefined) throw new Error('--home can only be specified once.');
+    root = args[++index];
+    if (!root || root.startsWith('--')) throw new Error('--home requires an AIVEE home directory.');
+  }
+  return { root, remaining };
+}
+
 async function main(args) {
   const [command, ...commandArgs] = args;
   if (command === 'capabilities' && commandArgs.length === 0) {
@@ -169,6 +185,19 @@ async function main(args) {
   }
   if (command === 'presets' && commandArgs.length === 1 && commandArgs[0] === 'list') {
     console.log(JSON.stringify(listCanvasPresets(), null, 2));
+    return;
+  }
+  if (command === 'studio' && commandArgs[0] === 'setup' && commandArgs.length >= 2) {
+    const { root, remaining } = extractStudioRoot(commandArgs.slice(2));
+    if (remaining.length) throw new Error('Usage: studio setup <studio-id> [--home <aivee-home>]');
+    console.log(JSON.stringify(setupStudioWorkspace(commandArgs[1], root), null, 2));
+    return;
+  }
+  if (command === 'studio' && commandArgs[0] === 'project' && commandArgs[1] === 'create' && commandArgs.length >= 4) {
+    const { root, remaining } = extractStudioRoot(commandArgs.slice(4));
+    const options = parseProjectOptions(remaining);
+    const project = createStudioProject(commandArgs[2], commandArgs[3], root, options);
+    console.log(JSON.stringify({ project }, null, 2));
     return;
   }
   if (command === 'timeline' && commandArgs[0] === 'validate' && commandArgs.length === 2) {
@@ -752,6 +781,8 @@ async function main(args) {
   throw new Error(`Usage: aivee
   project create <slug> [WIDTHxHEIGHT] [fps] [durationSeconds] [--fit <contain|cover|fill>] [--background-color <hex|transparent>]
   project create <slug> --preset <name> [fps] [durationSeconds] [--fit <contain|cover|fill>] [--background-color <hex|transparent>]
+  studio setup <studio-id> [--home <aivee-home>]
+  studio project create <studio-id> <slug> [--home <aivee-home>] [canvas options]
   presets list | probe <media> | media support <media>
   asset register <project> <media> [assetId] | asset register-many <project> <media>...
   asset unregister <project> <asset-id>
