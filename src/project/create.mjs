@@ -34,9 +34,12 @@ export function createVideoProject(root, slug, options = {}) {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     throw new TypeError('durationSeconds must be a positive number.');
   }
-  const projectPath = resolve(root, 'video-projects', slug);
+  if (options.projectsDirectory !== undefined && (typeof options.projectsDirectory !== 'string' || !options.projectsDirectory.trim())) {
+    throw new TypeError('projectsDirectory must be a non-empty path.');
+  }
+  const projectsPath = resolve(options.projectsDirectory ?? join(root, 'video-projects'));
+  const projectPath = resolve(projectsPath, slug);
   if (existsSync(projectPath)) throw new Error(`Project already exists: ${slug}`);
-  const projectsPath = join(root, 'video-projects');
 
   const project = {
     schemaVersion: 1,
