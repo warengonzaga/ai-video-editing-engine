@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.2.0] - 2026-11-14
+
 ### Added
 
-- create a namespaced data directory for Studio-owned workflows inside Engine projects
-
+- return Studio data namespace from projects (#23)
+- add workspace setup commands
 
 ## [0.1.1] - 2026-11-11
 
