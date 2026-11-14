@@ -28,8 +28,8 @@ import {
   verifyProjectAssetsAsync,
 } from './project/assets.mjs';
 import { createVideoProject } from './project/create.mjs';
-import { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
+import { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 import {
   importProjectTranscript,
   lintProject,

@@ -34,7 +34,10 @@ export function createVideoProject(root, slug, options = {}) {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
     throw new TypeError('durationSeconds must be a positive number.');
   }
-  if (options.projectsDirectory !== undefined && (typeof options.projectsDirectory !== 'string' || !options.projectsDirectory.trim())) {
+  if (
+    options.projectsDirectory !== undefined &&
+    (typeof options.projectsDirectory !== 'string' || !options.projectsDirectory.trim())
+  ) {
     throw new TypeError('projectsDirectory must be a non-empty path.');
   }
   const projectsPath = resolve(options.projectsDirectory ?? join(root, 'video-projects'));

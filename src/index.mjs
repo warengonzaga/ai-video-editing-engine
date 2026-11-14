@@ -48,8 +48,8 @@ export {
   verifyProjectAssetsAsync,
 } from './project/assets.mjs';
 export { createVideoProject } from './project/create.mjs';
-export { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 export { CANVAS_PRESETS, listCanvasPresets, resolveCanvasPreset } from './project/presets.mjs';
+export { createStudioProject, setupStudioWorkspace } from './studio/workspaces.mjs';
 export {
   resolveColorProfile,
   resolveEncoderArgs,

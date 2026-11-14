@@ -1,9 +1,9 @@
-import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createStudioProject, setupStudioWorkspace } from '../src/studio/workspaces.mjs';
 
@@ -32,7 +32,11 @@ test('sets up an isolated Studio workspace and creates Engine projects inside it
 test('Studio setup CLI returns workspace paths for the host plugin to save', () => {
   const root = mkdtempSync(join(tmpdir(), 'aivee-studio-cli-'));
   try {
-    const output = execFileSync(process.execPath, [cliPath, 'studio', 'setup', 'explainer', '--home', root], { encoding: 'utf8' });
+    const output = execFileSync(
+      process.execPath,
+      [cliPath, 'studio', 'setup', 'explainer', '--home', root],
+      { encoding: 'utf8' },
+    );
     const paths = JSON.parse(output);
     assert.equal(paths.avatarPacks, join(root, 'Studios', 'Explainer', 'Library', 'Avatar Packs'));
     assert.equal(paths.projects, join(root, 'Studios', 'Explainer', 'Projects'));
@@ -44,7 +48,11 @@ test('Studio setup CLI returns workspace paths for the host plugin to save', () 
 test('Studio project CLI creates a video project at its workspace path', () => {
   const root = mkdtempSync(join(tmpdir(), 'aivee-studio-project-'));
   try {
-    const output = execFileSync(process.execPath, [cliPath, 'studio', 'project', 'create', 'explainer', 'first-film', '--home', root, '--preset', 'vertical'], { encoding: 'utf8' });
+    const output = execFileSync(
+      process.execPath,
+      [cliPath, 'studio', 'project', 'create', 'explainer', 'first-film', '--home', root, '--preset', 'vertical'],
+      { encoding: 'utf8' },
+    );
     const { project } = JSON.parse(output);
     assert.equal(project, join(root, 'Studios', 'Explainer', 'Projects', 'first-film'));
     assert.equal(existsSync(join(project, 'timeline.json')), true);
