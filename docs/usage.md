@@ -2,6 +2,33 @@
 
 This guide covers generic project creation, media registration, editing, rendering, transcripts, and OpenTimelineIO interchange. Avatar artwork and speech-driven character animation belong to consuming studios; use generic image and audio tracks in Engine timelines.
 
+## Set up a Studio workspace
+
+After installing AIVEE, a Studio plugin can initialize its user workspace with
+one command:
+
+```sh
+aivee studio setup explainer
+aivee studio setup explainer --home /path/to/AIVEE
+```
+
+The default AIVEE home is `~/AIVEE`. `--home` selects a different AIVEE home
+directory. Setup creates `Studios/<Studio Name>/Library/Avatar Packs` and
+`Studios/<Studio Name>/Projects`; it is safe to run again. The command returns
+the resolved paths as JSON so the calling Studio can save the selected root.
+The AIVEE CLI manages workspace files; Codex, Claude Code, and other hosts
+manage installation and registration of their plugins.
+
+Create an Engine-backed project inside the Studio workspace with:
+
+```sh
+aivee studio project create explainer my-first-film --preset vertical
+```
+
+Studio projects use the same validated project structure and canvas options as
+`project create`, while storing the project under
+`Studios/<Studio Name>/Projects/<slug>`.
+
 ## Create a project
 
 ```sh

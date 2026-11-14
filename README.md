@@ -13,6 +13,7 @@
 
 - **Generic timeline:** editable video, audio, and overlay tracks with validated clips, transitions, keyframes, masks, speech-bubble captions, and other overlays.
 - **Media workflow:** register and verify assets, create proxies and previews, inspect scenes, and plan reviewable B-roll edits.
+- **Studio workspaces:** initialize per-Studio libraries and create editable projects under a shared, user-selected AIVEE root.
 - **Audio and transcripts:** retime word-level transcripts, mix and master audio, apply fades and ducking, and export subtitle files.
 - **Rendering:** render MP4, WebM, MOV, GIF, or PNG sequences with progress, cancellation, output checks, and resumable capture checkpoints.
 - **Interchange and animation:** optional OpenTimelineIO support, generic timed image layers, and keyframes. Avatar art and speech-driven character animation are owned by consuming studios such as [Explainer Studio](https://github.com/warengonzaga/explainer-studio).
