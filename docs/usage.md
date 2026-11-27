@@ -1203,9 +1203,9 @@ context, validation state, and consolidated remaining-work checklist.
 
 `qa flicker` measures a rendered video inside one or more named regions.
 `qa safe-zone` checks timeline layer bounds, including captions, or
-caller-supplied boxes against a safe rectangle. Both commands print JSON.
-The process exits with status 1 when `passed` is false. Both commands print
-JSON and do not write a file.
+caller-supplied boxes against a safe rectangle. Both commands print JSON
+and do not write a file. The process exits with status 1 when `passed` is
+false.
 
 Regions and safe zones use frame-relative units. Omit `unit` for fractions of
 the frame (`0.5` is halfway). Set `unit` to `percent` or `pixel` for the other
@@ -1259,10 +1259,14 @@ The check uses each layer's rectangle. Text clips use the same default
 placement as caption layout (`x` 0.08, `y` 0.76, `width` 0.84, `height` 0.16)
 when those fields are omitted. That default sits outside the 10% `title-safe`
 inset and inside the 5% `action-safe` inset. Visual keyframes for `x`, `y`,
-`width`, `height`, `rotationDegrees`, and `opacity` are sampled every frame.
-A property that first appears after the clip starts moves from the layer's
-placement value, matching render. Rotation uses the axis-aligned bounds of the
-rectangle rotated around its
+`width`, `height`, `rotationDegrees`, and `opacity` are sampled at rendered
+frame times (`frame / fps`). A layer is visible on `[start, start + duration)`,
+so the sample at the exact end time is not a rendered frame. `startFrame` and
+`endFrame` are the inclusive rendered frames in a violation. A steady layer
+reports that whole span, so its `endSeconds` is exclusive. A moving layer's
+`endSeconds` is the time of `endFrame`. A property that first appears
+after the clip starts moves from the layer's placement value, matching render.
+Rotation uses the axis-aligned bounds of the rectangle rotated around its
 center. Hidden tracks, disabled clips, and samples below `minOpacity` are
 skipped. A boxes document needs `width`, `height`, and a `boxes` array; `fps`
 is optional. The JavaScript API is `inspectRegionSafeZone(timelineOrBoxes, options)`.

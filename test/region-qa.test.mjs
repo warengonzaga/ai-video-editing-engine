@@ -88,6 +88,8 @@ test('flags caption bounds outside title-safe and accepts action-safe defaults',
   assert.deepEqual(outside.violations[0].ranges[0].edges, ['left', 'right', 'bottom']);
   assert.equal(outside.violations[0].ranges[0].startSeconds, 0);
   assert.equal(outside.violations[0].ranges[0].endSeconds, 1);
+  assert.equal(outside.violations[0].ranges[0].startFrame, 0);
+  assert.equal(outside.violations[0].ranges[0].endFrame, 29);
 
   const actionSafe = inspectRegionSafeZone(
     timeline({
@@ -123,7 +125,8 @@ test('reports the frames where a moving caption leaves the safe zone', () => {
   assert.equal(report.passed, false);
   const range = report.violations[0].ranges[0];
   assert.equal(range.startFrame, 26);
-  assert.equal(range.endFrame, 30);
+  assert.equal(range.endFrame, 29);
+  assert.equal(range.endSeconds, 0.966667);
   assert.deepEqual(range.edges, ['top']);
   assert.ok(range.endBox.y < range.box.y);
 
@@ -151,9 +154,9 @@ test('reports the frames where a moving caption leaves the safe zone', () => {
   );
   const returnedRange = returned.violations[0].ranges[0];
   assert.equal(returnedRange.startFrame, 0);
-  assert.equal(returnedRange.endFrame, 30);
+  assert.equal(returnedRange.endFrame, 29);
   assert.deepEqual(returnedRange.edges, ['top']);
-  assert.equal(returnedRange.endBox, undefined);
+  assert.ok(returnedRange.endBox.y > returnedRange.box.y);
 
   const late = inspectRegionSafeZone(
     timeline({
@@ -178,7 +181,7 @@ test('reports the frames where a moving caption leaves the safe zone', () => {
   );
   const lateRange = late.violations[0].ranges[0];
   assert.equal(lateRange.startFrame, 23);
-  assert.equal(lateRange.endFrame, 30);
+  assert.equal(lateRange.endFrame, 29);
   assert.deepEqual(lateRange.edges, ['top']);
 });
 
@@ -261,7 +264,7 @@ test('uses rotated bounds, opacity, visibility, and caller boxes', () => {
   assert.equal(boxes.violations[0].source, 'box');
   assert.deepEqual(boxes.violations[0].ranges[0].edges, ['left']);
   assert.equal(boxes.violations[0].ranges[0].startFrame, 5);
-  assert.equal(boxes.violations[0].ranges[0].endFrame, 9);
+  assert.equal(boxes.violations[0].ranges[0].endFrame, 8);
 
   const overridden = inspectRegionSafeZone(
     { width: 100, height: 100, boxes: [{ id: 'label', unit: 'pixel', x: 0, y: 0, width: 10, height: 10 }] },
@@ -269,6 +272,61 @@ test('uses rotated bounds, opacity, visibility, and caller boxes', () => {
   );
   assert.equal(overridden.passed, true);
   assert.equal(overridden.safeZone.preset, null);
+});
+
+test('keeps safe-zone frames inside the rendered half-open interval', () => {
+  const endpoint = inspectRegionSafeZone(
+    timeline({
+      durationSeconds: 0.5,
+      tracks: [
+        captionTrack(
+          textClip({
+            x: 0.2,
+            y: 0.2,
+            width: 0.6,
+            height: 0.05,
+            durationSeconds: 0.5,
+            keyframes: [
+              { time: 0, properties: { y: 0.2 } },
+              { time: 0.5, properties: { y: 0.099 } },
+            ],
+          }),
+        ),
+      ],
+    }),
+    { tolerancePixels: 0 },
+  );
+  assert.equal(endpoint.passed, true);
+
+  const offset = inspectRegionSafeZone(
+    timeline({
+      tracks: [
+        captionTrack(
+          textClip({
+            x: 0,
+            y: 0,
+            width: 0.2,
+            height: 0.2,
+            timelineStart: 0.02,
+            durationSeconds: 1,
+          }),
+        ),
+      ],
+    }),
+    { tolerancePixels: 0 },
+  );
+  assert.equal(offset.violations[0].ranges[0].startFrame, 1);
+  assert.equal(offset.violations[0].ranges[0].endFrame, 30);
+
+  const ntsc = inspectRegionSafeZone(
+    timeline({
+      fps: '30000/1001',
+      tracks: [captionTrack(textClip({ x: 0, y: 0, width: 0.2, height: 0.2 }))],
+    }),
+    { tolerancePixels: 0 },
+  );
+  assert.equal(ntsc.violations[0].ranges[0].startFrame, 0);
+  assert.equal(ntsc.violations[0].ranges[0].endFrame, 29);
 });
 
 test('ignores full-frame layers unless requested and warns on a wide vertical-social frame', () => {

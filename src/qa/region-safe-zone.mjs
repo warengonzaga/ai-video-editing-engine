@@ -178,7 +178,9 @@ function subjectRanges(subject, source, safeZone, settings) {
     const edges = violationEdges(sample.box, safeZone.pixels, settings.tolerancePixels);
     if (edges.length === 0) return [];
     const end = subject.duration === undefined ? subject.start : subject.start + subject.duration;
-    return [rangeFrom(subject.start, end, sample.box, edges, source.fps)];
+    const range = rangeFrom(subject.start, end, sample.box, edges, source.fps);
+    if (subject.duration !== undefined && source.fps !== undefined && range.startFrame === undefined) return [];
+    return [range];
   }
 
   const defaults = placementDefaults(subject);
@@ -195,16 +197,20 @@ function subjectRanges(subject, source, safeZone, settings) {
   if (violations.length === 0) return [];
   if (!geometryVaries(subject.clip, defaults)) {
     const sample = violations[0];
-    return [rangeFrom(subject.start, subject.start + subject.duration, sample.box, sample.edges, source.fps)];
+    const range = rangeFrom(subject.start, subject.start + subject.duration, sample.box, sample.edges, source.fps);
+    return range.startFrame === undefined ? [] : [range];
   }
   return mergeSamples(violations, source.fps);
 }
 
 function geometrySamples(subject, source, defaults) {
-  const times = geometryVaries(subject.clip, defaults)
+  const clocks = geometryVaries(subject.clip, defaults)
     ? frameTimes(subject.start, subject.duration, source.fps)
-    : [subject.start];
-  return times.map((time) => sampleSubject(subject, time, source.width, source.height, defaults));
+    : [{ time: subject.start }];
+  return clocks.map((clock) => ({
+    ...sampleSubject(subject, clock.time, source.width, source.height, defaults),
+    frame: clock.frame,
+  }));
 }
 
 function placementDefaults(subject) {
@@ -251,15 +257,20 @@ function sampleAnimatedProperty(keyframes, property, time, fallback) {
 }
 
 function frameTimes(start, duration, fps) {
-  const end = start + duration;
+  const span = renderedFrameSpan(start, start + duration, fps);
+  if (!span) return [];
   const times = [];
-  const first = nonNegativeZero(Math.ceil(start * fps - 1e-9));
-  const last = Math.floor(end * fps + 1e-9);
-  for (let frame = first; frame <= last; frame++) {
-    const time = frame / fps;
-    if (time + 1e-9 >= start && time <= end + 1e-9) times.push(time);
-  }
-  return times.length > 0 ? times : [start];
+  for (let frame = span.startFrame; frame <= span.endFrame; frame++) times.push({ frame, time: frame / fps });
+  return times;
+}
+
+// Render seeks to frame / fps and shows a clip on [start, start + duration).
+function renderedFrameSpan(start, end, fps) {
+  if (!(end > start)) return null;
+  const startFrame = nonNegativeZero(Math.ceil(start * fps - 1e-9));
+  const endFrame = Math.floor(end * fps - 1e-9);
+  if (!Number.isSafeInteger(startFrame) || !Number.isSafeInteger(endFrame) || endFrame < startFrame) return null;
+  return { startFrame, endFrame };
 }
 
 function geometryVaries(clip, defaults) {
@@ -306,7 +317,7 @@ function axisAlignedBounds(rect, rotationDegrees) {
 function mergeSamples(samples, fps) {
   const ranges = [];
   for (const sample of samples) {
-    const frame = fps === undefined ? undefined : frameNumber(sample.time, fps);
+    const frame = sample.frame ?? (fps === undefined ? undefined : frameNumber(sample.time, fps));
     const previous = ranges.at(-1);
     const adjacent = previous && frame !== undefined && frame === previous.endFrame + 1;
     if (previous && adjacent && sameEdges(previous.edges, sample.edges)) {
@@ -317,22 +328,29 @@ function mergeSamples(samples, fps) {
       else previous.endBox = endBox;
       continue;
     }
-    ranges.push(rangeFrom(sample.time, sample.time, sample.box, sample.edges, fps));
+    ranges.push(rangeFrom(sample.time, sample.time, sample.box, sample.edges, fps, frame));
   }
   return ranges;
 }
 
-function rangeFrom(start, end, box, edges, fps) {
+function rangeFrom(start, end, box, edges, fps, frame) {
   const range = {
     startSeconds: round(start, 6),
     endSeconds: round(end, 6),
     edges: [...edges],
     box: roundBox(box),
   };
-  if (fps !== undefined) {
-    range.startFrame = frameNumber(start, fps);
-    range.endFrame = frameNumber(end, fps);
+  if (fps === undefined) return range;
+  if (!(end > start)) {
+    const index = frame ?? frameNumber(start, fps);
+    range.startFrame = index;
+    range.endFrame = index;
+    return range;
   }
+  const span = renderedFrameSpan(start, end, fps);
+  if (!span) return range;
+  range.startFrame = span.startFrame;
+  range.endFrame = span.endFrame;
   return range;
 }
 
