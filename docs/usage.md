@@ -178,7 +178,9 @@ transcripts do not contain enough timing detail for word animations.
 Keyword emphasis is separate from karaoke highlighting. Set `emphasisWords`
 to 1 to 100 words and `emphasisColor` to a hex color. Matching ignores case and
 surrounding punctuation on normalized word text, so `Open-Source,` matches
-`open-source`. Optional `emphasisWeight` uses the same values as `fontWeight`.
+`open-source`. Hyphen and apostrophe variants match too, so `Don’t` matches
+`don't`. Symbols that are part of a word, such as `C++`, stay in the token.
+Optional `emphasisWeight` uses the same values as `fontWeight`.
 The emphasis color stays for the whole time the caption is visible. Karaoke
 can run at the same time: the active word uses the highlight color, then
 returns to the emphasis color. Cue-level transcripts can use emphasis by

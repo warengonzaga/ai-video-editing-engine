@@ -6,6 +6,7 @@ import {
   CAPTION_HIGHLIGHT_SCRIPT,
   CAPTION_WORD_CSS,
   createCaptionTrack,
+  normalizeCaptionToken,
   resolveCaptionEmphasis,
 } from '../src/timeline/captions.mjs';
 import { setTimelineOverlay } from '../src/timeline/edit.mjs';
@@ -30,6 +31,39 @@ function timelineWith(track) {
     tracks: [{ ...track, order: 0 }],
   };
 }
+
+test('matches punctuation and hyphen variants without collapsing symbols', () => {
+  const clip = {
+    timelineStart: 0,
+    text: 'Use C++ and open\u2010source. Don\u2019t ship C or C++!',
+    emphasisWords: ['c++', "don't", 'open-source'],
+    emphasisColor: '#112233',
+  };
+  const html = buildCaptionTextMarkup(clip, 'center');
+  assert.match(
+    html,
+    /<span class="caption-word" style="color:#112233" data-emphasis-color="#112233">C\+\+<\/span> and/,
+  );
+  assert.match(
+    html,
+    /<span class="caption-word" style="color:#112233" data-emphasis-color="#112233">open\u2010source\.<\/span>/,
+  );
+  assert.match(
+    html,
+    /<span class="caption-word" style="color:#112233" data-emphasis-color="#112233">Don\u2019t<\/span>/,
+  );
+  assert.match(html, /<span class="caption-word" style="color:#112233" data-emphasis-color="#112233">C\+\+!<\/span>/);
+  assert.equal(html.includes('>C<'), false);
+  assert.match(
+    buildCaptionTextMarkup({ timelineStart: 0, text: 'open\uFF0Dsource and soft\u00ADhyphen' }, 'left'),
+    /<span class="caption-word">open\uFF0Dsource<\/span> and <span class="caption-word">soft\u00ADhyphen<\/span>/,
+  );
+  assert.equal(normalizeCaptionToken('C++'), 'c++');
+  assert.equal(normalizeCaptionToken('C'), 'c');
+  assert.equal(normalizeCaptionToken('Don\u2019t'), "don't");
+  assert.equal(normalizeCaptionToken('open\u2010source'), 'open-source');
+  assert.throws(() => resolveCaptionEmphasis({ emphasisWords: ['***'], emphasisColor: '#fff' }), /emphasisWords/);
+});
 
 test('emphasizes matching words and keeps hyphenated tokens on one line', () => {
   assert.match(CAPTION_WORD_CSS, /white-space:nowrap/);

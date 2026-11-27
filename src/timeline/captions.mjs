@@ -4,7 +4,7 @@ import { resolveSpeechBubble } from './speech-bubble.mjs';
 
 const HEX_COLOR = /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
 const FONT_WEIGHTS = ['normal', 'bold', 100, 200, 300, 400, 500, 600, 700, 800, 900];
-const HYPHENATED_TOKEN = /[\u2010\u2011\u2012\u2013\u2014-]/;
+const HYPHENATED_TOKEN = /[\u00AD\u2010\u2011\u2012\u2013\u2014\uFE63\uFF0D-]/;
 const TEXT_ALIGNMENTS = new Set(['left', 'center', 'right']);
 
 export const CAPTION_WORD_CSS = '.caption-word{display:inline-block;white-space:nowrap;transform-origin:center}';
@@ -26,11 +26,18 @@ const escapeAttr = (value) =>
     (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
   );
 
+function isHyphenatedToken(text) {
+  const value = String(text);
+  return HYPHENATED_TOKEN.test(value) || HYPHENATED_TOKEN.test(value.normalize('NFKC'));
+}
+
 export function normalizeCaptionToken(text) {
   return String(text)
     .normalize('NFKC')
+    .replaceAll(/[\u00AD\u2010\u2011]/g, '-')
+    .replaceAll(/[\u2018\u2019\u201A\u201B\u2032]/g, "'")
     .toLowerCase()
-    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+    .replace(/^[\s\p{P}]+|[\s\p{P}]+$/gu, '');
 }
 
 export function resolveCaptionEmphasis(options = {}, layout = {}, label = '') {
@@ -87,7 +94,7 @@ function emphasisPresentation(clip) {
 function markupCaptionWord(clip, word, presentation) {
   const emphasized = presentation.color !== undefined && presentation.tokens.has(normalizeCaptionToken(word.text));
   const timed = clip.wordTimings !== undefined;
-  if (!emphasized && !timed && !HYPHENATED_TOKEN.test(word.text)) return escapeAttr(word.text);
+  if (!emphasized && !timed && !isHyphenatedToken(word.text)) return escapeAttr(word.text);
   const styleParts = [];
   if (emphasized) styleParts.push(`color:${presentation.color}`);
   if (emphasized && presentation.weight !== undefined) styleParts.push(`font-weight:${presentation.weight}`);
