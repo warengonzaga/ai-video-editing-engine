@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getEngineCapabilities } from './capabilities.mjs';
 import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
@@ -18,6 +18,7 @@ import { probeMediaAsync } from './media/probe.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
 import { detectSceneChangesAsync } from './media/scene-detection.mjs';
 import { createSceneReviewPackAsync } from './media/scene-review.mjs';
+import { mixSfx } from './media/sfx-mix.mjs';
 import {
   createAssetProxyAsync,
   listProjectAssets,
@@ -57,6 +58,17 @@ import { renderTimelineAsync, renderTimelineRangeAsync } from './timeline/render
 import { validateTimeline } from './timeline/validate.mjs';
 import { applyTranscriptCorrections } from './transcript/corrections.mjs';
 import { formatSubtitleText } from './transcript/subtitles.mjs';
+
+function resolveSfxCuePaths(cues, cuesPath) {
+  if (!Array.isArray(cues)) return cues;
+  const base = dirname(resolve(cuesPath));
+  return cues.map((cue) => {
+    if (!cue || typeof cue !== 'object' || Array.isArray(cue) || typeof cue.file !== 'string' || !cue.file.trim()) {
+      return cue;
+    }
+    return { ...cue, file: resolve(base, cue.file) };
+  });
+}
 
 function readJson(path) {
   try {
@@ -642,6 +654,18 @@ async function main(args) {
     if (!report.compatible) process.exitCode = 1;
     return;
   }
+  if (command === 'sfx' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [mediaPath, cuesPath, outputPath, optionsPath] = commandArgs;
+    const cueFile = resolve(cuesPath);
+    const result = mixSfx(
+      mediaPath,
+      resolveSfxCuePaths(readJson(cueFile), cueFile),
+      outputPath,
+      optionsPath ? readJson(resolve(optionsPath)) : {},
+    );
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
   if (command === 'apply-edl' && commandArgs.length >= 3 && commandArgs.length <= 4) {
     const [mediaPath, edlPath, outputPath, optionsPath] = commandArgs;
     const options = optionsPath ? readJson(resolve(optionsPath)) : {};
@@ -834,6 +858,7 @@ async function main(args) {
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>
   transcript export <transcript.json> <srt|vtt> <new-subtitles-file>
   apply-edl <media> <approved-edl.json> <output.mp4|output.m4a|output.wav> [options.json] | retime <transcript.json> <approved-edl.json> <new-output.json>
+  sfx <media> <cues.json> <output.mp4|output.m4a|output.wav> [options.json]
   asset preview <project> <asset-id> [options.json] |
   lint <project> | preview <project> | render <project> [output.mp4|output.webm|output.mov|output.gif] [draft|standard|high]`);
 }

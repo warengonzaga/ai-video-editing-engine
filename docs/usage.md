@@ -563,6 +563,52 @@ clamped so one fade never lasts longer than half of that segment. It does not
 fade the picture. The JavaScript API is
 `renderCuts(inputPath, edl, outputPath, { joinFadeMs })`.
 
+### Mix sound effects
+
+`sfx` places sound-effect clips on a video or audio source at exact times. The
+cue file is a JSON array. Each `file` path is resolved from that cue file's
+directory. `at` is seconds, or an object with either `seconds` or `frame`. A
+frame uses the source frame rate. An audio-only source has no frame rate, so
+set `fps` in the options file when a cue uses `frame`.
+
+```sh
+bun src/cli.mjs sfx path/to/source.mp4 path/to/cues.json output/with-sfx.mp4 sfx-options.json
+```
+
+```json
+[
+  { "file": "click.wav", "at": 1.25, "gainDb": -6, "fadeInMs": 10, "fadeOutMs": 40 },
+  { "file": "whoosh.wav", "at": { "frame": 36 } }
+]
+```
+
+The original audio stays at its current level, and the sound effects are added
+on top. `sfx-options.json` is optional:
+
+```json
+{ "duckUnderSpeech": true, "gainCapDb": -1 }
+```
+
+`duckUnderSpeech` compresses only the sound-effect bus while the source audio
+is loud. It can be `true`, or an object with `thresholdDb` (-60 to 0, default
+-24), `ratio` (1 to 20, default 4), `attackMs` (0.01 to 2000, default 10), and
+`releaseMs` (0.01 to 9000, default 250). It follows the loudness of the source
+audio. `gainCapDb` (-24 to 0) limits that same bus before the mix, so the
+effects stay under the ceiling. Omit both options to keep each effect at its
+own `gainDb`.
+
+`gainDb` defaults to 0 and must be from -60 to 24. Fades default to 0. A cue
+that starts at or after the end of the source is rejected. A missing file, a
+file without audio, a fade longer than the placed clip, and an unknown field
+are rejected before FFmpeg runs. Outputs use `.mp4`, `.m4a`, or `.wav`. `.mp4`
+copies the source picture and requires a video input. `.m4a` and `.wav` write
+audio only. An existing output is left in place.
+
+The JavaScript API is `mixSfx(inputPath, cues, outputPath, options)`.
+`parseSfxCues(cues, context)` checks the cue list. Paths passed to the API are
+resolved from the current working directory. Sources with more than two
+channels are mixed as stereo.
+
 The `edit` command refuses to overwrite existing timeline, approved EDL,
 retimed transcript, or render artifacts. It stores the source SHA-256 and
 artifact paths in timeline lineage. To edit transcript words before rendering,
