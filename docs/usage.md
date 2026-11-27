@@ -175,6 +175,22 @@ horizontal alignment and vertical placement. Use `listCaptionLayoutPresets()`
 or `resolveCaptionLayoutPreset(name)` to inspect available layouts. Cue-level
 transcripts do not contain enough timing detail for word animations.
 
+Keyword emphasis is separate from karaoke highlighting. Set `emphasisWords`
+to 1 to 100 words and `emphasisColor` to a hex color. Matching ignores case and
+surrounding punctuation on normalized word text, so `Open-Source,` matches
+`open-source`. Optional `emphasisWeight` uses the same values as `fontWeight`.
+The emphasis color stays for the whole time the caption is visible. Karaoke
+can run at the same time: the active word uses the highlight color, then
+returns to the emphasis color. Cue-level transcripts can use emphasis by
+matching words inside the cue text. A layout preset may define the same
+fields, and explicit options override it. Pass the fields in the
+`timeline captions` options JSON, or change an existing overlay with
+`timeline edit` `set-overlay`. These values compile to CSS color and
+font-weight. Raw CSS is rejected.
+
+Hyphenated words, such as `open-source`, stay on one line in every layout
+preset. Captions still wrap at spaces.
+
 `speechBubble` renders each timed phrase on a rounded panel with a directional
 tail. Customize its placement, typography, foreground, and fill with the same
 caption options, and customize the tail with a partial `bubble` object. For
@@ -654,8 +670,9 @@ to the full mix. Solo state is carried in Engine metadata during OpenTimelineIO
 round trips.
 
 Use `set-overlay` to reviewably change caption text, word timings, layout,
-styling, or composition reference after adding the overlay clip. The operation
-accepts validated overlay fields only, and `null` clears optional overrides:
+styling, keyword emphasis, or composition reference after adding the overlay
+clip. The operation accepts validated overlay fields only, and `null` clears
+optional overrides:
 
 ```json
 {
