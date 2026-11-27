@@ -241,7 +241,7 @@ function sampleSubject(subject, time, frameWidth, frameHeight) {
 function frameTimes(start, duration, fps) {
   const end = start + duration;
   const times = [];
-  const first = Math.ceil(start * fps - 1e-9);
+  const first = nonNegativeZero(Math.ceil(start * fps - 1e-9));
   const last = Math.floor(end * fps + 1e-9);
   for (let frame = first; frame <= last; frame++) {
     const time = frame / fps;
@@ -290,14 +290,15 @@ function axisAlignedBounds(rect, rotationDegrees) {
 function mergeSamples(samples, fps) {
   const ranges = [];
   for (const sample of samples) {
-    const frame = fps === undefined ? undefined : Math.round(sample.time * fps);
+    const frame = fps === undefined ? undefined : frameNumber(sample.time, fps);
     const previous = ranges.at(-1);
     const adjacent = previous && frame !== undefined && frame === previous.endFrame + 1;
     if (previous && adjacent && sameEdges(previous.edges, sample.edges)) {
       previous.endFrame = frame;
       previous.endSeconds = round(sample.time, 6);
       const endBox = roundBox(sample.box);
-      if (!sameBox(previous.box, endBox)) previous.endBox = endBox;
+      if (sameBox(previous.box, endBox)) delete previous.endBox;
+      else previous.endBox = endBox;
       continue;
     }
     ranges.push(rangeFrom(sample.time, sample.time, sample.box, sample.edges, fps));
@@ -313,8 +314,8 @@ function rangeFrom(start, end, box, edges, fps) {
     box: roundBox(box),
   };
   if (fps !== undefined) {
-    range.startFrame = Math.round(start * fps);
-    range.endFrame = Math.round(end * fps);
+    range.startFrame = frameNumber(start, fps);
+    range.endFrame = frameNumber(end, fps);
   }
   return range;
 }
@@ -448,6 +449,14 @@ function assertKnownKeys(value, allowed, label) {
   for (const key of Object.keys(value)) {
     if (!allowed.has(key)) throw new TypeError(`${label} has unsupported option ${key}.`);
   }
+}
+
+function frameNumber(time, fps) {
+  return nonNegativeZero(Math.round(time * fps));
+}
+
+function nonNegativeZero(value) {
+  return value === 0 ? 0 : value;
 }
 
 function round(value, places) {

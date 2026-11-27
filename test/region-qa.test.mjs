@@ -126,6 +126,34 @@ test('reports the frames where a moving caption leaves the safe zone', () => {
   assert.equal(range.endFrame, 30);
   assert.deepEqual(range.edges, ['top']);
   assert.ok(range.endBox.y < range.box.y);
+
+  const returned = inspectRegionSafeZone(
+    timeline({
+      durationSeconds: 1,
+      tracks: [
+        captionTrack(
+          textClip({
+            x: 0.2,
+            y: 0,
+            width: 0.6,
+            height: 0.1,
+            durationSeconds: 1,
+            keyframes: [
+              { time: 0, properties: { y: 0 } },
+              { time: 0.5, properties: { y: 0.05 } },
+              { time: 1, properties: { y: 0 } },
+            ],
+          }),
+        ),
+      ],
+    }),
+    { tolerancePixels: 0 },
+  );
+  const returnedRange = returned.violations[0].ranges[0];
+  assert.equal(returnedRange.startFrame, 0);
+  assert.equal(returnedRange.endFrame, 30);
+  assert.deepEqual(returnedRange.edges, ['top']);
+  assert.equal(returnedRange.endBox, undefined);
 });
 
 test('uses rotated bounds, opacity, visibility, and caller boxes', () => {
