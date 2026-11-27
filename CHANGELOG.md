@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [0.3.0] - 2026-11-27
+
+### Added
+
+- add SFX cue mixing (#33)
+- trim audio-only sources with join fades (#30)
+- add region flicker and safe-zone checks (#28)
+- add keyword emphasis and keep hyphens intact (#26)
+
 ## [0.2.0] - 2026-11-14
 
 ### Added
