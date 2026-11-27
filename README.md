@@ -11,7 +11,7 @@
 
 ## ✨ Features
 
-- **Generic timeline:** editable video, audio, and overlay tracks with validated clips, transitions, keyframes, masks, speech-bubble captions, and other overlays.
+- **Generic timeline:** editable video, audio, and overlay tracks with validated clips, transitions, keyframes, masks, speech-bubble captions, keyword emphasis, and other overlays.
 - **Media workflow:** register and verify assets, create proxies and previews, inspect scenes, and plan reviewable B-roll edits.
 - **Studio workspaces:** initialize per-Studio libraries and create editable projects under a shared, user-selected AIVEE root.
 - **Audio and transcripts:** retime word-level transcripts, mix and master audio, apply fades and ducking, and export subtitle files.

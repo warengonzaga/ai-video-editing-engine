@@ -5,6 +5,7 @@ import { validateAudioMix } from './audio-mix.mjs';
 import { validateAudioTrackVolumeKeyframes, validateAudioVolumeKeyframes } from './audio-volume.mjs';
 import { validateProjectBackgroundColor } from './background.mjs';
 import { validateBlendMode } from './blend-mode.mjs';
+import { resolveCaptionEmphasis } from './captions.mjs';
 import { validateVisualKeyframes } from './keyframes.mjs';
 import { validateVisualMask } from './mask.mjs';
 import { validateSourceFit } from './source-fit.mjs';
@@ -461,6 +462,7 @@ function validateTextClip(clip) {
   } else if (clip.wordHighlightColor !== undefined || clip.wordHighlightAnimation !== undefined) {
     throw new TypeError(`Text overlay ${clip.id} word highlighting options require wordTimings.`);
   }
+  resolveCaptionEmphasis(clip, {}, `Text overlay ${clip.id}`);
   if (clip.fontSize !== undefined && (!Number.isSafeInteger(clip.fontSize) || clip.fontSize < 8 || clip.fontSize > 256))
     throw new TypeError(`Text overlay ${clip.id} fontSize must be an integer from 8 to 256.`);
   if (
