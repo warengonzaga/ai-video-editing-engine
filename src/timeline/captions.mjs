@@ -99,12 +99,26 @@ function markupCaptionWord(clip, word, presentation) {
   return `<span class="caption-word"${style}${emphasisAttr}${timing}>${escapeAttr(word.text)}</span>`;
 }
 
+function markupUntimedCaption(clip, presentation) {
+  const text = String(clip.text ?? '');
+  let needsSpan = false;
+  const pieces = text.split(/(\s+)/).map((part) => {
+    if (part === '' || /^\s+$/.test(part)) return escapeAttr(part);
+    const markup = markupCaptionWord(clip, { text: part }, presentation);
+    if (markup.startsWith('<span')) needsSpan = true;
+    return markup;
+  });
+  if (!needsSpan) return escapeAttr(text);
+  const whiteSpace = clip.wordWrap === false ? 'pre' : 'pre-wrap';
+  return `<span class="caption-text" style="display:block;width:100%;min-width:0;white-space:${whiteSpace}">${pieces.join('')}</span>`;
+}
+
 export function buildCaptionTextMarkup(clip, textAlign = 'center') {
   const align = TEXT_ALIGNMENTS.has(textAlign) ? textAlign : 'center';
-  const words = captionWords(clip);
   const presentation = emphasisPresentation(clip);
   const renderWords = (items) => items.map((word) => markupCaptionWord(clip, word, presentation)).join(' ');
   if (Number.isSafeInteger(clip.wordsPerLine) && clip.wordsPerLine > 0) {
+    const words = captionWords(clip);
     const lines = Array.from({ length: Math.ceil(words.length / clip.wordsPerLine) }, (_, index) =>
       words.slice(index * clip.wordsPerLine, (index + 1) * clip.wordsPerLine),
     );
@@ -115,11 +129,8 @@ export function buildCaptionTextMarkup(clip, textAlign = 'center') {
       )
       .join('');
   }
-  if (clip.wordTimings) return renderWords(words);
-  const pieces = words.map((word) => markupCaptionWord(clip, word, presentation));
-  if (pieces.every((piece) => !piece.startsWith('<span'))) return escapeAttr(clip.text);
-  const whiteSpace = clip.wordWrap === false ? 'pre' : 'pre-wrap';
-  return `<span class="caption-text" style="display:block;width:100%;min-width:0;white-space:${whiteSpace}">${pieces.join(' ')}</span>`;
+  if (clip.wordTimings) return renderWords(captionWords(clip));
+  return markupUntimedCaption(clip, presentation);
 }
 
 export function createCaptionTrack(transcript, options = {}) {

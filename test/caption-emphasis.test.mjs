@@ -59,6 +59,27 @@ test('emphasizes matching words and keeps hyphenated tokens on one line', () => 
   assert.match(plainHtml, /caption-text/);
   assert.equal(plainHtml.includes('style="color:'), false);
   assert.equal(plain.clips[0].emphasisWords, undefined);
+  assert.equal(
+    buildCaptionTextMarkup({ text: 'Hello\nthere.', timelineStart: 0, wordWrap: false }, 'left'),
+    'Hello\nthere.',
+  );
+  assert.equal(
+    buildCaptionTextMarkup({ text: 'Hello\nopen-source  world', timelineStart: 0, wordWrap: false }, 'left'),
+    '<span class="caption-text" style="display:block;width:100%;min-width:0;white-space:pre">Hello\n<span class="caption-word">open-source</span>  world</span>',
+  );
+  assert.equal(
+    buildCaptionTextMarkup(
+      {
+        text: 'Keep\nopen-source  tools.',
+        timelineStart: 0,
+        wordWrap: true,
+        emphasisWords: ['open-source'],
+        emphasisColor: '#ff00aa',
+      },
+      'center',
+    ),
+    '<span class="caption-text" style="display:block;width:100%;min-width:0;white-space:pre-wrap">Keep\n<span class="caption-word" style="color:#ff00aa" data-emphasis-color="#ff00aa">open-source</span>  tools.</span>',
+  );
 
   for (const layoutPreset of Object.keys(CAPTION_LAYOUT_PRESETS)) {
     const track = createCaptionTrack(transcript, {
