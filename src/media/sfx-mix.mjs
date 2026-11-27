@@ -72,7 +72,7 @@ export function createSfxFilterGraph({
   }
   if (gainCapDb !== null) {
     const limit = 10 ** (gainCapDb / 20);
-    lines.push(`[${bus}]alimiter=limit=${formatNumber(limit)}:attack=5:release=50:level=0[sfxlim]`);
+    lines.push(`[${bus}]alimiter=limit=${formatNumber(limit)}:attack=5:release=50:level=0:latency=1[sfxlim]`);
     bus = 'sfxlim';
   }
   if (!hasSourceAudio) {

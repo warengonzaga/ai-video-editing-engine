@@ -112,7 +112,7 @@ test('builds a filter graph that keeps the source level and can duck or cap effe
     duck: { thresholdDb: -24, ratio: 4, attackMs: 10, releaseMs: 250 },
     gainCapDb: -1,
   });
-  assert.match(ducked, /alimiter=limit=0\.891251:attack=5:release=50:level=0\[sfxlim\]/);
+  assert.match(ducked, /alimiter=limit=0\.891251:attack=5:release=50:level=0:latency=1\[sfxlim\]/);
   assert.match(ducked, /\[0:a\]asplit=2\[base\]\[key\]/);
   assert.match(ducked, /\[sfxlim\]\[key\]sidechaincompress=/);
   assert.match(ducked, /\[base\]\[sfxduck\]amix=inputs=2:duration=first:dropout_transition=0:normalize=0\[a\]/);
@@ -211,7 +211,7 @@ test('mixes generated tones at a cue time and can cap or duck them', (t) => {
       '-i',
       'sine=frequency=880:sample_rate=48000:duration=0.4',
       '-af',
-      'volume=0.8',
+      'volume=8',
       loud,
     ]);
     assert.equal(loudGenerated.status, 0, loudGenerated.stderr);
@@ -220,15 +220,17 @@ test('mixes generated tones at a cue time and can cap or duck them', (t) => {
       '-f',
       'lavfi',
       '-i',
-      'anullsrc=sample_rate=48000:channel_layout=mono:duration=0.4',
+      'anullsrc=sample_rate=48000:channel_layout=mono:duration=1',
       silence,
     ]);
     assert.equal(silenceGenerated.status, 0, silenceGenerated.stderr);
     const capped = join(root, 'capped.wav');
-    mixSfx(silence, [{ file: loud, at: 0, gainDb: 12 }], capped, { gainCapDb: -6 });
-    const cappedPeak = peak(capped, Math.round(0.12 * rate), Math.round(0.3 * rate));
-    assert.ok(cappedPeak <= 0.6, `capped peak ${cappedPeak}`);
-    assert.ok(cappedPeak >= 0.2, `capped peak ${cappedPeak}`);
+    mixSfx(silence, [{ file: loud, at: 0.2, gainDb: 12 }], capped, { gainCapDb: -6 });
+    const cappedEarly = peak(capped, Math.round(0.2 * rate), Math.round(0.203 * rate));
+    const cappedPeak = peak(capped, Math.round(0.28 * rate), Math.round(0.45 * rate));
+    assert.ok(cappedEarly > 0.2, `gain cap delayed the cue, early peak ${cappedEarly}`);
+    assert.ok(cappedPeak <= 0.55, `capped peak ${cappedPeak}`);
+    assert.ok(cappedPeak >= 0.45, `capped peak ${cappedPeak}`);
 
     const bed = join(root, 'bed.wav');
     const effect = join(root, 'effect.wav');
