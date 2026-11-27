@@ -14,6 +14,8 @@ test('reports versioned runtime, tools, encoder and filter capabilities', () => 
   assert.equal(typeof capabilities.render.videoEncoders.vp9, 'boolean');
   assert.equal(typeof capabilities.render.filters.colorspace, 'boolean');
   assert.equal(capabilities.requiredToolsReady, true);
+  assert.equal(typeof capabilities.media.sfxMix.available, 'boolean');
+  assert.equal(capabilities.media.sfxMix.outputs.includes('wav'), true);
   assert.equal(Object.hasOwn(capabilities, 'avatar'), false);
   assert.equal(Object.hasOwn(capabilities.tools, 'rhubarb'), false);
 });
@@ -28,6 +30,7 @@ test('reports absent external tools without throwing', () => {
   assert.equal(capabilities.tools.ffprobe.available, false);
   assert.equal(capabilities.render.videoEncoders.h264, false);
   assert.equal(capabilities.requiredToolsReady, false);
+  assert.equal(capabilities.media.sfxMix.available, false);
 });
 
 test('rejects unsupported capability query options', () => {

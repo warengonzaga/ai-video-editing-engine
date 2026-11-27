@@ -32,6 +32,7 @@ export { parseProbeOutput, probeMedia, probeMediaAsync } from './media/probe.mjs
 export { createFilterGraph, getKeepRanges, renderCuts } from './media/render-cuts.mjs';
 export { detectSceneChangesAsync, parseSceneDetectionOutput } from './media/scene-detection.mjs';
 export { buildShotRanges, createSceneReviewPackAsync } from './media/scene-review.mjs';
+export { createSfxFilterGraph, mixSfx, parseSfxCues, parseSfxOptions } from './media/sfx-mix.mjs';
 export {
   createAssetProxy,
   createAssetProxyAsync,

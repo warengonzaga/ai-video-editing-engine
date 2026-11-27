@@ -244,6 +244,15 @@ export function getEngineCapabilities(options = {}) {
           defaultPreset: 'title-safe',
         },
       },
+      sfxMix: {
+        available:
+          ffmpeg.available &&
+          ffprobe.available &&
+          ['amix', 'adelay', 'afade', 'volume', 'aformat', 'apad'].every((name) => filters.has(name)),
+        outputs: ['mp4', 'm4a', 'wav'],
+        duckUnderSpeech: filters.has('sidechaincompress'),
+        gainCap: filters.has('alimiter'),
+      },
       sceneReviewPlacementPlanning: {
         available: true,
         requires: [
