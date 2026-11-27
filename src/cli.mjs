@@ -642,9 +642,10 @@ async function main(args) {
     if (!report.compatible) process.exitCode = 1;
     return;
   }
-  if (command === 'apply-edl' && commandArgs.length === 3) {
-    const [videoPath, edlPath, outputPath] = commandArgs;
-    const result = renderCuts(videoPath, readJson(resolve(edlPath)), outputPath);
+  if (command === 'apply-edl' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [mediaPath, edlPath, outputPath, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    const result = renderCuts(mediaPath, readJson(resolve(edlPath)), outputPath, options);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -832,7 +833,7 @@ async function main(args) {
   approve-edl <reviewed-edl.json> <new-approved-edl.json>
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>
   transcript export <transcript.json> <srt|vtt> <new-subtitles-file>
-  apply-edl <media> <approved-edl.json> <output.mp4> | retime <transcript.json> <approved-edl.json> <new-output.json>
+  apply-edl <media> <approved-edl.json> <output.mp4|output.m4a|output.wav> [options.json] | retime <transcript.json> <approved-edl.json> <new-output.json>
   asset preview <project> <asset-id> [options.json] |
   lint <project> | preview <project> | render <project> [output.mp4|output.webm|output.mov|output.gif] [draft|standard|high]`);
 }

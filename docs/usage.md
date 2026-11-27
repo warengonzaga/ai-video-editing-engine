@@ -237,6 +237,7 @@ bun src/cli.mjs transcript export video-projects/my-video/transcripts/transcript
 bun src/cli.mjs plan-silence video-projects/my-video/transcripts/transcript.json video-projects/my-video/edits/silence-edl.json
 bun src/cli.mjs mistake-candidates video-projects/my-video/transcripts/transcript.json
 bun src/cli.mjs apply-edl path/to/source.mp4 path/to/approved-edl.json path/to/clean-cut.mp4
+bun src/cli.mjs apply-edl path/to/voiceover.wav path/to/approved-edl.json path/to/voiceover.m4a path/to/cut-options.json
 bun src/cli.mjs retime video-projects/my-video/transcripts/transcript.json path/to/approved-edl.json video-projects/my-video/transcripts/retimed.json
 
 # Lint, preview, and render the composition
@@ -526,6 +527,42 @@ Engine validates the results and does not store provider credentials.
 
 The EDL is a JSON object with `schemaVersion`, `sourceDurationSeconds`, and
 `cuts` entries containing source-time `sourceStart`, `sourceEnd`, and `reason`.
+
+### Trim a voiceover
+
+`detect-silence` reads any media file that has an audio stream, including a
+voiceover with no picture (`.wav`, `.m4a`, `.mp3`, and other FFmpeg inputs).
+The proposal is an EDL. Review it, approve it when it is marked
+`needs-review`, then retime a transcript whose duration matches the source and
+render the kept ranges:
+
+```sh
+bun src/cli.mjs detect-silence path/to/voiceover.wav edits/silence-proposal.json silence-options.json
+bun src/cli.mjs retime path/to/transcript.json edits/silence-proposal.json edits/retimed.json
+bun src/cli.mjs apply-edl path/to/voiceover.wav edits/silence-proposal.json output/voiceover.m4a cut-options.json
+```
+
+`detect-silence` writes a proposal you still review before rendering. When that
+file has `reviewStatus` set to `needs-review`, run `approve-edl` and pass the
+approved file to `retime` and `apply-edl`.
+
+`silence-options.json` uses the same fields as the JavaScript API
+(`noiseDb`, `minSilenceSeconds`, `paddingSeconds`). `cut-options.json` is
+optional:
+
+```json
+{ "joinFadeMs": 12 }
+```
+
+`apply-edl` writes `.mp4` for a video source, and `.m4a` (AAC) or `.wav`
+(16-bit PCM) for audio. The encoder follows the output extension. Any other
+extension is rejected. An audio-only source cannot be written as `.mp4`.
+`joinFadeMs` defaults to `0`, which leaves the current hard cut unchanged. A
+positive value fades the audio in and out at every kept-range edge and is
+clamped so one fade never lasts longer than half of that segment. It does not
+fade the picture. The JavaScript API is
+`renderCuts(inputPath, edl, outputPath, { joinFadeMs })`.
+
 The `edit` command refuses to overwrite existing timeline, approved EDL,
 retimed transcript, or render artifacts. It stores the source SHA-256 and
 artifact paths in timeline lineage. To edit transcript words before rendering,
