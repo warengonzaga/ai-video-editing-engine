@@ -29,6 +29,8 @@ import {
 } from './project/assets.mjs';
 import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
+import { inspectRegionFlicker } from './qa/region-flicker.mjs';
+import { inspectRegionSafeZone } from './qa/region-safe-zone.mjs';
 import {
   importProjectTranscript,
   lintProject,
@@ -774,6 +776,27 @@ async function main(args) {
     console.log(JSON.stringify(transcribeProject(projectPath, mediaPath, { model, language }), null, 2));
     return;
   }
+  if (command === 'qa' && commandArgs[0] === 'flicker' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [, mediaPath, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    const report = await runWithInterrupt(
+      (signal) => inspectRegionFlicker(resolve(mediaPath), { ...options, signal }),
+      'Flicker inspection',
+    );
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.passed) process.exitCode = 1;
+    return;
+  }
+  if (command === 'qa' && commandArgs[0] === 'safe-zone' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [, inputPath, optionsPath] = commandArgs;
+    const report = inspectRegionSafeZone(
+      readJson(resolve(inputPath)),
+      optionsPath ? readJson(resolve(optionsPath)) : {},
+    );
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.passed) process.exitCode = 1;
+    return;
+  }
   if (command === 'import-transcript' && commandArgs.length === 3) {
     const [projectPath, mediaPath, transcriptPath] = commandArgs;
     console.log(JSON.stringify(importProjectTranscript(projectPath, mediaPath, transcriptPath), null, 2));
@@ -804,6 +827,7 @@ async function main(args) {
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
   detect-scenes <media> <new-analysis.json> [options.json]
   scene-review <media> <new-output-directory> [options.json]
+  qa flicker <media> [options.json] | qa safe-zone <timeline.json|boxes.json> [options.json]
   analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
   approve-edl <reviewed-edl.json> <new-approved-edl.json>
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>

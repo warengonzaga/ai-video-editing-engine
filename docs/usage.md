@@ -547,7 +547,8 @@ bun src/cli.mjs timeline inspect timeline.json
 The JavaScript API exports the same view through
 `inspectTimeline(timeline)`. It validates the timeline first and does not write
 or modify project files. Computed clip end times in the summary are rounded to
-six decimal places to avoid floating-point display noise.
+six decimal places to avoid floating-point display noise. Region flicker and
+safe-zone checks are separate commands; see [Region render checks](#region-render-checks).
 
 Generic edit operations can add/remove/reorder tracks and add/remove/duplicate clips, detach clip audio,
 move clips within and between compatible tracks, trim/slip/split clips,
@@ -1197,6 +1198,73 @@ plugins, and creator-facing workflows can be built as separate consumers. See
 [`docs/architecture.md`](architecture.md) for contracts and runtime
 requirements, and [`docs/handoff.md`](handoff.md) for the full project
 context, validation state, and consolidated remaining-work checklist.
+
+## Region render checks
+
+`qa flicker` measures a rendered video inside one or more named regions.
+`qa safe-zone` checks timeline layer bounds, including captions, or
+caller-supplied boxes against a safe rectangle. Both commands print JSON.
+The process exits with status 1 when `passed` is false. Both commands print
+JSON and do not write a file.
+
+Regions and safe zones use frame-relative units. Omit `unit` for fractions of
+the frame (`0.5` is halfway). Set `unit` to `percent` or `pixel` for the other
+forms. A rectangle is `x`, `y`, `width`, and `height`, or edges `x0`, `y0`,
+`x1`, and `y1`. A safe zone can instead use non-negative margins `left`,
+`right`, `top`, and `bottom`. Ids are kebab-case. Nothing in these checks is
+tied to a frame size, platform, brand, or language.
+
+```sh
+bun src/cli.mjs qa flicker render.mp4 flicker-options.json
+bun src/cli.mjs qa safe-zone timeline.json safe-zone-options.json
+```
+
+Flicker options:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `regions` | full frame, id `frame` | Named rectangles that must lie inside the frame |
+| `metric` | `both` | `luminance`, `pixel`, or `both` |
+| `luminanceSpike` | `8` | Gray-level change, from 0 to 255, required on both sides of a peak or dip |
+| `toggleThreshold` | `12` | Mean absolute pixel change, from 0 to 255, required against both neighbors |
+| `toggleNeighborRatio` | `0.5` | Neighbors must differ by less than this fraction of the toggle |
+| `maxAnalysisDimension` | `160` | Longest side of the downscaled gray analysis image, from 16 to 640 |
+| `maxFrames` | `18000` | Frame limit. The check fails instead of truncating |
+
+A luminance spike is a one-frame peak or dip. A pixel toggle is a single-frame
+blip: that frame differs from both neighbors, and the neighbors still match
+each other. A sustained cut raises `maxPixelDelta` and is not a flicker event.
+The JavaScript API is `inspectRegionFlicker(videoPath, options)`.
+
+Safe-zone options:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `preset` | `title-safe` | `full`, `action-safe` (5%), `title-safe` (10%), or `vertical-social` |
+| `safeZone` | unset | Explicit rectangle or margins. Replaces `preset` |
+| `subjects` | `overlays` | `overlays`, `text`, or `all` visual clips |
+| `clipIds` | all selected subjects | Timeline clip ids to check |
+| `boxes` | none | Extra boxes with optional `timeSeconds` and `durationSeconds` |
+| `tolerancePixels` | `0.5` | Allowed overflow before an edge is a violation |
+| `minOpacity` | `0.02` | Skip a sample whose opacity keyframe is below this |
+| `ignoreFullFrame` | `true` | Skip a box that covers the whole frame |
+| `fps` | timeline or boxes document | Frame rate used for boxes that have no timeline |
+
+`vertical-social` is a generic tall-frame margin (`left` 0.06, `top` 0.14,
+`right` 0.06, `bottom` 0.2) for a frame near 9:16. It is not a platform
+specification. Any preset or explicit safe zone replaces it. The report names
+the preset only when an explicit `safeZone` was not passed.
+
+The check uses each layer's rectangle. Text clips use the same default
+placement as caption layout (`x` 0.08, `y` 0.76, `width` 0.84, `height` 0.16)
+when those fields are omitted. That default sits outside the 10% `title-safe`
+inset and inside the 5% `action-safe` inset. Visual keyframes for `x`, `y`,
+`width`, `height`, `rotationDegrees`, and `opacity` are sampled every frame.
+Rotation uses the axis-aligned bounds of the rectangle rotated around its
+center. Hidden tracks, disabled clips, and samples below `minOpacity` are
+skipped. A boxes document needs `width`, `height`, and a `boxes` array; `fps`
+is optional. The JavaScript API is `inspectRegionSafeZone(timelineOrBoxes, options)`.
+Preset margins are also available from `listSafeZonePresets()` and `SAFE_ZONE_PRESETS`.
 
 ## OpenTimelineIO interchange
 
