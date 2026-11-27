@@ -181,7 +181,8 @@ function subjectRanges(subject, source, safeZone, settings) {
     return [rangeFrom(subject.start, end, sample.box, edges, source.fps)];
   }
 
-  const samples = geometrySamples(subject, source);
+  const defaults = placementDefaults(subject);
+  const samples = geometrySamples(subject, source, defaults);
   const violations = [];
   for (const sample of samples) {
     if (sample.opacity < settings.minOpacity) continue;
@@ -192,24 +193,23 @@ function subjectRanges(subject, source, safeZone, settings) {
     violations.push({ ...sample, edges });
   }
   if (violations.length === 0) return [];
-  if (!geometryVaries(subject.clip)) {
+  if (!geometryVaries(subject.clip, defaults)) {
     const sample = violations[0];
     return [rangeFrom(subject.start, subject.start + subject.duration, sample.box, sample.edges, source.fps)];
   }
   return mergeSamples(violations, source.fps);
 }
 
-function geometrySamples(subject, source) {
-  const times = geometryVaries(subject.clip)
+function geometrySamples(subject, source, defaults) {
+  const times = geometryVaries(subject.clip, defaults)
     ? frameTimes(subject.start, subject.duration, source.fps)
     : [subject.start];
-  return times.map((time) => sampleSubject(subject, time, source.width, source.height));
+  return times.map((time) => sampleSubject(subject, time, source.width, source.height, defaults));
 }
 
-function sampleSubject(subject, time, frameWidth, frameHeight) {
-  const localTime = Math.max(0, time - subject.start);
+function placementDefaults(subject) {
   const text = subject.track.kind === 'overlay' && typeof subject.clip.text === 'string';
-  const defaults = text
+  return text
     ? {
         x: subject.clip.x ?? 0.08,
         y: subject.clip.y ?? 0.76,
@@ -222,7 +222,11 @@ function sampleSubject(subject, time, frameWidth, frameHeight) {
         width: subject.clip.width ?? 1,
         height: subject.clip.height ?? 1,
       };
-  const sample = (property, fallback) => sampleVisualProperty(subject.clip.keyframes, property, localTime, fallback);
+}
+
+function sampleSubject(subject, time, frameWidth, frameHeight, defaults) {
+  const localTime = Math.max(0, time - subject.start);
+  const sample = (property, fallback) => sampleAnimatedProperty(subject.clip.keyframes, property, localTime, fallback);
   return {
     time,
     opacity: sample('opacity', 1),
@@ -238,6 +242,14 @@ function sampleSubject(subject, time, frameWidth, frameHeight) {
   };
 }
 
+function sampleAnimatedProperty(keyframes, property, time, fallback) {
+  const points = Array.isArray(keyframes)
+    ? keyframes.filter((frame) => frame?.properties && Object.hasOwn(frame.properties, property))
+    : [];
+  if (points.length === 0 || points[0].time === 0) return sampleVisualProperty(keyframes, property, time, fallback);
+  return sampleVisualProperty([{ time: 0, properties: { [property]: fallback } }, ...points], property, time, fallback);
+}
+
 function frameTimes(start, duration, fps) {
   const end = start + duration;
   const times = [];
@@ -250,14 +262,18 @@ function frameTimes(start, duration, fps) {
   return times.length > 0 ? times : [start];
 }
 
-function geometryVaries(clip) {
-  const seen = new Map();
-  for (const frame of clip.keyframes ?? []) {
-    for (const property of GEOMETRY) {
-      if (frame?.properties?.[property] === undefined) continue;
-      const value = frame.properties[property];
-      if (!seen.has(property)) seen.set(property, value);
-      else if (seen.get(property) !== value) return true;
+function geometryVaries(clip, defaults) {
+  const keyframes = clip.keyframes ?? [];
+  if (keyframes.length === 0) return false;
+  const fallback = { ...defaults, rotationDegrees: 0, opacity: 1 };
+  for (const property of GEOMETRY) {
+    const points = keyframes.filter((frame) => frame?.properties && Object.hasOwn(frame.properties, property));
+    if (points.length === 0) continue;
+    let previous = points[0].time === 0 ? points[0].properties[property] : fallback[property];
+    for (const point of points) {
+      if (point.time === 0) continue;
+      if (point.properties[property] !== previous) return true;
+      previous = point.properties[property];
     }
   }
   return false;

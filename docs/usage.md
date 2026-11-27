@@ -1260,7 +1260,9 @@ placement as caption layout (`x` 0.08, `y` 0.76, `width` 0.84, `height` 0.16)
 when those fields are omitted. That default sits outside the 10% `title-safe`
 inset and inside the 5% `action-safe` inset. Visual keyframes for `x`, `y`,
 `width`, `height`, `rotationDegrees`, and `opacity` are sampled every frame.
-Rotation uses the axis-aligned bounds of the rectangle rotated around its
+A property that first appears after the clip starts moves from the layer's
+placement value, matching render. Rotation uses the axis-aligned bounds of the
+rectangle rotated around its
 center. Hidden tracks, disabled clips, and samples below `minOpacity` are
 skipped. A boxes document needs `width`, `height`, and a `boxes` array; `fps`
 is optional. The JavaScript API is `inspectRegionSafeZone(timelineOrBoxes, options)`.
