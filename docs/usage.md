@@ -175,6 +175,24 @@ horizontal alignment and vertical placement. Use `listCaptionLayoutPresets()`
 or `resolveCaptionLayoutPreset(name)` to inspect available layouts. Cue-level
 transcripts do not contain enough timing detail for word animations.
 
+Keyword emphasis is separate from karaoke highlighting. Set `emphasisWords`
+to 1 to 100 words and `emphasisColor` to a hex color. Matching ignores case and
+surrounding punctuation on normalized word text, so `Open-Source,` matches
+`open-source`. Hyphen and apostrophe variants match too, so `Don’t` matches
+`don't`. Symbols that are part of a word, such as `C++`, stay in the token.
+Optional `emphasisWeight` uses the same values as `fontWeight`.
+The emphasis color stays for the whole time the caption is visible. Karaoke
+can run at the same time: the active word uses the highlight color, then
+returns to the emphasis color. Cue-level transcripts can use emphasis by
+matching words inside the cue text. A layout preset may define the same
+fields, and explicit options override it. Pass the fields in the
+`timeline captions` options JSON, or change an existing overlay with
+`timeline edit` `set-overlay`. These values compile to CSS color and
+font-weight. Raw CSS is rejected.
+
+Hyphenated words, such as `open-source`, stay on one line in every layout
+preset. Captions still wrap at spaces.
+
 `speechBubble` renders each timed phrase on a rounded panel with a directional
 tail. Customize its placement, typography, foreground, and fill with the same
 caption options, and customize the tail with a partial `bubble` object. For
@@ -219,6 +237,7 @@ bun src/cli.mjs transcript export video-projects/my-video/transcripts/transcript
 bun src/cli.mjs plan-silence video-projects/my-video/transcripts/transcript.json video-projects/my-video/edits/silence-edl.json
 bun src/cli.mjs mistake-candidates video-projects/my-video/transcripts/transcript.json
 bun src/cli.mjs apply-edl path/to/source.mp4 path/to/approved-edl.json path/to/clean-cut.mp4
+bun src/cli.mjs apply-edl path/to/voiceover.wav path/to/approved-edl.json path/to/voiceover.m4a path/to/cut-options.json
 bun src/cli.mjs retime video-projects/my-video/transcripts/transcript.json path/to/approved-edl.json video-projects/my-video/transcripts/retimed.json
 
 # Lint, preview, and render the composition
@@ -508,6 +527,88 @@ Engine validates the results and does not store provider credentials.
 
 The EDL is a JSON object with `schemaVersion`, `sourceDurationSeconds`, and
 `cuts` entries containing source-time `sourceStart`, `sourceEnd`, and `reason`.
+
+### Trim a voiceover
+
+`detect-silence` reads any media file that has an audio stream, including a
+voiceover with no picture (`.wav`, `.m4a`, `.mp3`, and other FFmpeg inputs).
+The proposal is an EDL. Review it, approve it when it is marked
+`needs-review`, then retime a transcript whose duration matches the source and
+render the kept ranges:
+
+```sh
+bun src/cli.mjs detect-silence path/to/voiceover.wav edits/silence-proposal.json silence-options.json
+bun src/cli.mjs retime path/to/transcript.json edits/silence-proposal.json edits/retimed.json
+bun src/cli.mjs apply-edl path/to/voiceover.wav edits/silence-proposal.json output/voiceover.m4a cut-options.json
+```
+
+`detect-silence` writes a proposal you still review before rendering. When that
+file has `reviewStatus` set to `needs-review`, run `approve-edl` and pass the
+approved file to `retime` and `apply-edl`.
+
+`silence-options.json` uses the same fields as the JavaScript API
+(`noiseDb`, `minSilenceSeconds`, `paddingSeconds`). `cut-options.json` is
+optional:
+
+```json
+{ "joinFadeMs": 12 }
+```
+
+`apply-edl` writes `.mp4` for a video source, and `.m4a` (AAC) or `.wav`
+(16-bit PCM) for audio. The encoder follows the output extension. Any other
+extension is rejected. An audio-only source cannot be written as `.mp4`.
+`joinFadeMs` defaults to `0`, which leaves the current hard cut unchanged. A
+positive value fades the audio in and out at every kept-range edge and is
+clamped so one fade never lasts longer than half of that segment. It does not
+fade the picture. The JavaScript API is
+`renderCuts(inputPath, edl, outputPath, { joinFadeMs })`.
+
+### Mix sound effects
+
+`sfx` places sound-effect clips on a video or audio source at exact times. The
+cue file is a JSON array. Each `file` path is resolved from that cue file's
+directory. `at` is seconds, or an object with either `seconds` or `frame`. A
+frame uses the source frame rate. An audio-only source has no frame rate, so
+set `fps` in the options file when a cue uses `frame`.
+
+```sh
+bun src/cli.mjs sfx path/to/source.mp4 path/to/cues.json output/with-sfx.mp4 sfx-options.json
+```
+
+```json
+[
+  { "file": "click.wav", "at": 1.25, "gainDb": -6, "fadeInMs": 10, "fadeOutMs": 40 },
+  { "file": "whoosh.wav", "at": { "frame": 36 } }
+]
+```
+
+The original audio stays at its current level, and the sound effects are added
+on top. `sfx-options.json` is optional:
+
+```json
+{ "duckUnderSpeech": true, "gainCapDb": -1 }
+```
+
+`duckUnderSpeech` compresses only the sound-effect bus while the source audio
+is loud. It can be `true`, or an object with `thresholdDb` (-60 to 0, default
+-24), `ratio` (1 to 20, default 4), `attackMs` (0.01 to 2000, default 10), and
+`releaseMs` (0.01 to 9000, default 250). It follows the loudness of the source
+audio. `gainCapDb` (-24 to 0) limits that same bus before the mix, so the
+effects stay under the ceiling. Omit both options to keep each effect at its
+own `gainDb`.
+
+`gainDb` defaults to 0 and must be from -60 to 24. Fades default to 0. A cue
+that starts at or after the end of the source is rejected. A missing file, a
+file without audio, a fade longer than the placed clip, and an unknown field
+are rejected before FFmpeg runs. Outputs use `.mp4`, `.m4a`, or `.wav`. `.mp4`
+copies the source picture and requires a video input. `.m4a` and `.wav` write
+audio only. An existing output is left in place.
+
+The JavaScript API is `mixSfx(inputPath, cues, outputPath, options)`.
+`parseSfxCues(cues, context)` checks the cue list. Paths passed to the API are
+resolved from the current working directory. Sources with more than two
+channels are mixed as stereo.
+
 The `edit` command refuses to overwrite existing timeline, approved EDL,
 retimed transcript, or render artifacts. It stores the source SHA-256 and
 artifact paths in timeline lineage. To edit transcript words before rendering,
@@ -529,7 +630,8 @@ bun src/cli.mjs timeline inspect timeline.json
 The JavaScript API exports the same view through
 `inspectTimeline(timeline)`. It validates the timeline first and does not write
 or modify project files. Computed clip end times in the summary are rounded to
-six decimal places to avoid floating-point display noise.
+six decimal places to avoid floating-point display noise. Region flicker and
+safe-zone checks are separate commands; see [Region render checks](#region-render-checks).
 
 Generic edit operations can add/remove/reorder tracks and add/remove/duplicate clips, detach clip audio,
 move clips within and between compatible tracks, trim/slip/split clips,
@@ -654,8 +756,9 @@ to the full mix. Solo state is carried in Engine metadata during OpenTimelineIO
 round trips.
 
 Use `set-overlay` to reviewably change caption text, word timings, layout,
-styling, or composition reference after adding the overlay clip. The operation
-accepts validated overlay fields only, and `null` clears optional overrides:
+styling, keyword emphasis, or composition reference after adding the overlay
+clip. The operation accepts validated overlay fields only, and `null` clears
+optional overrides:
 
 ```json
 {
@@ -1178,6 +1281,79 @@ plugins, and creator-facing workflows can be built as separate consumers. See
 [`docs/architecture.md`](architecture.md) for contracts and runtime
 requirements, and [`docs/handoff.md`](handoff.md) for the full project
 context, validation state, and consolidated remaining-work checklist.
+
+## Region render checks
+
+`qa flicker` measures a rendered video inside one or more named regions.
+`qa safe-zone` checks timeline layer bounds, including captions, or
+caller-supplied boxes against a safe rectangle. Both commands print JSON
+and do not write a file. The process exits with status 1 when `passed` is
+false.
+
+Regions and safe zones use frame-relative units. Omit `unit` for fractions of
+the frame (`0.5` is halfway). Set `unit` to `percent` or `pixel` for the other
+forms. A rectangle is `x`, `y`, `width`, and `height`, or edges `x0`, `y0`,
+`x1`, and `y1`. A safe zone can instead use non-negative margins `left`,
+`right`, `top`, and `bottom`. Ids are kebab-case. Nothing in these checks is
+tied to a frame size, platform, brand, or language.
+
+```sh
+bun src/cli.mjs qa flicker render.mp4 flicker-options.json
+bun src/cli.mjs qa safe-zone timeline.json safe-zone-options.json
+```
+
+Flicker options:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `regions` | full frame, id `frame` | Named rectangles that must lie inside the frame |
+| `metric` | `both` | `luminance`, `pixel`, or `both` |
+| `luminanceSpike` | `8` | Gray-level change, from 0 to 255, required on both sides of a peak or dip |
+| `toggleThreshold` | `12` | Mean absolute pixel change, from 0 to 255, required against both neighbors |
+| `toggleNeighborRatio` | `0.5` | Neighbors must differ by less than this fraction of the toggle |
+| `maxAnalysisDimension` | `160` | Longest side of the downscaled gray analysis image, from 16 to 640 |
+| `maxFrames` | `18000` | Frame limit. The check fails instead of truncating |
+
+A luminance spike is a one-frame peak or dip. A pixel toggle is a single-frame
+blip: that frame differs from both neighbors, and the neighbors still match
+each other. A sustained cut raises `maxPixelDelta` and is not a flicker event.
+The JavaScript API is `inspectRegionFlicker(videoPath, options)`.
+
+Safe-zone options:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `preset` | `title-safe` | `full`, `action-safe` (5%), `title-safe` (10%), or `vertical-social` |
+| `safeZone` | unset | Explicit rectangle or margins. Replaces `preset` |
+| `subjects` | `overlays` | `overlays`, `text`, or `all` visual clips |
+| `clipIds` | all selected subjects | Timeline clip ids to check |
+| `boxes` | none | Extra boxes with optional `timeSeconds` and `durationSeconds` |
+| `tolerancePixels` | `0.5` | Allowed overflow before an edge is a violation |
+| `minOpacity` | `0.02` | Skip a sample whose opacity keyframe is below this |
+| `ignoreFullFrame` | `true` | Skip a box that covers the whole frame |
+| `fps` | timeline or boxes document | Frame rate used for boxes that have no timeline |
+
+`vertical-social` is a generic tall-frame margin (`left` 0.06, `top` 0.14,
+`right` 0.06, `bottom` 0.2) for a frame near 9:16. It is not a platform
+specification. Any preset or explicit safe zone replaces it. The report names
+the preset only when an explicit `safeZone` was not passed.
+
+The check uses each layer's rectangle. Text clips use the same default
+placement as caption layout (`x` 0.08, `y` 0.76, `width` 0.84, `height` 0.16)
+when those fields are omitted. That default sits outside the 10% `title-safe`
+inset and inside the 5% `action-safe` inset. Visual keyframes for `x`, `y`,
+`width`, `height`, `rotationDegrees`, and `opacity` are sampled at rendered
+frame times (`frame / fps`). A layer is visible on `[start, start + duration)`,
+so the sample at the exact end time is not a rendered frame. `startFrame` and
+`endFrame` are the inclusive rendered frames in a violation. A steady layer
+reports that whole span, so its `endSeconds` is exclusive. A moving layer's
+`endSeconds` is the time of `endFrame`. A property that first appears
+after the clip starts moves from the layer's placement value, matching render.
+Rotation uses the axis-aligned bounds of the rectangle rotated around its
+center. Hidden tracks, disabled clips, and samples below `minOpacity` are
+skipped. A boxes document needs `width`, `height`, and a `boxes` array; `fps`
+is optional. The JavaScript API is `inspectRegionSafeZone(timelineOrBoxes, options)`.
+Preset margins are also available from `listSafeZonePresets()` and `SAFE_ZONE_PRESETS`.
 
 ## OpenTimelineIO interchange
 

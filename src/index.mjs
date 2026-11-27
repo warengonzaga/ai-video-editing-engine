@@ -32,6 +32,7 @@ export { parseProbeOutput, probeMedia, probeMediaAsync } from './media/probe.mjs
 export { createFilterGraph, getKeepRanges, renderCuts } from './media/render-cuts.mjs';
 export { detectSceneChangesAsync, parseSceneDetectionOutput } from './media/scene-detection.mjs';
 export { buildShotRanges, createSceneReviewPackAsync } from './media/scene-review.mjs';
+export { createSfxFilterGraph, mixSfx, parseSfxCues, parseSfxOptions } from './media/sfx-mix.mjs';
 export {
   createAssetProxy,
   createAssetProxyAsync,
@@ -49,6 +50,9 @@ export {
 } from './project/assets.mjs';
 export { createVideoProject } from './project/create.mjs';
 export { CANVAS_PRESETS, listCanvasPresets, resolveCanvasPreset } from './project/presets.mjs';
+export { listSafeZonePresets, SAFE_ZONE_PRESETS } from './qa/frame-rect.mjs';
+export { inspectRegionFlicker } from './qa/region-flicker.mjs';
+export { inspectRegionSafeZone } from './qa/region-safe-zone.mjs';
 export {
   resolveColorProfile,
   resolveEncoderArgs,

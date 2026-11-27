@@ -201,6 +201,15 @@ export function sliceVisualKeyframes(keyframes, start, end) {
     });
 }
 
+/** Sample one visual keyframe property at a clip-local time. */
+export function sampleVisualProperty(keyframes, property, time, fallback) {
+  if (!Array.isArray(keyframes) || keyframes.length === 0) return fallback;
+  const points = keyframes.filter((frame) => frame?.properties && Object.hasOwn(frame.properties, property));
+  if (points.length === 0) return fallback;
+  const sampled = sampleProperty(points, property, time);
+  return sampled === undefined ? fallback : sampled;
+}
+
 function sampleProperty(points, property, time) {
   const priorIndex = points.findLastIndex((point) => point.time <= time);
   if (priorIndex < 0) return undefined;

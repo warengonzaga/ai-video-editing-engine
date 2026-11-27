@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { closeSync, existsSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getEngineCapabilities } from './capabilities.mjs';
 import { mediaAnalysisToEdl } from './edits/analysis-to-edl.mjs';
@@ -18,6 +18,7 @@ import { probeMediaAsync } from './media/probe.mjs';
 import { renderCuts } from './media/render-cuts.mjs';
 import { detectSceneChangesAsync } from './media/scene-detection.mjs';
 import { createSceneReviewPackAsync } from './media/scene-review.mjs';
+import { mixSfx } from './media/sfx-mix.mjs';
 import {
   createAssetProxyAsync,
   listProjectAssets,
@@ -29,6 +30,8 @@ import {
 } from './project/assets.mjs';
 import { createVideoProject } from './project/create.mjs';
 import { listCanvasPresets } from './project/presets.mjs';
+import { inspectRegionFlicker } from './qa/region-flicker.mjs';
+import { inspectRegionSafeZone } from './qa/region-safe-zone.mjs';
 import {
   importProjectTranscript,
   lintProject,
@@ -55,6 +58,17 @@ import { renderTimelineAsync, renderTimelineRangeAsync } from './timeline/render
 import { validateTimeline } from './timeline/validate.mjs';
 import { applyTranscriptCorrections } from './transcript/corrections.mjs';
 import { formatSubtitleText } from './transcript/subtitles.mjs';
+
+function resolveSfxCuePaths(cues, cuesPath) {
+  if (!Array.isArray(cues)) return cues;
+  const base = dirname(resolve(cuesPath));
+  return cues.map((cue) => {
+    if (!cue || typeof cue !== 'object' || Array.isArray(cue) || typeof cue.file !== 'string' || !cue.file.trim()) {
+      return cue;
+    }
+    return { ...cue, file: resolve(base, cue.file) };
+  });
+}
 
 function readJson(path) {
   try {
@@ -640,9 +654,22 @@ async function main(args) {
     if (!report.compatible) process.exitCode = 1;
     return;
   }
-  if (command === 'apply-edl' && commandArgs.length === 3) {
-    const [videoPath, edlPath, outputPath] = commandArgs;
-    const result = renderCuts(videoPath, readJson(resolve(edlPath)), outputPath);
+  if (command === 'sfx' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [mediaPath, cuesPath, outputPath, optionsPath] = commandArgs;
+    const cueFile = resolve(cuesPath);
+    const result = mixSfx(
+      mediaPath,
+      resolveSfxCuePaths(readJson(cueFile), cueFile),
+      outputPath,
+      optionsPath ? readJson(resolve(optionsPath)) : {},
+    );
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  if (command === 'apply-edl' && commandArgs.length >= 3 && commandArgs.length <= 4) {
+    const [mediaPath, edlPath, outputPath, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    const result = renderCuts(mediaPath, readJson(resolve(edlPath)), outputPath, options);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -774,6 +801,27 @@ async function main(args) {
     console.log(JSON.stringify(transcribeProject(projectPath, mediaPath, { model, language }), null, 2));
     return;
   }
+  if (command === 'qa' && commandArgs[0] === 'flicker' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [, mediaPath, optionsPath] = commandArgs;
+    const options = optionsPath ? readJson(resolve(optionsPath)) : {};
+    const report = await runWithInterrupt(
+      (signal) => inspectRegionFlicker(resolve(mediaPath), { ...options, signal }),
+      'Flicker inspection',
+    );
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.passed) process.exitCode = 1;
+    return;
+  }
+  if (command === 'qa' && commandArgs[0] === 'safe-zone' && commandArgs.length >= 2 && commandArgs.length <= 3) {
+    const [, inputPath, optionsPath] = commandArgs;
+    const report = inspectRegionSafeZone(
+      readJson(resolve(inputPath)),
+      optionsPath ? readJson(resolve(optionsPath)) : {},
+    );
+    console.log(JSON.stringify(report, null, 2));
+    if (!report.passed) process.exitCode = 1;
+    return;
+  }
   if (command === 'import-transcript' && commandArgs.length === 3) {
     const [projectPath, mediaPath, transcriptPath] = commandArgs;
     console.log(JSON.stringify(importProjectTranscript(projectPath, mediaPath, transcriptPath), null, 2));
@@ -804,11 +852,13 @@ async function main(args) {
   analyze <media> <provider-module.mjs> <new-analysis.json> [provider-options.json]
   detect-scenes <media> <new-analysis.json> [options.json]
   scene-review <media> <new-output-directory> [options.json]
+  qa flicker <media> [options.json] | qa safe-zone <timeline.json|boxes.json> [options.json]
   analysis-to-edl <analysis.json> <review-required-edl.json> [options.json]
   approve-edl <reviewed-edl.json> <new-approved-edl.json>
   mistake-candidates <transcript.json> | transcript correct <transcript.json> <corrections.json> <new-transcript.json>
   transcript export <transcript.json> <srt|vtt> <new-subtitles-file>
-  apply-edl <media> <approved-edl.json> <output.mp4> | retime <transcript.json> <approved-edl.json> <new-output.json>
+  apply-edl <media> <approved-edl.json> <output.mp4|output.m4a|output.wav> [options.json] | retime <transcript.json> <approved-edl.json> <new-output.json>
+  sfx <media> <cues.json> <output.mp4|output.m4a|output.wav> [options.json]
   asset preview <project> <asset-id> [options.json] |
   lint <project> | preview <project> | render <project> [output.mp4|output.webm|output.mov|output.gif] [draft|standard|high]`);
 }

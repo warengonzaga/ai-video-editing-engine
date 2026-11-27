@@ -292,3 +292,55 @@ test('timeline CLI detaches a video clip audio range to a new track', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('timeline captions CLI applies keyword emphasis options', () => {
+  const root = mkdtempSync(join(tmpdir(), 'aive-timeline-cli-'));
+  try {
+    const transcriptPath = join(root, 'transcript.json');
+    const optionsPath = join(root, 'options.json');
+    const outputPath = join(root, 'captions.json');
+    writeFileSync(
+      transcriptPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        durationSeconds: 2,
+        words: [
+          { text: 'Use', start: 0.2, end: 0.5 },
+          { text: 'open-source', start: 0.5, end: 1.1 },
+          { text: 'tools.', start: 1.1, end: 1.6 },
+        ],
+      }),
+    );
+    writeFileSync(
+      optionsPath,
+      JSON.stringify({
+        emphasisWords: ['Open-Source'],
+        emphasisColor: '#ff8800',
+        emphasisWeight: 700,
+        layoutPreset: 'social',
+      }),
+    );
+    execFileSync(process.execPath, [cliPath, 'timeline', 'captions', transcriptPath, outputPath, optionsPath], {
+      encoding: 'utf8',
+    });
+    const track = JSON.parse(readFileSync(outputPath, 'utf8'));
+    assert.equal(track.clips[0].text, 'Use open-source tools.');
+    assert.deepEqual(track.clips[0].emphasisWords, ['Open-Source']);
+    assert.equal(track.clips[0].emphasisColor, '#ff8800');
+    assert.equal(track.clips[0].emphasisWeight, 700);
+    assert.equal(track.clips[0].fontWeight, 800);
+    const invalidOptionsPath = join(root, 'invalid-options.json');
+    const invalidOutputPath = join(root, 'invalid-captions.json');
+    writeFileSync(invalidOptionsPath, JSON.stringify({ emphasisColor: 'red; color: url(https://example.test)' }));
+    assert.throws(() =>
+      execFileSync(
+        process.execPath,
+        [cliPath, 'timeline', 'captions', transcriptPath, invalidOutputPath, invalidOptionsPath],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+      ),
+    );
+    assert.equal(existsSync(invalidOutputPath), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -7,6 +7,7 @@ import {
   listFfmpegFilters,
 } from './media/ffmpeg-capabilities.mjs';
 import { CANVAS_PRESETS } from './project/presets.mjs';
+import { SAFE_ZONE_PRESETS } from './qa/frame-rect.mjs';
 
 const require = createRequire(import.meta.url);
 const VIDEO_ENCODERS = Object.freeze({
@@ -228,6 +229,29 @@ export function getEngineCapabilities(options = {}) {
           eventFields: ['stage', 'phase'],
           optionalEventFields: ['completed', 'total', 'percent', 'message'],
         },
+      },
+      regionQuality: {
+        flicker: {
+          available: ffmpeg.available && ffprobe.available && filters.has('scale') && filters.has('format'),
+          metrics: ['luminance', 'pixel'],
+          defaultMaxAnalysisDimension: 160,
+          defaultLuminanceSpike: 8,
+          defaultToggleThreshold: 12,
+        },
+        safeZone: {
+          available: true,
+          presets: Object.keys(SAFE_ZONE_PRESETS),
+          defaultPreset: 'title-safe',
+        },
+      },
+      sfxMix: {
+        available:
+          ffmpeg.available &&
+          ffprobe.available &&
+          ['amix', 'adelay', 'afade', 'volume', 'aformat', 'apad'].every((name) => filters.has(name)),
+        outputs: ['mp4', 'm4a', 'wav'],
+        duckUnderSpeech: filters.has('sidechaincompress'),
+        gainCap: filters.has('alimiter'),
       },
       sceneReviewPlacementPlanning: {
         available: true,
