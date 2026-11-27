@@ -49,6 +49,9 @@ export {
 } from './project/assets.mjs';
 export { createVideoProject } from './project/create.mjs';
 export { CANVAS_PRESETS, listCanvasPresets, resolveCanvasPreset } from './project/presets.mjs';
+export { listSafeZonePresets, SAFE_ZONE_PRESETS } from './qa/frame-rect.mjs';
+export { inspectRegionFlicker } from './qa/region-flicker.mjs';
+export { inspectRegionSafeZone } from './qa/region-safe-zone.mjs';
 export {
   resolveColorProfile,
   resolveEncoderArgs,
