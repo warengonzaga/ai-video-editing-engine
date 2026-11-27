@@ -235,6 +235,8 @@ test('builds ordered keep ranges and an A/V-synced filter graph', () => {
     { start: 8, end: 10 },
   ]);
   assert.match(createFilterGraph(ranges, true), /concat=n=3:v=1:a=1\[v\]\[a\]/);
+  assert.equal(createFilterGraph(ranges, true), createFilterGraph(ranges, true, { joinFadeSeconds: 0 }));
+  assert.doesNotMatch(createFilterGraph(ranges, true), /afade/);
 });
 
 test('renders a real cut video and preserves its audio stream', (t) => {
